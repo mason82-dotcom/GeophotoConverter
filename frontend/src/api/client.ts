@@ -60,6 +60,16 @@ export async function listMapPacks(): Promise<MapCatalog> {
   return readJson<MapCatalog>(await fetch(`${API_BASE}/maps`))
 }
 
+export interface HealthResponse {
+  status: string
+  redis?: string
+  version?: string
+}
+
+export async function getHealth(): Promise<HealthResponse> {
+  return readJson<HealthResponse>(await fetch(`${API_BASE}/health`))
+}
+
 export async function getServices(): Promise<ServicesResponse> {
   return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
 }

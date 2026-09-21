@@ -6,17 +6,8 @@ import { ImportPage } from './pages/ImportPage'
 import { ProcessingPage } from './pages/ProcessingPage'
 import { ResultsPage } from './pages/ResultsPage'
 import { DroneDBPage } from './pages/DroneDBPage'
-
-const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>, { title: string; description: string }> = {
-  assistant: {
-    title: 'Assistant',
-    description: 'Open the optional AI assistant surface without leaving the operator workflow.',
-  },
-  settings: {
-    title: 'Settings',
-    description: 'Review frontend preferences and connected service state.',
-  },
-}
+import { AssistantPage } from './pages/AssistantPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   return (
@@ -71,18 +62,6 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   )
 }
 
-function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'> }) {
-  const copy = pageCopy[active]
-  return (
-    <section className="panel empty-state">
-      <p className="eyebrow">Workspace module</p>
-      <h2>{copy.title}</h2>
-      <p>{copy.description}</p>
-      <span className="status-chip status-chip--neutral">Implementation queued</span>
-    </section>
-  )
-}
-
 export default function App() {
   const [active, setActive] = useState<NavKey>('overview')
 
@@ -95,9 +74,8 @@ export default function App() {
       {active === 'processing' && <ProcessingPage />}
       {active === 'results' && <ResultsPage />}
       {active === 'dronedb' && <DroneDBPage />}
-      {!['overview', 'import', 'datasets', 'map', 'processing', 'results', 'dronedb'].includes(active) && (
-        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>} />
-      )}
+      {active === 'assistant' && <AssistantPage />}
+      {active === 'settings' && <SettingsPage />}
     </AppShell>
   )
 }
