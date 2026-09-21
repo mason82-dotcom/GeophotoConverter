@@ -15,8 +15,8 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createJob, getServices, listDatasets } from '../api/client'
-import { ApiError, type Dataset, type Job, type ProcessingEngine, type ProcessingProfile, type ServicesResponse } from '../api/types'
+import { createJob, getDatasetQa, getServices, listDatasets } from '../api/client'
+import { ApiError, type Dataset, type DatasetQa, type Job, type ProcessingEngine, type ProcessingProfile, type ServicesResponse } from '../api/types'
 import { JobMonitor } from '../components/JobMonitor'
 
 interface EngineDefinition {
@@ -85,6 +85,10 @@ function apiMessage(error: unknown) {
   if (error instanceof ApiError && error.detail && typeof error.detail === 'object') {
     const detail = (error.detail as { detail?: unknown }).detail
     if (typeof detail === 'string') return detail
+    if (detail && typeof detail === 'object') {
+      const message = (detail as { message?: unknown }).message
+      if (typeof message === 'string') return message
+    }
   }
   return error instanceof Error ? error.message : 'Request failed.'
 }
@@ -101,6 +105,8 @@ export function ProcessingPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [services, setServices] = useState<ServicesResponse>()
   const [datasetId, setDatasetId] = useState('')
+  const [qa, setQa] = useState<DatasetQa>()
+  const [qaLoading, setQaLoading] = useState(false)
   const [engine, setEngine] = useState<ProcessingEngine>('odm')
   const [profile, setProfile] = useState<ProcessingProfile>('standard')
   const [createdJob, setCreatedJob] = useState<Job>()
@@ -131,12 +137,40 @@ export function ProcessingPage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (!datasetId) {
+      setQa(undefined)
+      return
+    }
+    let active = true
+    setQaLoading(true)
+    void getDatasetQa(datasetId)
+      .then((nextQa) => {
+        if (active) setQa(nextQa)
+      })
+      .catch((requestError) => {
+        if (active) setError(apiMessage(requestError))
+      })
+      .finally(() => {
+        if (active) setQaLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [datasetId])
+
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === datasetId),
     [datasets, datasetId],
   )
   const selectedEngine = ENGINES.find((item) => item.id === engine)!
-  const canSubmit = Boolean(datasetId) && engine !== 'telesculptor' && !submitting
+  const engineReadiness = engine === 'telesculptor' ? undefined : qa?.readiness[engine]
+  const canSubmit =
+    Boolean(datasetId) &&
+    engine !== 'telesculptor' &&
+    engineReadiness?.ready === true &&
+    !qaLoading &&
+    !submitting
 
   async function submit() {
     if (!canSubmit) return
@@ -194,12 +228,8 @@ export function ProcessingPage() {
             <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> geotagged</span>
             <span><strong>{selectedDataset.scan_status}</strong> scan</span>
             <span>
-              <strong>
-                {selectedDataset.processing_readiness == null
-                  ? 'Not reported'
-                  : String(selectedDataset.processing_readiness)}
-              </strong>
-              readiness
+              <strong>{qaLoading ? 'Checking…' : engineReadiness?.ready ? 'Ready' : 'Blocked'}</strong>
+              {engine.toUpperCase()} readiness
             </span>
           </div>
         )}
@@ -235,6 +265,11 @@ export function ProcessingPage() {
                 <p>{item.description}</p>
                 <div className="engine-output">{item.output}</div>
                 <small>{item.note}</small>
+                {item.id !== 'telesculptor' && qa?.readiness[item.id] && (
+                  <div className={`engine-readiness ${qa.readiness[item.id].ready ? 'engine-readiness--ready' : 'engine-readiness--blocked'}`}>
+                    {qa.readiness[item.id].ready ? 'Ready' : 'Blocked'} · {qa.readiness[item.id].eligible_images} eligible
+                  </div>
+                )}
               </button>
             )
           })}
@@ -280,6 +315,11 @@ export function ProcessingPage() {
             <p className="warning-copy">
               <TriangleAlert size={16} />
               TeleSculptor is exposed for experimental comparison only. The backend currently rejects automated TeleSculptor jobs.
+            </p>
+          ) : engineReadiness && !engineReadiness.ready ? (
+            <p className="warning-copy">
+              <TriangleAlert size={16} />
+              {engineReadiness.reason ?? 'This dataset is not ready for the selected engine.'}
             </p>
           ) : (
             <p className="muted-copy">

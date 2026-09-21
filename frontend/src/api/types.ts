@@ -30,6 +30,8 @@ export interface DjiMetadata {
   gimbal_pitch?: number | null
   gimbal_roll?: number | null
   rtk_flag?: string | number | boolean | null
+  product_name?: string | null
+  aircraft_type?: string | null
 }
 
 export interface FileMetadata {
@@ -55,6 +57,12 @@ export interface Dataset {
   duplicate_count?: number | null
 }
 
+export interface MediaClassification {
+  platform: string
+  media_kind: string
+  capture_group?: string | null
+}
+
 export interface UploadedFileRecord {
   id: string
   dataset_id: string
@@ -64,11 +72,61 @@ export interface UploadedFileRecord {
   media_type?: string | null
   metadata?: FileMetadata
   scan_error?: string | null
+  classification?: MediaClassification | null
+  sha256?: string | null
   created_at: string
+}
+
+export interface QaRange {
+  count: number
+  min: number | null
+  max: number | null
+}
+
+export interface EngineReadiness {
+  ready: boolean
+  eligible_images: number
+  reason: string | null
+}
+
+export interface DatasetQaWarning {
+  code: string
+  severity: string
+  count: number
+}
+
+export interface DatasetQa {
+  image_count: number
+  geotagged_count: number
+  geotagged_percent: number
+  platforms: Record<string, number>
+  media_kinds: Record<string, number>
+  camera_models: Record<string, number>
+  altitude: {
+    gps_m: QaRange
+    relative_takeoff_m: QaRange
+  }
+  capture_period: {
+    start: string | null
+    end: string | null
+    count: number
+  }
+  warnings: DatasetQaWarning[]
+  engine_inputs: {
+    rgb_wide: number
+    thermal: number
+    multispectral: number
+  }
+  readiness: {
+    odm: EngineReadiness
+    micmac: EngineReadiness
+    gsplat: EngineReadiness
+  }
 }
 
 export interface DatasetDetail extends Dataset {
   files: UploadedFileRecord[]
+  qa?: DatasetQa
 }
 
 export interface UploadResponse {
@@ -76,6 +134,8 @@ export interface UploadResponse {
   rejected: Array<{
     name: string
     reason: string
+    duplicate_of?: string
+    sha256?: string
   }>
 }
 

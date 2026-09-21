@@ -1,6 +1,7 @@
 import type {
   Dataset,
   DatasetDetail,
+  DatasetQa,
   DatasetScanResponse,
   Job,
   JobLogs,
@@ -34,6 +35,12 @@ export async function listDatasets(): Promise<Dataset[]> {
 export async function getDataset(datasetId: string): Promise<DatasetDetail> {
   return readJson<DatasetDetail>(
     await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}`),
+  )
+}
+
+export async function getDatasetQa(datasetId: string): Promise<DatasetQa> {
+  return readJson<DatasetQa>(
+    await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}/qa`),
   )
 }
 

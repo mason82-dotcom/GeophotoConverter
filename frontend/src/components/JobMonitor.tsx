@@ -110,7 +110,8 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
   }, [focusJobId, loadJobs])
 
   useEffect(() => {
-    if (!selectedId || !selectedJob || TERMINAL.has(selectedJob.status)) return
+    const autoRefresh = window.localStorage.getItem('geophoto.ui.autoRefresh') !== 'false'
+    if (!autoRefresh || !selectedId || !selectedJob || TERMINAL.has(selectedJob.status)) return
     const timer = window.setInterval(() => {
       void loadSelected(selectedId, true)
     }, 2500)

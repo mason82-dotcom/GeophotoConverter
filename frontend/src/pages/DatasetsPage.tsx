@@ -20,39 +20,22 @@ interface DatasetsPageProps {
   mapFocused?: boolean
 }
 
-function altitudeStats(files: UploadedFileRecord[]) {
-  const values = files
-    .map((file) => file.metadata?.gps?.altitude)
-    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
-
-  if (!values.length) return undefined
-  return { min: Math.min(...values), max: Math.max(...values) }
-}
-
-function cameraModels(files: UploadedFileRecord[]) {
-  return Array.from(
-    new Set(
-      files
-        .map((file) => file.metadata?.camera?.model)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  )
-}
-
-function countWarnings(files: UploadedFileRecord[]) {
-  return files.filter((file) => {
-    if (file.scan_error) return true
-    const gps = file.metadata?.gps
-    return gps?.latitude == null || gps?.longitude == null
-  }).length
+function summarizeCounts(values: Record<string, number> | undefined) {
+  if (!values) return 'Not reported'
+  const entries = Object.entries(values)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+  return entries.length ? entries.map(([name, count]) => `${name} (${count})`).join(', ') : 'Not reported'
 }
 
 function readinessLabel(dataset: DatasetDetail) {
-  if (dataset.processing_readiness == null) return 'Not reported'
-  if (typeof dataset.processing_readiness === 'boolean') {
-    return dataset.processing_readiness ? 'Ready' : 'Not ready'
-  }
-  return dataset.processing_readiness
+  const readiness = dataset.qa?.readiness
+  if (!readiness) return 'Not reported'
+  return [
+    `ODM ${readiness.odm.ready ? 'ready' : 'blocked'}`,
+    `MicMac ${readiness.micmac.ready ? 'ready' : 'blocked'}`,
+    `gsplat ${readiness.gsplat.ready ? 'ready' : 'blocked'}`,
+  ].join(' · ')
 }
 
 function formatCoordinate(value?: number | null) {
@@ -74,6 +57,8 @@ function MetadataInspector({ file }: { file?: UploadedFileRecord }) {
     ['Path', file.relative_path],
     ['Capture time', metadata?.capture_time ?? '—'],
     ['Camera', [metadata?.camera?.make, metadata?.camera?.model].filter(Boolean).join(' ') || '—'],
+    ['Platform', file.classification?.platform ?? '—'],
+    ['Media kind', file.classification?.media_kind ?? '—'],
     ['Lens', metadata?.camera?.lens ?? '—'],
     ['Latitude', formatCoordinate(metadata?.gps?.latitude)],
     ['Longitude', formatCoordinate(metadata?.gps?.longitude)],
@@ -167,9 +152,15 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
   }, [loadAll])
 
   const selectedFile = detail?.files.find((file) => file.id === selectedFileId)
-  const altitude = useMemo(() => (detail ? altitudeStats(detail.files) : undefined), [detail])
-  const cameras = useMemo(() => (detail ? cameraModels(detail.files) : []), [detail])
-  const warnings = useMemo(() => (detail ? countWarnings(detail.files) : 0), [detail])
+  const qa = detail?.qa
+  const warnings = useMemo(
+    () => qa?.warnings.reduce((sum, warning) => sum + warning.count, 0) ?? 0,
+    [qa],
+  )
+  const failedScans = useMemo(
+    () => detail?.files.filter((file) => Boolean(file.scan_error)).length ?? 0,
+    [detail],
+  )
 
   async function selectDataset(id: string) {
     setSelectedId(id)
@@ -266,22 +257,26 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
                 <article>
                   <MapPinned size={18} />
                   <span>Geotagged</span>
-                  <strong>{detail.geotagged_percent ?? 0}%</strong>
+                  <strong>{qa?.geotagged_percent ?? detail.geotagged_percent ?? 0}%</strong>
                 </article>
                 <article>
                   <Camera size={18} />
                   <span>Camera</span>
-                  <strong>{cameras.join(', ') || 'Not reported'}</strong>
+                  <strong>{summarizeCounts(qa?.camera_models)}</strong>
                 </article>
                 <article>
                   <Satellite size={18} />
                   <span>Platform</span>
-                  <strong>{detail.platform || 'Not reported'}</strong>
+                  <strong>{summarizeCounts(qa?.platforms)}</strong>
                 </article>
                 <article>
                   <Mountain size={18} />
                   <span>Altitude</span>
-                  <strong>{altitude ? `${altitude.min.toFixed(0)}–${altitude.max.toFixed(0)} m` : '—'}</strong>
+                  <strong>
+                    {qa?.altitude.gps_m.min != null && qa.altitude.gps_m.max != null
+                      ? `${qa.altitude.gps_m.min.toFixed(0)}–${qa.altitude.gps_m.max.toFixed(0)} m`
+                      : '—'}
+                  </strong>
                 </article>
                 <article>
                   <AlertTriangle size={18} />
@@ -295,10 +290,30 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
                 </article>
                 <article>
                   <AlertTriangle size={18} />
-                  <span>Duplicates</span>
-                  <strong>{detail.duplicate_count ?? 'Not reported'}</strong>
+                  <span>Failed scans</span>
+                  <strong>{failedScans}</strong>
                 </article>
               </div>
+
+              {qa && (
+                <div className="qa-engine-row" aria-label="Processing readiness by engine">
+                  {(['odm', 'micmac', 'gsplat'] as const).map((engine) => {
+                    const state = qa.readiness[engine]
+                    return (
+                      <div className={`qa-engine-card ${state.ready ? 'qa-engine-card--ready' : 'qa-engine-card--blocked'}`} key={engine}>
+                        <strong>{engine.toUpperCase()}</strong>
+                        <span>{state.ready ? 'Ready' : state.reason ?? 'Blocked'}</span>
+                        <small>{state.eligible_images} eligible RGB/WIDE images</small>
+                      </div>
+                    )
+                  })}
+                  <div className="qa-engine-card">
+                    <strong>Inputs</strong>
+                    <span>RGB/WIDE {qa.engine_inputs.rgb_wide} · Thermal {qa.engine_inputs.thermal}</span>
+                    <small>Multispectral {qa.engine_inputs.multispectral}</small>
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="panel">
