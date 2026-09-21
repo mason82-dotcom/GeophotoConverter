@@ -42,7 +42,7 @@ def _dataset_files(dataset_id: str) -> list[dict[str, Any]]:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT relative_path, stored_path, size_bytes, sha256
+            SELECT relative_path, stored_path, size_bytes, sha256, metadata_json
             FROM files
             WHERE dataset_id=?
             ORDER BY relative_path
@@ -170,6 +170,111 @@ def prepare_photogrammetry_images(
     manifest = {
         "dataset_id": dataset_id,
         "allowed_media_kinds": sorted(allowed),
+        "prepared_count": len(prepared),
+        "skipped_count": len(skipped),
+        "prepared": prepared,
+        "skipped": skipped,
+    }
+    (target_dir / "geophoto-input-manifest.json").write_text(
+        json.dumps(manifest, indent=2),
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def _platform_hint(record: dict[str, Any]) -> str:
+    path = PurePosixPath(record["relative_path"])
+    for part in path.parts[:-1]:
+        if part.upper() == "M3M":
+            return "M3M"
+
+    raw = record.get("metadata_json")
+    if raw:
+        try:
+            metadata = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            metadata = {}
+        camera = metadata.get("camera") or {}
+        dji = metadata.get("dji") or {}
+        haystack = " | ".join(
+            str(value).upper()
+            for value in (
+                camera.get("model"),
+                dji.get("product_name"),
+                dji.get("aircraft_type"),
+            )
+            if value
+        )
+        if "MAVIC 3 MULTISPECTRAL" in haystack or "M3M" in haystack:
+            return "M3M"
+    return "UNKNOWN"
+
+
+def prepare_multispectral_images(
+    dataset_id: str,
+    target_dir: Path,
+) -> dict[str, Any]:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    prepared: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+
+    for record in _dataset_files(dataset_id):
+        relative_path = record["relative_path"]
+        source = Path(record["stored_path"])
+        kind = media_kind(relative_path)
+        platform = _platform_hint(record)
+
+        include = kind == "MULTISPECTRAL" or (
+            kind == "RGB" and platform == "M3M"
+        )
+        if not include:
+            skipped.append({
+                "relative_path": relative_path,
+                "media_kind": kind,
+                "reason": "not_m3m_multispectral_input",
+            })
+            continue
+        if not source.is_file():
+            skipped.append({
+                "relative_path": relative_path,
+                "media_kind": kind,
+                "reason": "source_missing",
+            })
+            continue
+
+        target = target_dir / PurePosixPath(relative_path).name
+        if target.exists():
+            raise ValueError(
+                "Duplicate M3M filename while flattening dataset: "
+                f"{target.name}. Keep capture filenames unique."
+            )
+
+        if source.suffix.lower() == ".dng":
+            target = target.with_suffix(".TIF")
+            _normalize_dng(source, target)
+            action = "dng_to_tiff"
+        elif source.suffix.lower() in _DIRECT_EXTENSIONS:
+            action = _link_or_copy(source, target)
+        else:
+            skipped.append({
+                "relative_path": relative_path,
+                "media_kind": kind,
+                "reason": "unsupported_extension",
+            })
+            continue
+
+        prepared.append({
+            "relative_path": relative_path,
+            "media_kind": kind,
+            "platform": platform,
+            "prepared_name": target.name,
+            "action": action,
+            "sha256": record.get("sha256"),
+        })
+
+    manifest = {
+        "dataset_id": dataset_id,
+        "workflow": "multispectral",
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
         "prepared": prepared,

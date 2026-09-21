@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from common.images import prepare_photogrammetry_images
+from common.images import (
+    prepare_multispectral_images,
+    prepare_photogrammetry_images,
+)
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "odm"
@@ -20,6 +23,36 @@ PROFILES = {
     "high": [
         "--dsm", "--dtm", "--pc-quality", "high",
         "--orthophoto-resolution", "2",
+    ],
+}
+
+MULTISPECTRAL_PROFILES = {
+    "preview": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "medium",
+        "--pc-quality", "lowest",
+        "--orthophoto-resolution", "10",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
+    ],
+    "standard": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "high",
+        "--pc-quality", "medium",
+        "--orthophoto-resolution", "5",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
+    ],
+    "high": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "high",
+        "--pc-quality", "high",
+        "--orthophoto-resolution", "2",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
     ],
 }
 
@@ -48,13 +81,21 @@ def _progress(line: str) -> float | None:
     return None
 
 
-def _collect_artifacts(project_dir: Path, job_id: str) -> list[dict]:
+def _collect_artifacts(
+    project_dir: Path,
+    job_id: str,
+    workflow: str,
+) -> list[dict]:
     result = []
     for kind, relative in ARTIFACTS:
         path = project_dir / relative
         if path.is_file():
             result.append({
-                "type": kind,
+                "type": (
+                    "multiband_orthophoto"
+                    if workflow == "multispectral" and kind == "orthophoto"
+                    else kind
+                ),
                 "name": path.name,
                 "relative_path": f"jobs/{job_id}/project/{relative}",
                 "size_bytes": path.stat().st_size,
@@ -66,28 +107,59 @@ def handle(payload: dict) -> None:
     job_id = payload["job_id"]
     dataset_id = payload["dataset_id"]
     profile = payload.get("profile", "standard")
-    options = PROFILES.get(profile)
+    workflow = payload.get("workflow", "rgb")
+    if workflow == "multispectral":
+        options = MULTISPECTRAL_PROFILES.get(profile)
+    else:
+        options = PROFILES.get(profile)
     if options is None:
-        raise ValueError(f"Unsupported ODM profile: {profile}")
+        raise ValueError(
+            f"Unsupported ODM profile/workflow combination: {profile}/{workflow}"
+        )
 
     job_root = DATA_ROOT / "jobs" / job_id
     project_dir = job_root / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     log_path = job_root / "worker.log"
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="Preparing ODM project.")
-    manifest = prepare_photogrammetry_images(dataset_id, project_dir / "images")
-    image_count = manifest["prepared_count"]
-    if image_count < 2:
-        raise ValueError("ODM requires at least two RGB/WIDE images after normalization.")
+    update_job(
+        job_id,
+        status="running",
+        progress=1,
+        phase="staging",
+        message=f"Preparing ODM {workflow} project.",
+    )
+    if workflow == "multispectral":
+        manifest = prepare_multispectral_images(
+            dataset_id,
+            project_dir / "images",
+        )
+        image_count = manifest["prepared_count"]
+        if image_count < 10:
+            raise ValueError(
+                "ODM multispectral requires at least two complete M3M capture "
+                "groups (10 prepared images)."
+            )
+        input_label = "M3M multispectral"
+    else:
+        manifest = prepare_photogrammetry_images(
+            dataset_id,
+            project_dir / "images",
+        )
+        image_count = manifest["prepared_count"]
+        if image_count < 2:
+            raise ValueError(
+                "ODM requires at least two RGB/WIDE images after normalization."
+            )
+        input_label = "RGB/WIDE"
 
     update_job(
         job_id,
         progress=5,
         phase="processing",
         message=(
-            f"ODM processing {image_count} RGB/WIDE images using profile '{profile}' "
-            f"({manifest['skipped_count']} non-mapping images skipped)."
+            f"ODM processing {image_count} {input_label} images using "
+            f"profile '{profile}' ({manifest['skipped_count']} images skipped)."
         ),
     )
 
@@ -103,7 +175,7 @@ def handle(payload: dict) -> None:
     if code != 0:
         raise RuntimeError(f"ODM exited with code {code}. See {log_path}")
 
-    artifacts = _collect_artifacts(project_dir, job_id)
+    artifacts = _collect_artifacts(project_dir, job_id, workflow)
     update_job(
         job_id,
         status="completed",

@@ -48,11 +48,26 @@ Create a processing job.
 {
   "dataset_id":"...",
   "engine":"odm",
-  "profile":"preview"
+  "profile":"preview",
+  "workflow":"rgb"
 }
 ```
 Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
 Allowed profiles: `preview`, `standard`, `high`.
+
+Allowed workflows:
+- `rgb` — normal RGB/WIDE photogrammetry
+- `multispectral` — ODM-only M3M processing with complete RGB + G + R + RE + NIR capture groups
+
+Example M3M job:
+```json
+{
+  "dataset_id":"...",
+  "engine":"odm",
+  "profile":"standard",
+  "workflow":"multispectral"
+}
+```
 
 ### GET /jobs/{job_id}
 Returns status, progress, phase and artifact summary. Each artifact includes a relative `download_url`.

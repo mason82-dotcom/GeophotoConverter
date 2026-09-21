@@ -9,6 +9,19 @@ Profiles:
 - `standard`: DSM/DTM, medium point-cloud quality
 - `high`: DSM/DTM, high point-cloud quality
 
+### M3M multispectral workflow
+
+ODM jobs may set `workflow=multispectral` for complete DJI Mavic 3 Multispectral captures.
+
+Requirements:
+- at least two complete capture groups
+- each group contains RGB, Green, Red, Red Edge and NIR
+- original M3M filenames are preserved in the ODM image folder
+- all bands are processed together
+- `radiometric-calibration=camera` is enabled
+- `camera+sun` is intentionally not enabled by default because ODM documents it as experimental
+- the orthophoto artifact is reported as `multiband_orthophoto`
+
 ## MicMac
 
 Pinned upstream release: `micmacIGN/micmac v1.2.0`.
