@@ -106,6 +106,40 @@ export interface MapCatalog {
   packs: MapPack[]
 }
 
+export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'telesculptor'
+export type ProcessingProfile = 'preview' | 'standard' | 'high'
+
+export interface Artifact {
+  type: string
+  name: string
+  relative_path?: string
+  size_bytes?: number
+  download_url?: string
+}
+
+export interface Job {
+  id: string
+  dataset_id: string
+  engine: ProcessingEngine
+  profile: ProcessingProfile
+  status: string
+  progress: number
+  phase?: string | null
+  message?: string | null
+  artifacts?: Artifact[]
+  created_at: string
+  updated_at: string
+}
+
+export interface ServiceState {
+  status: string
+  profile?: string
+  gpu?: boolean
+  note?: string
+}
+
+export type ServicesResponse = Record<string, ServiceState>
+
 export class ApiError extends Error {
   constructor(
     message: string,

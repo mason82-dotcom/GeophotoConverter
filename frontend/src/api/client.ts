@@ -2,7 +2,11 @@ import type {
   Dataset,
   DatasetDetail,
   DatasetScanResponse,
+  Job,
   MapCatalog,
+  ProcessingEngine,
+  ProcessingProfile,
+  ServicesResponse,
   UploadResponse,
 } from './types'
 import { ApiError } from './types'
@@ -53,6 +57,27 @@ export async function scanDataset(datasetId: string): Promise<DatasetScanRespons
 
 export async function listMapPacks(): Promise<MapCatalog> {
   return readJson<MapCatalog>(await fetch(`${API_BASE}/maps`))
+}
+
+export async function getServices(): Promise<ServicesResponse> {
+  return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
+}
+
+export async function createJob(
+  datasetId: string,
+  engine: ProcessingEngine,
+  profile: ProcessingProfile,
+): Promise<Job> {
+  const response = await fetch(`${API_BASE}/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dataset_id: datasetId,
+      engine,
+      profile,
+    }),
+  })
+  return readJson<Job>(response)
 }
 
 export interface UploadCallbacks {

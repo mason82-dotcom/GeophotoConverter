@@ -3,12 +3,9 @@ import { Activity, ArrowRight, Database, Images, ServerCog } from 'lucide-react'
 import { AppShell, type NavKey } from './components/AppShell'
 import { DatasetsPage } from './pages/DatasetsPage'
 import { ImportPage } from './pages/ImportPage'
+import { ProcessingPage } from './pages/ProcessingPage'
 
-const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map'>, { title: string; description: string }> = {
-  processing: {
-    title: 'Processing',
-    description: 'Choose a backend processing engine and quality profile for a ready dataset.',
-  },
+const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'>, { title: string; description: string }> = {
   results: {
     title: 'Results',
     description: 'Inspect generated orthophotos, surfaces, point clouds, meshes, and logs.',
@@ -80,7 +77,7 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   )
 }
 
-function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map'> }) {
+function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'> }) {
   const copy = pageCopy[active]
   return (
     <section className="panel empty-state">
@@ -101,8 +98,9 @@ export default function App() {
       {active === 'import' && <ImportPage />}
       {active === 'datasets' && <DatasetsPage />}
       {active === 'map' && <DatasetsPage mapFocused />}
-      {!['overview', 'import', 'datasets', 'map'].includes(active) && (
-        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map'>} />
+      {active === 'processing' && <ProcessingPage />}
+      {!['overview', 'import', 'datasets', 'map', 'processing'].includes(active) && (
+        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'>} />
       )}
     </AppShell>
   )
