@@ -1,4 +1,10 @@
-import type { Dataset, DatasetScanResponse, UploadResponse } from './types'
+import type {
+  Dataset,
+  DatasetDetail,
+  DatasetScanResponse,
+  MapCatalog,
+  UploadResponse,
+} from './types'
 import { ApiError } from './types'
 
 const API_BASE = '/api/v1'
@@ -14,6 +20,16 @@ async function readJson<T>(response: Response): Promise<T> {
     throw new ApiError(`Request failed with status ${response.status}`, response.status, detail)
   }
   return response.json() as Promise<T>
+}
+
+export async function listDatasets(): Promise<Dataset[]> {
+  return readJson<Dataset[]>(await fetch(`${API_BASE}/datasets`))
+}
+
+export async function getDataset(datasetId: string): Promise<DatasetDetail> {
+  return readJson<DatasetDetail>(
+    await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}`),
+  )
 }
 
 export async function createDataset(name: string, description?: string): Promise<Dataset> {
@@ -33,6 +49,10 @@ export async function scanDataset(datasetId: string): Promise<DatasetScanRespons
     method: 'POST',
   })
   return readJson<DatasetScanResponse>(response)
+}
+
+export async function listMapPacks(): Promise<MapCatalog> {
+  return readJson<MapCatalog>(await fetch(`${API_BASE}/maps`))
 }
 
 export interface UploadCallbacks {
