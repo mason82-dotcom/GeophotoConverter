@@ -24,8 +24,6 @@ Profiles:
 
 The first MicMac worker produces local-coordinate sparse/dense point clouds. GPS/RTK-based georeferencing and orthomosaic/DEM export are a separate integration phase so that orientation correctness can be validated independently.
 
-MicMac input in this worker currently accepts JPEG/JPEG/TIFF imagery. DNG/R-JPEG conversion will be handled by a normalization stage rather than hidden inside the reconstruction commands.
-
 ## gsplat
 
 GPU worker pinned to upstream commit:
@@ -43,7 +41,21 @@ Profiles:
 - `standard`: exhaustive matching, max image size 2400, gsplat factor 2, 7000 steps
 - `high`: exhaustive matching, max image size 3200, gsplat factor 2, 15000 steps
 
-All profiles use packed rasterization to reduce GPU memory pressure. The worker requires NVIDIA Container Toolkit and a CUDA-capable NVIDIA GPU. Image normalization currently accepts JPEG/PNG/TIFF; DNG and R-JPEG conversion will be added as a dedicated preprocessing stage.
+All profiles use packed rasterization to reduce GPU memory pressure. The worker requires NVIDIA Container Toolkit and a CUDA-capable NVIDIA GPU.
+
+## Shared image normalization
+
+ODM, MicMac and gsplat consume the same prepared job-local image set.
+
+Rules:
+- RGB and WIDE imagery is eligible for standard mapping/reconstruction jobs.
+- ZOOM imagery is excluded by default to avoid mixing focal lengths.
+- Thermal/R-JPEG imagery remains in the dataset but is excluded from standard photogrammetry.
+- M3M multispectral bands remain classified for a dedicated multispectral workflow and are not mixed into RGB jobs.
+- JPEG/TIFF/PNG inputs are linked or copied without re-encoding.
+- DNG inputs are rendered to 16-bit TIFF with LibRaw `dcraw_emu` using camera white balance and AHD demosaicing.
+- ExifTool copies source EXIF/XMP metadata to DNG-derived TIFF files so downstream engines retain GPS/DJI metadata.
+- Each prepared image directory contains `geophoto-input-manifest.json` recording included, normalized and skipped files.
 
 ## TeleSculptor
 

@@ -1,38 +1,25 @@
 from __future__ import annotations
 
 import re
-import shutil
 from pathlib import Path
 
+from common.images import prepare_photogrammetry_images
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "odm"
-SUPPORTED = {".jpg", ".jpeg", ".tif", ".tiff", ".dng", ".rjpeg"}
 
 PROFILES = {
     "preview": [
-        "--fast-orthophoto",
-        "--skip-3dmodel",
-        "--pc-quality",
-        "lowest",
-        "--orthophoto-resolution",
-        "10",
+        "--fast-orthophoto", "--skip-3dmodel", "--pc-quality", "lowest",
+        "--orthophoto-resolution", "10",
     ],
     "standard": [
-        "--dsm",
-        "--dtm",
-        "--pc-quality",
-        "medium",
-        "--orthophoto-resolution",
-        "5",
+        "--dsm", "--dtm", "--pc-quality", "medium",
+        "--orthophoto-resolution", "5",
     ],
     "high": [
-        "--dsm",
-        "--dtm",
-        "--pc-quality",
-        "high",
-        "--orthophoto-resolution",
-        "2",
+        "--dsm", "--dtm", "--pc-quality", "high",
+        "--orthophoto-resolution", "2",
     ],
 }
 
@@ -46,65 +33,32 @@ ARTIFACTS = [
 ]
 
 
-def _stage_images(dataset_id: str, project_dir: Path) -> int:
-    source = DATA_ROOT / "datasets" / dataset_id / "images"
-    if not source.exists():
-        raise FileNotFoundError(f"Dataset image directory not found: {source}")
-
-    target = project_dir / "images"
-    if target.exists():
-        shutil.rmtree(target)
-    target.mkdir(parents=True, exist_ok=True)
-
-    count = 0
-    for path in sorted(source.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED:
-            continue
-        count += 1
-        dest = target / f"{count:06d}_{path.name}"
-        try:
-            dest.symlink_to(path)
-        except OSError:
-            shutil.copy2(path, dest)
-    if count < 2:
-        raise ValueError("ODM requires at least two supported images.")
-    return count
-
-
 def _progress(line: str) -> float | None:
     match = re.search(r"(?:progress|completed)\D+(\d{1,3})(?:\.\d+)?%", line, re.IGNORECASE)
     if match:
         return float(match.group(1))
-    stages = [
-        ("opensfm", 20.0),
-        ("openmvs", 45.0),
-        ("odm_filterpoints", 60.0),
-        ("odm_meshing", 70.0),
-        ("odm_texturing", 80.0),
-        ("odm_georeferencing", 88.0),
-        ("odm_dem", 93.0),
+    for token, value in [
+        ("opensfm", 20.0), ("openmvs", 45.0), ("odm_filterpoints", 60.0),
+        ("odm_meshing", 70.0), ("odm_texturing", 80.0),
+        ("odm_georeferencing", 88.0), ("odm_dem", 93.0),
         ("odm_orthophoto", 97.0),
-    ]
-    lowered = line.lower()
-    for token, value in stages:
-        if token in lowered:
+    ]:
+        if token in line.lower():
             return value
     return None
 
 
 def _collect_artifacts(project_dir: Path, job_id: str) -> list[dict]:
-    result: list[dict] = []
+    result = []
     for kind, relative in ARTIFACTS:
         path = project_dir / relative
         if path.is_file():
-            result.append(
-                {
-                    "type": kind,
-                    "name": path.name,
-                    "relative_path": f"jobs/{job_id}/project/{relative}",
-                    "size_bytes": path.stat().st_size,
-                }
-            )
+            result.append({
+                "type": kind,
+                "name": path.name,
+                "relative_path": f"jobs/{job_id}/project/{relative}",
+                "size_bytes": path.stat().st_size,
+            })
     return result
 
 
@@ -122,25 +76,24 @@ def handle(payload: dict) -> None:
     log_path = job_root / "worker.log"
 
     update_job(job_id, status="running", progress=1, phase="staging", message="Preparing ODM project.")
-    image_count = _stage_images(dataset_id, project_dir)
+    manifest = prepare_photogrammetry_images(dataset_id, project_dir / "images")
+    image_count = manifest["prepared_count"]
+    if image_count < 2:
+        raise ValueError("ODM requires at least two RGB/WIDE images after normalization.")
+
     update_job(
         job_id,
         progress=5,
         phase="processing",
-        message=f"ODM processing {image_count} images using profile '{profile}'.",
+        message=(
+            f"ODM processing {image_count} RGB/WIDE images using profile '{profile}' "
+            f"({manifest['skipped_count']} non-mapping images skipped)."
+        ),
     )
 
-    command = [
-        "python3",
-        "/code/run.py",
-        "--project-path",
-        str(job_root),
-        "project",
-        *options,
-    ]
     code = run_process(
         job_id,
-        command,
+        ["python3", "/code/run.py", "--project-path", str(job_root), "project", *options],
         cwd=Path("/code"),
         log_path=log_path,
         progress_probe=_progress,

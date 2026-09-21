@@ -3,55 +3,17 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from common.images import prepare_photogrammetry_images
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "micmac"
-SUPPORTED = {".jpg", ".jpeg", ".tif", ".tiff"}
 PATTERN = r"IMG_[0-9]{6}\..*"
 
 PROFILES = {
-    "preview": {
-        "tie_size": "1000",
-        "calibration": "RadialBasic",
-        "dense_mode": None,
-    },
-    "standard": {
-        "tie_size": "1600",
-        "calibration": "RadialStd",
-        "dense_mode": "QuickMac",
-    },
-    "high": {
-        "tie_size": "2400",
-        "calibration": "RadialStd",
-        "dense_mode": "BigMac",
-    },
+    "preview": {"tie_size": "1000", "calibration": "RadialBasic", "dense_mode": None},
+    "standard": {"tie_size": "1600", "calibration": "RadialStd", "dense_mode": "QuickMac"},
+    "high": {"tie_size": "2400", "calibration": "RadialStd", "dense_mode": "BigMac"},
 }
-
-
-def _stage_images(dataset_id: str, work_dir: Path) -> int:
-    source = DATA_ROOT / "datasets" / dataset_id / "images"
-    if not source.exists():
-        raise FileNotFoundError(f"Dataset image directory not found: {source}")
-
-    work_dir.mkdir(parents=True, exist_ok=True)
-    count = 0
-    for path in sorted(source.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED:
-            continue
-        count += 1
-        suffix = path.suffix.upper()
-        target = work_dir / f"IMG_{count:06d}{suffix}"
-        try:
-            target.symlink_to(path)
-        except OSError:
-            shutil.copy2(path, target)
-
-    if count < 3:
-        raise ValueError(
-            "MicMac currently requires at least three JPEG/TIFF images. "
-            "DNG/R-JPEG conversion is not enabled in this worker yet."
-        )
-    return count
 
 
 def _run(job_id: str, work_dir: Path, log_path: Path, command: list[str]) -> bool:
@@ -74,23 +36,19 @@ def _artifact(path: Path, job_id: str, work_dir: Path, kind: str) -> dict:
 
 
 def _collect_artifacts(work_dir: Path, job_id: str) -> list[dict]:
-    result: list[dict] = []
+    result = []
     preferred = [
         (work_dir / "Sparse.ply", "sparse_point_cloud"),
         (work_dir / "Dense.ply", "dense_point_cloud"),
     ]
-    seen: set[Path] = set()
-
+    seen = set()
     for path, kind in preferred:
         if path.is_file():
             result.append(_artifact(path, job_id, work_dir, kind))
             seen.add(path.resolve())
-
     for path in sorted(work_dir.glob("*.ply")):
-        if path.resolve() in seen:
-            continue
-        result.append(_artifact(path, job_id, work_dir, "point_cloud"))
-
+        if path.resolve() not in seen:
+            result.append(_artifact(path, job_id, work_dir, "point_cloud"))
     return result
 
 
@@ -105,96 +63,42 @@ def handle(payload: dict) -> None:
     job_root = DATA_ROOT / "jobs" / job_id
     work_dir = job_root / "micmac"
     log_path = job_root / "worker.log"
-
     if work_dir.exists():
         shutil.rmtree(work_dir)
 
-    update_job(
-        job_id,
-        status="running",
-        progress=1,
-        phase="staging",
-        message="Preparing MicMac project.",
-    )
-    image_count = _stage_images(dataset_id, work_dir)
+    update_job(job_id, status="running", progress=1, phase="staging", message="Preparing MicMac project.")
+    manifest = prepare_photogrammetry_images(dataset_id, work_dir)
+    image_count = manifest["prepared_count"]
+    if image_count < 3:
+        raise ValueError("MicMac requires at least three RGB/WIDE images after normalization.")
 
     update_job(
-        job_id,
-        progress=8,
-        phase="tie_points",
-        message=f"MicMac Tapioca matching {image_count} images.",
+        job_id, progress=8, phase="tie_points",
+        message=(
+            f"MicMac Tapioca matching {image_count} RGB/WIDE images "
+            f"({manifest['skipped_count']} non-mapping images skipped)."
+        ),
     )
-    if not _run(
-        job_id,
-        work_dir,
-        log_path,
-        ["mm3d", "Tapioca", "All", PATTERN, profile["tie_size"]],
-    ):
+    if not _run(job_id, work_dir, log_path, ["mm3d", "Tapioca", "All", PATTERN, profile["tie_size"]]):
         return
 
-    update_job(
-        job_id,
-        progress=35,
-        phase="orientation",
-        message=f"MicMac Tapas calibration: {profile['calibration']}.",
-    )
-    if not _run(
-        job_id,
-        work_dir,
-        log_path,
-        [
-            "mm3d",
-            "Tapas",
-            profile["calibration"],
-            PATTERN,
-            "Out=GeoPhoto",
-        ],
-    ):
+    update_job(job_id, progress=35, phase="orientation", message=f"MicMac Tapas calibration: {profile['calibration']}.")
+    if not _run(job_id, work_dir, log_path, ["mm3d", "Tapas", profile["calibration"], PATTERN, "Out=GeoPhoto"]):
         return
 
-    update_job(
-        job_id,
-        progress=58,
-        phase="sparse_cloud",
-        message="Generating MicMac sparse point cloud.",
-    )
-    if not _run(
-        job_id,
-        work_dir,
-        log_path,
-        ["mm3d", "AperiCloud", PATTERN, "GeoPhoto", "Out=Sparse.ply"],
-    ):
+    update_job(job_id, progress=58, phase="sparse_cloud", message="Generating MicMac sparse point cloud.")
+    if not _run(job_id, work_dir, log_path, ["mm3d", "AperiCloud", PATTERN, "GeoPhoto", "Out=Sparse.ply"]):
         return
 
     dense_mode = profile["dense_mode"]
     if dense_mode:
-        update_job(
-            job_id,
-            progress=68,
-            phase="dense_cloud",
-            message=f"Generating dense point cloud with C3DC {dense_mode}.",
-        )
-        if not _run(
-            job_id,
-            work_dir,
-            log_path,
-            [
-                "mm3d",
-                "C3DC",
-                dense_mode,
-                PATTERN,
-                "GeoPhoto",
-                "Out=Dense.ply",
-            ],
-        ):
+        update_job(job_id, progress=68, phase="dense_cloud", message=f"Generating dense point cloud with C3DC {dense_mode}.")
+        if not _run(job_id, work_dir, log_path, ["mm3d", "C3DC", dense_mode, PATTERN, "GeoPhoto", "Out=Dense.ply"]):
             return
 
     artifacts = _collect_artifacts(work_dir, job_id)
     update_job(
-        job_id,
-        status="completed",
-        progress=100,
-        phase="completed",
+        job_id, status="completed", progress=100, phase="completed",
         message=f"MicMac completed with {len(artifacts)} detected artifacts.",
         artifacts=artifacts,
     )
