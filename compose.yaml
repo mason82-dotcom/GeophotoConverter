@@ -8,6 +8,10 @@ services:
     environment:
       GEOPHOTO_DATA_ROOT: /data
       GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      DRONEDB_BASE_URL: http://dronedb:5000
+      DRONEDB_USERNAME: ${DRONEDB_USERNAME:-admin}
+      DRONEDB_PASSWORD: ${DRONEDB_PASSWORD:-password123}
+      DRONEDB_ORG: ${DRONEDB_ORG:-geophoto}
     volumes:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
     ports:

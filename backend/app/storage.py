@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     phase TEXT,
     message TEXT,
     artifacts_json TEXT,
+    publication_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
@@ -81,6 +82,8 @@ class Store:
                 conn.execute(
                     "ALTER TABLE jobs ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}'"
                 )
+            if "publication_json" not in job_columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN publication_json TEXT")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
                 "ON files(dataset_id, sha256)"
@@ -104,7 +107,12 @@ class Store:
         if row is None:
             return None
         data = dict(row)
-        for key in ("metadata_json", "artifacts_json", "options_json"):
+        for key in (
+            "metadata_json",
+            "artifacts_json",
+            "options_json",
+            "publication_json",
+        ):
             if data.get(key):
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
             else:
@@ -290,6 +298,17 @@ class Store:
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         return self.row(row)
+
+    def update_job_publication(
+        self,
+        job_id: str,
+        publication: dict[str, Any],
+    ) -> None:
+        with self._lock, self.connect() as conn:
+            conn.execute(
+                "UPDATE jobs SET publication_json=?, updated_at=? WHERE id=?",
+                (json.dumps(publication), self.now(), job_id),
+            )
 
     def update_job(
         self,
