@@ -324,7 +324,7 @@ export function ProcessingPage() {
             {!datasets.length && <option value="">Keine Datensätze verfügbar</option>}
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
-                {dataset.name} · {dataset.image_count ?? 0} Bilder · {dataset.georeferenziert_percent ?? 0}% GPS
+                {dataset.name} · {dataset.image_count ?? 0} Bilder · {dataset.geotagged_percent ?? 0}% GPS
               </option>
             ))}
           </select>
@@ -333,7 +333,7 @@ export function ProcessingPage() {
         {selectedDataset && (
           <div className="processing-dataset-summary">
             <span><strong>{selectedDataset.image_count ?? 0}</strong> images</span>
-            <span><strong>{selectedDataset.georeferenziert_percent ?? 0}%</strong> georeferenziert</span>
+            <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> georeferenziert</span>
             <span><strong>{selectedDataset.scan_status}</strong> scan</span>
             <span>
               <strong>{qaLoading ? 'Wird geprüft …' : engineReadiness?.ready ? 'Ready' : 'Blocked'}</strong>
