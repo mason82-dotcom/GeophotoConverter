@@ -1,89 +1,90 @@
 # GeoPhotoConverter
 
-GeoPhotoConverter is a local-first workstation for importing geotagged aerial imagery, validating metadata, reviewing map coverage, and dispatching photogrammetry jobs.
+GeoPhotoConverter ist eine lokal betriebene Arbeitsstation zum Importieren georeferenzierter Luftbilder, Prüfen von Metadaten, Kontrollieren der Kartenabdeckung und Starten photogrammetrischer Verarbeitungsaufträge.
 
-## Architecture
+## Architektur
 
-The default Docker stack is intentionally simple:
+Der Standard-Docker-Stack ist bewusst einfach aufgebaut:
 
 ```text
 Browser
   |
   v
-web (nginx + React/Vite build) :8080
+web (nginx + React/Vite-Build) :8080
   |
   +-- /api/v1/* --> api (FastAPI) :8000
                          |
                          +--> redis
-                         +--> shared ./data
-                         +--> optional processing workers
+                         +--> gemeinsames ./data
+                         +--> optionale Verarbeitungs-Worker
 ```
 
-The browser only uses relative `/api/v1` URLs. In production nginx proxies those requests to the API container. During local frontend development Vite proxies the same paths to the local/direct API port.
+Der Browser verwendet ausschließlich relative `/api/v1`-URLs. Im Produktivbetrieb leitet nginx diese Anfragen an den API-Container weiter. Bei lokaler Frontend-Entwicklung leitet Vite dieselben Pfade an den lokalen bzw. direkt erreichbaren API-Port weiter.
 
-## Quick start
+## Schnellstart
 
-Create a local environment file:
+Lokale Umgebungsdatei anlegen:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Start the core stack:
+Kern-Stack starten:
 
 ```powershell
 docker compose up -d --build web api redis
 ```
 
-Open on the host itself:
+Direkt auf dem Host erreichbar:
 
 - UI: `http://localhost:8080`
-- direct API/diagnostics: `http://localhost:8088/api/v1/health`
+- direkte API/Diagnose: `http://localhost:8088/api/v1/health`
 
-All published application ports bind to `0.0.0.0` by default. From another device in the same trusted home network, replace `localhost` with the IPv4 address of the GeoPhotoConverter host, for example:
+Alle veröffentlichten Anwendungsports binden standardmäßig an `0.0.0.0`. Von einem anderen Gerät im vertrauenswürdigen Heimnetz `localhost` durch die IPv4-Adresse des GeoPhotoConverter-Hosts ersetzen, zum Beispiel:
 
 - UI: `http://192.168.178.45:8080`
 - API: `http://192.168.178.45:8088/api/v1/health`
-- DroneDB profile: `http://192.168.178.45:5000`
-- Open WebUI profile: `http://192.168.178.45:3001`
+- DroneDB-Profil: `http://192.168.178.45:5000`
+- Open-WebUI-Profil: `http://192.168.178.45:3001`
 
-The exact host address can be found on Windows with `ipconfig`. Do not forward these ports from the router to the public Internet; the current stack is designed for a trusted LAN and does not add an authentication layer in front of every service.
+Die genaue Host-Adresse lässt sich unter Windows mit `ipconfig` ermitteln. Diese Ports nicht per Router-Portweiterleitung ins öffentliche Internet freigeben; der aktuelle Stack ist für ein vertrauenswürdiges LAN ausgelegt und setzt nicht vor jeden Dienst eine eigene Authentifizierungsschicht.
 
-Stop the stack with:
+Stack stoppen:
 
 ```powershell
 docker compose down
 ```
 
-## Optional services
+## Optionale Dienste
 
-Processing and auxiliary services are Compose profiles:
+Verarbeitungs- und Zusatzdienste werden über Compose-Profile aktiviert:
 
 ```powershell
 docker compose --profile odm up -d
 docker compose --profile micmac up -d
+docker compose --profile gsplat up -d
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
 
-ODM and MicMac consume jobs from Redis and share the same data directory as the API. DroneDB and Open WebUI remain optional.
+ODM, MicMac und gsplat beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. DroneDB und Open WebUI bleiben optional.
 
 ## VS Code
 
-Open the repository root in VS Code and install the recommended extensions when prompted.
+Das Repository-Stammverzeichnis in VS Code öffnen und die empfohlenen Erweiterungen installieren.
 
-Useful tasks are available through **Terminal > Run Task**:
+Nützliche Aufgaben stehen unter **Terminal > Aufgabe ausführen** bereit:
 
-- `Docker: Core up`
-- `Docker: Core down`
-- `Docker: Redis only`
-- `Frontend: Install`
-- `Frontend: Dev`
-- `Frontend: Build`
-- `Backend: Install`
-- `Backend: Dev`
-- `Check: Full stack`
+- `Docker: Kern starten`
+- `Docker: Kern stoppen`
+- `Docker: Nur Redis`
+- `Frontend: Installieren`
+- `Frontend: Entwicklung`
+- `Frontend: Bauen`
+- `Backend: Installieren`
+- `Backend: Entwicklung`
+- `Prüfen: Gesamtsystem`
 
-For Python debugging, select a Python interpreter containing `backend/requirements.txt` and use **Run and Debug > Backend: FastAPI (debug)**.
+Für Python-Debugging einen Python-Interpreter mit den Abhängigkeiten aus `backend/requirements.txt` auswählen und **Ausführen und Debuggen > Backend: FastAPI (Debug)** verwenden.
 
-See `docs/DEVELOPMENT.md` for the recommended local development workflow.
+Der empfohlene lokale Entwicklungsablauf ist in `docs/DEVELOPMENT.md` beschrieben.
