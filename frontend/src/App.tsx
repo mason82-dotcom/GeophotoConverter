@@ -1,29 +1,13 @@
 import { useState } from 'react'
 import { Activity, ArrowRight, Database, Images, ServerCog } from 'lucide-react'
 import { AppShell, type NavKey } from './components/AppShell'
+import { DatasetsPage } from './pages/DatasetsPage'
 import { ImportPage } from './pages/ImportPage'
+import { ProcessingPage } from './pages/ProcessingPage'
+import { ResultsPage } from './pages/ResultsPage'
+import { DroneDBPage } from './pages/DroneDBPage'
 
-const pageCopy: Record<Exclude<NavKey, 'overview' | 'import'>, { title: string; description: string }> = {
-  datasets: {
-    title: 'Datasets',
-    description: 'Review imagery metadata, GPS coverage, warnings, and processing readiness.',
-  },
-  map: {
-    title: 'Map',
-    description: 'Inspect capture positions, flight coverage, and geospatial quality.',
-  },
-  processing: {
-    title: 'Processing',
-    description: 'Choose a backend processing engine and quality profile for a ready dataset.',
-  },
-  results: {
-    title: 'Results',
-    description: 'Inspect generated orthophotos, surfaces, point clouds, meshes, and logs.',
-  },
-  dronedb: {
-    title: 'DroneDB',
-    description: 'Publish completed datasets and artifacts to the configured DroneDB service.',
-  },
+const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>, { title: string; description: string }> = {
   assistant: {
     title: 'Assistant',
     description: 'Open the optional AI assistant surface without leaving the operator workflow.',
@@ -54,40 +38,25 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
       <section className="metric-grid" aria-label="Workspace summary">
         <article className="metric-card">
           <div className="metric-icon"><ServerCog size={19} /></div>
-          <div>
-            <span className="metric-label">Backend</span>
-            <strong>Not checked</strong>
-          </div>
+          <div><span className="metric-label">Backend</span><strong>Not checked</strong></div>
         </article>
         <article className="metric-card">
           <div className="metric-icon"><Images size={19} /></div>
-          <div>
-            <span className="metric-label">Datasets</span>
-            <strong>—</strong>
-          </div>
+          <div><span className="metric-label">Datasets</span><strong>—</strong></div>
         </article>
         <article className="metric-card">
           <div className="metric-icon"><Activity size={19} /></div>
-          <div>
-            <span className="metric-label">Processing jobs</span>
-            <strong>—</strong>
-          </div>
+          <div><span className="metric-label">Processing jobs</span><strong>—</strong></div>
         </article>
         <article className="metric-card">
           <div className="metric-icon"><Database size={19} /></div>
-          <div>
-            <span className="metric-label">DroneDB</span>
-            <strong>Optional</strong>
-          </div>
+          <div><span className="metric-label">DroneDB</span><strong>Optional</strong></div>
         </article>
       </section>
 
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Workflow</p>
-            <h3>Survey pipeline</h3>
-          </div>
+          <div><p className="eyebrow">Workflow</p><h3>Survey pipeline</h3></div>
         </div>
         <ol className="workflow-list">
           {['Import imagery', 'Validate metadata & GPS', 'Review dataset', 'Choose processing engine', 'Monitor job', 'Inspect results', 'Publish/export'].map((item, index) => (
@@ -102,7 +71,7 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   )
 }
 
-function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import'> }) {
+function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'> }) {
   const copy = pageCopy[active]
   return (
     <section className="panel empty-state">
@@ -121,7 +90,14 @@ export default function App() {
     <AppShell active={active} onNavigate={setActive}>
       {active === 'overview' && <Overview onNavigate={setActive} />}
       {active === 'import' && <ImportPage />}
-      {active !== 'overview' && active !== 'import' && <PlaceholderPage active={active} />}
+      {active === 'datasets' && <DatasetsPage />}
+      {active === 'map' && <DatasetsPage mapFocused />}
+      {active === 'processing' && <ProcessingPage />}
+      {active === 'results' && <ResultsPage />}
+      {active === 'dronedb' && <DroneDBPage />}
+      {!['overview', 'import', 'datasets', 'map', 'processing', 'results', 'dronedb'].includes(active) && (
+        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>} />
+      )}
     </AppShell>
   )
 }

@@ -1,4 +1,15 @@
-import type { Dataset, DatasetScanResponse, UploadResponse } from './types'
+import type {
+  Dataset,
+  DatasetDetail,
+  DatasetScanResponse,
+  Job,
+  JobLogs,
+  MapCatalog,
+  ProcessingEngine,
+  ProcessingProfile,
+  ServicesResponse,
+  UploadResponse,
+} from './types'
 import { ApiError } from './types'
 
 const API_BASE = '/api/v1'
@@ -14,6 +25,16 @@ async function readJson<T>(response: Response): Promise<T> {
     throw new ApiError(`Request failed with status ${response.status}`, response.status, detail)
   }
   return response.json() as Promise<T>
+}
+
+export async function listDatasets(): Promise<Dataset[]> {
+  return readJson<Dataset[]>(await fetch(`${API_BASE}/datasets`))
+}
+
+export async function getDataset(datasetId: string): Promise<DatasetDetail> {
+  return readJson<DatasetDetail>(
+    await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}`),
+  )
 }
 
 export async function createDataset(name: string, description?: string): Promise<Dataset> {
@@ -33,6 +54,56 @@ export async function scanDataset(datasetId: string): Promise<DatasetScanRespons
     method: 'POST',
   })
   return readJson<DatasetScanResponse>(response)
+}
+
+export async function listMapPacks(): Promise<MapCatalog> {
+  return readJson<MapCatalog>(await fetch(`${API_BASE}/maps`))
+}
+
+export async function getServices(): Promise<ServicesResponse> {
+  return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
+}
+
+export async function listJobs(): Promise<Job[]> {
+  return readJson<Job[]>(await fetch(`${API_BASE}/jobs`))
+}
+
+export async function getJob(jobId: string): Promise<Job> {
+  return readJson<Job>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`),
+  )
+}
+
+export async function getJobLogs(jobId: string, tail = 200): Promise<JobLogs> {
+  const safeTail = Math.max(1, Math.min(5000, Math.trunc(tail)))
+  return readJson<JobLogs>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/logs?tail=${safeTail}`),
+  )
+}
+
+export async function cancelJob(jobId: string): Promise<Job> {
+  return readJson<Job>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: 'POST',
+    }),
+  )
+}
+
+export async function createJob(
+  datasetId: string,
+  engine: ProcessingEngine,
+  profile: ProcessingProfile,
+): Promise<Job> {
+  const response = await fetch(`${API_BASE}/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dataset_id: datasetId,
+      engine,
+      profile,
+    }),
+  })
+  return readJson<Job>(response)
 }
 
 export interface UploadCallbacks {
