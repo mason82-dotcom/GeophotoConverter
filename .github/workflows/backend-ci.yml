@@ -1,0 +1,43 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - agent/backend-processing
+  pull_request:
+    paths:
+      - "backend/**"
+      - "workers/**"
+      - "compose.yaml"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend
+      GEOPHOTO_DATA_ROOT: /tmp/geophoto-ci
+      GEOPHOTO_REDIS_URL: redis://127.0.0.1:6399/15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+      - name: Compile Python sources
+        run: python -m compileall -q backend/app workers
+
+      - name: Run backend tests
+        run: pytest -q backend/tests
