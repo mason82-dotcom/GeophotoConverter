@@ -7,7 +7,7 @@ import uuid
 from collections import deque
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,7 @@ from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
 from .qa import dataset_qa
+from .services import external_services
 from .storage import store
 
 app = FastAPI(
@@ -91,7 +92,7 @@ def processing_profiles() -> dict:
 
 
 @app.get("/api/v1/services")
-def services() -> dict:
+def services(request: Request) -> dict:
     queue_ok = redis_ping()
     engines = {}
     for engine in ("odm", "micmac", "gsplat", "thermal"):
@@ -99,9 +100,17 @@ def services() -> dict:
             try:
                 engines[engine] = worker_state(engine)
             except Exception:
-                engines[engine] = {"engine": engine, "status": "unknown", "queue_depth": None}
+                engines[engine] = {
+                    "engine": engine,
+                    "status": "unknown",
+                    "queue_depth": None,
+                }
         else:
-            engines[engine] = {"engine": engine, "status": "unavailable", "queue_depth": None}
+            engines[engine] = {
+                "engine": engine,
+                "status": "unavailable",
+                "queue_depth": None,
+            }
 
     engines["odm"]["profile"] = "odm"
     engines["micmac"]["profile"] = "micmac"
@@ -119,10 +128,12 @@ def services() -> dict:
         "telesculptor": {
             "status": "experimental",
             "profile": "experimental",
-            "note": "Legacy comparison engine; not part of the default automated pipeline.",
+            "note": (
+                "Legacy comparison engine; not part of the default "
+                "automated pipeline."
+            ),
         },
-        "dronedb": {"status": "optional", "profile": "dronedb"},
-        "open_webui": {"status": "optional", "profile": "ai"},
+        **external_services(request),
     }
 
 

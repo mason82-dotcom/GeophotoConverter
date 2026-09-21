@@ -12,6 +12,11 @@ services:
       DRONEDB_USERNAME: ${DRONEDB_USERNAME:-admin}
       DRONEDB_PASSWORD: ${DRONEDB_PASSWORD:-password123}
       DRONEDB_ORG: ${DRONEDB_ORG:-geophoto}
+      DRONEDB_PUBLIC_URL: ${DRONEDB_PUBLIC_URL:-}
+      DRONEDB_PUBLIC_PORT: ${DRONEDB_PORT:-5000}
+      OPENWEBUI_INTERNAL_URL: http://open-webui:8080
+      OPENWEBUI_PUBLIC_URL: ${OPENWEBUI_PUBLIC_URL:-}
+      OPENWEBUI_PUBLIC_PORT: ${OPENWEBUI_PORT:-3001}
     volumes:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
     ports:
@@ -111,6 +116,11 @@ services:
       - geophoto-dronedb:/data
     ports:
       - "${DRONEDB_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/quickhealth"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -120,6 +130,11 @@ services:
       - geophoto-openwebui:/app/backend/data
     ports:
       - "${OPENWEBUI_PORT:-3001}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
 volumes:
   geophoto-redis:

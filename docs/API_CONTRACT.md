@@ -85,7 +85,22 @@ Request cancellation.
 ## Services
 
 ### GET /services
-Returns availability/status for ODM, MicMac, gsplat, DroneDB and Open WebUI.
+Returns runtime availability/status for Redis, processing workers, DroneDB and Open WebUI.
+
+For DroneDB and Open WebUI the response includes:
+- `status`: `online`, `reachable`, `degraded` or `offline`
+- `reachable`
+- `health_status_code`
+- `profile`
+- `public_port`
+- `launch_url`
+
+If no explicit public URL is configured, GeoPhotoConverter derives a direct LAN URL from the API request hostname plus the configured public port. Internal Docker DNS names and service credentials are never returned to the browser.
+
+DroneDB additionally exposes:
+- `publish_endpoint`: `/api/v1/jobs/{job_id}/publish/dronedb`
+
+Open WebUI is an optional assistant surface only; it is not the primary GeoPhotoConverter UI.
 
 ## Frontend contract
 
@@ -176,3 +191,16 @@ For the current thermal workflow the supported options are:
 Measurement overrides are additionally validated against the ranges reported by DJI DIRP for the specific R-JPEG. If DIRP cannot read/set explicitly requested overrides, thermal processing fails closed instead of claiming the override was applied.
 
 Non-thermal engines currently reject non-empty `options` objects until their own typed option schemas are added.
+
+
+## DroneDB publishing
+
+### POST /jobs/{job_id}/publish/dronedb
+Publishes artifacts from a completed processing job to the configured DroneDB Registry.
+
+Optional body:
+```json
+{"name":"Survey result"}
+```
+
+The operation is idempotent after a successful publication. Publication metadata is stored on the job and returned by subsequent `GET /jobs/{job_id}` calls.
