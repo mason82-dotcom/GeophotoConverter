@@ -218,3 +218,62 @@ def test_job_readiness_counts_dng_rgb_inputs(client):
     assert body["engine_inputs"]["rgb_wide"] == 3
     assert body["readiness"]["micmac"]["ready"] is True
     assert body["readiness"]["gsplat"]["ready"] is True
+
+
+def test_m3m_multispectral_readiness_requires_complete_groups(client):
+    dataset = _dataset(client)
+    suffixes = [
+        ("D.JPG", "image/jpeg"),
+        ("MS_G.TIF", "image/tiff"),
+        ("MS_R.TIF", "image/tiff"),
+        ("MS_RE.TIF", "image/tiff"),
+        ("MS_NIR.TIF", "image/tiff"),
+    ]
+
+    for capture in ("DJI_2001", "DJI_2002"):
+        for index, (suffix, media_type) in enumerate(suffixes):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[
+                    (
+                        "files",
+                        (
+                            name,
+                            f"{capture}-{index}".encode(),
+                            media_type,
+                        ),
+                    )
+                ],
+                data={"relative_paths": json.dumps([f"M3M/{name}"])},
+            )
+            assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["multispectral"]["complete_groups"] == 2
+    assert body["readiness"]["odm_multispectral"]["ready"] is True
+    assert body["readiness"]["odm_multispectral"]["eligible_images"] == 10
+
+
+def test_m3m_multispectral_readiness_rejects_incomplete_groups(client):
+    dataset = _dataset(client)
+    for index, suffix in enumerate(("D.JPG", "MS_G.TIF", "MS_NIR.TIF")):
+        name = f"DJI_3001_{suffix}"
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (name, f"incomplete-{index}".encode(), "image/jpeg"),
+                )
+            ],
+            data={"relative_paths": json.dumps([f"M3M/{name}"])},
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["multispectral"]["complete_groups"] == 0
+    assert qa.json()["readiness"]["odm_multispectral"]["ready"] is False

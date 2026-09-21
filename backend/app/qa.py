@@ -42,6 +42,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     platform_counts: Counter[str] = Counter()
     media_counts: Counter[str] = Counter()
+    capture_groups: dict[str, set[str]] = {}
     cameras: Counter[str] = Counter()
     gps_altitudes: list[float] = []
     relative_altitudes: list[float] = []
@@ -53,6 +54,10 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         classification = reconciled[item["relative_path"]]
         platform_counts[classification.platform] += 1
         media_counts[classification.media_kind] += 1
+        if classification.capture_group:
+            capture_groups.setdefault(classification.capture_group, set()).add(
+                classification.media_kind
+            )
 
         metadata = item.get("metadata") or {}
         camera = metadata.get("camera") or {}
@@ -89,6 +94,23 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     multispectral_inputs = sum(
         media_counts.get(kind, 0)
         for kind in ("MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR")
+    )
+    required_m3m_kinds = {
+        "RGB",
+        "MS_GREEN",
+        "MS_RED",
+        "MS_RED_EDGE",
+        "MS_NIR",
+    }
+    complete_multispectral_groups = sum(
+        1
+        for kinds in capture_groups.values()
+        if required_m3m_kinds.issubset(kinds)
+    )
+    multispectral_group_count = sum(
+        1
+        for kinds in capture_groups.values()
+        if kinds.intersection(required_m3m_kinds - {"RGB"})
     )
     warnings: list[dict[str, Any]] = []
     if missing_gps:
@@ -141,6 +163,21 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "eligible_images": mapping_inputs,
             "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
         },
+        "odm_multispectral": {
+            "ready": complete_multispectral_groups >= 2,
+            "eligible_images": (
+                complete_multispectral_groups * len(required_m3m_kinds)
+            ),
+            "complete_groups": complete_multispectral_groups,
+            "reason": (
+                None
+                if complete_multispectral_groups >= 2
+                else (
+                    "At least two complete M3M capture groups are required "
+                    "(RGB + Green + Red + Red Edge + NIR)."
+                )
+            ),
+        },
     }
 
     return {
@@ -164,6 +201,13 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "rgb_wide": mapping_inputs,
             "thermal": thermal_inputs,
             "multispectral": multispectral_inputs,
+            "multispectral_groups": multispectral_group_count,
+            "complete_multispectral_groups": complete_multispectral_groups,
+        },
+        "multispectral": {
+            "required_media_kinds": sorted(required_m3m_kinds),
+            "group_count": multispectral_group_count,
+            "complete_groups": complete_multispectral_groups,
         },
         "readiness": readiness,
         "classifications": {

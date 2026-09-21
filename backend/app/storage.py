@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     dataset_id TEXT NOT NULL,
     engine TEXT NOT NULL,
     profile TEXT NOT NULL,
+    workflow TEXT NOT NULL DEFAULT 'rgb',
     status TEXT NOT NULL,
     progress REAL NOT NULL DEFAULT 0,
     phase TEXT,
@@ -67,6 +68,14 @@ class Store:
             }
             if "sha256" not in columns:
                 conn.execute("ALTER TABLE files ADD COLUMN sha256 TEXT")
+            job_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            if "workflow" not in job_columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN workflow TEXT NOT NULL DEFAULT 'rgb'"
+                )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
                 "ON files(dataset_id, sha256)"
@@ -222,16 +231,33 @@ class Store:
                 (status, now, dataset_id),
             )
 
-    def create_job(self, dataset_id: str, engine: str, profile: str) -> dict[str, Any]:
+    def create_job(
+        self,
+        dataset_id: str,
+        engine: str,
+        profile: str,
+        workflow: str = "rgb",
+    ) -> dict[str, Any]:
         job_id = self.new_id()
         now = self.now()
         with self._lock, self.connect() as conn:
             conn.execute(
                 """
-                INSERT INTO jobs(id,dataset_id,engine,profile,status,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?)
+                INSERT INTO jobs(
+                    id,dataset_id,engine,profile,workflow,status,created_at,updated_at
+                )
+                VALUES(?,?,?,?,?,?,?,?)
                 """,
-                (job_id, dataset_id, engine, profile, "queued", now, now),
+                (
+                    job_id,
+                    dataset_id,
+                    engine,
+                    profile,
+                    workflow,
+                    "queued",
+                    now,
+                    now,
+                ),
             )
         return self.get_job(job_id)
 

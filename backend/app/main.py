@@ -19,6 +19,7 @@ from .config import (
     MAX_FILE_BYTES,
     PROFILE_NAMES,
     SUPPORTED_EXTENSIONS,
+    WORKFLOW_NAMES,
     ensure_directories,
 )
 from .metadata import read_metadata
@@ -45,6 +46,7 @@ class JobCreate(BaseModel):
     dataset_id: str
     engine: str
     profile: str = "standard"
+    workflow: str = "rgb"
 
 
 def _dataset_or_404(dataset_id: str) -> dict:
@@ -401,15 +403,31 @@ def create_job(body: JobCreate) -> dict:
         raise HTTPException(status_code=422, detail=f"Unknown engine: {engine}")
     if profile not in PROFILE_NAMES:
         raise HTTPException(status_code=422, detail=f"Unknown profile: {profile}")
+
+    workflow = body.workflow.lower().strip()
+    if workflow not in WORKFLOW_NAMES:
+        raise HTTPException(status_code=422, detail=f"Unknown workflow: {workflow}")
+    if workflow == "multispectral" and engine != "odm":
+        raise HTTPException(
+            status_code=422,
+            detail="The multispectral workflow is currently available only for ODM.",
+        )
+
     if engine in {"odm", "micmac", "gsplat"}:
         qa = dataset_qa(store.list_files(body.dataset_id))
-        engine_readiness = qa["readiness"][engine]
+        readiness_key = (
+            "odm_multispectral"
+            if engine == "odm" and workflow == "multispectral"
+            else engine
+        )
+        engine_readiness = qa["readiness"][readiness_key]
         if not engine_readiness["ready"]:
             raise HTTPException(
                 status_code=409,
                 detail={
                     "message": engine_readiness["reason"],
                     "engine": engine,
+                    "workflow": workflow,
                     "eligible_images": engine_readiness["eligible_images"],
                     "engine_inputs": qa["engine_inputs"],
                 },
@@ -422,7 +440,7 @@ def create_job(body: JobCreate) -> dict:
     if not redis_ping():
         raise HTTPException(status_code=503, detail="Job queue is unavailable")
 
-    job = store.create_job(body.dataset_id, engine, profile)
+    job = store.create_job(body.dataset_id, engine, profile, workflow)
     enqueue(
         engine,
         {
@@ -430,6 +448,7 @@ def create_job(body: JobCreate) -> dict:
             "dataset_id": body.dataset_id,
             "engine": engine,
             "profile": profile,
+            "workflow": workflow,
         },
     )
     return job

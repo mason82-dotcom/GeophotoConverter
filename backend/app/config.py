@@ -23,6 +23,7 @@ SUPPORTED_EXTENSIONS = {
 
 ENGINE_NAMES = {"odm", "micmac", "gsplat", "telesculptor"}
 PROFILE_NAMES = {"preview", "standard", "high"}
+WORKFLOW_NAMES = {"rgb", "multispectral"}
 
 
 def ensure_directories() -> None:
