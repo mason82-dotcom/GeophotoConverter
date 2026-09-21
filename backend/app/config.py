@@ -21,9 +21,9 @@ SUPPORTED_EXTENSIONS = {
     ".rjpeg",
 }
 
-ENGINE_NAMES = {"odm", "micmac", "gsplat", "telesculptor"}
+ENGINE_NAMES = {"odm", "micmac", "gsplat", "thermal", "telesculptor"}
 PROFILE_NAMES = {"preview", "standard", "high"}
-WORKFLOW_NAMES = {"rgb", "multispectral"}
+WORKFLOW_NAMES = {"rgb", "multispectral", "thermal"}
 
 
 def ensure_directories() -> None:

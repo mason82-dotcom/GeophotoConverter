@@ -277,3 +277,44 @@ def test_m3m_multispectral_readiness_rejects_incomplete_groups(client):
     assert qa.status_code == 200
     assert qa.json()["multispectral"]["complete_groups"] == 0
     assert qa.json()["readiness"]["odm_multispectral"]["ready"] is False
+
+
+def test_thermal_readiness_requires_confirmed_wide_thermal_pairs(client):
+    dataset = _dataset(client)
+    for capture in ("DJI_4001", "DJI_4002"):
+        for suffix, payload in (
+            ("W.JPG", b"wide"),
+            ("T.JPG", b"thermal"),
+        ):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[("files", (name, payload + capture.encode(), "image/jpeg"))],
+                data={"relative_paths": json.dumps([f"M3T/{name}"])},
+            )
+            assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["thermal"]["complete_groups"] == 2
+    assert body["thermal"]["platform"] == "M3T"
+    assert body["readiness"]["thermal"]["ready"] is True
+    assert body["readiness"]["thermal"]["eligible_images"] == 4
+
+
+def test_thermal_readiness_rejects_unknown_platform(client):
+    dataset = _dataset(client)
+    for suffix, payload in (("W.JPG", b"wide"), ("T.JPG", b"thermal")):
+        name = f"DJI_5001_{suffix}"
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[("files", (name, payload, "image/jpeg"))],
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["thermal"]["complete_groups"] == 1
+    assert qa.json()["thermal"]["platform"] is None
+    assert qa.json()["readiness"]["thermal"]["ready"] is False

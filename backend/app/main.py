@@ -82,7 +82,7 @@ def health() -> dict:
 def services() -> dict:
     queue_ok = redis_ping()
     engines = {}
-    for engine in ("odm", "micmac", "gsplat"):
+    for engine in ("odm", "micmac", "gsplat", "thermal"):
         if queue_ok:
             try:
                 engines[engine] = worker_state(engine)
@@ -95,6 +95,8 @@ def services() -> dict:
     engines["micmac"]["profile"] = "micmac"
     engines["gsplat"]["profile"] = "gsplat"
     engines["gsplat"]["gpu"] = True
+    engines["thermal"]["profile"] = "thermal"
+    engines["thermal"]["requires_dji_tsdk"] = True
 
     return {
         "redis": {"status": "ok" if queue_ok else "unavailable"},
@@ -412,12 +414,24 @@ def create_job(body: JobCreate) -> dict:
             status_code=422,
             detail="The multispectral workflow is currently available only for ODM.",
         )
+    if workflow == "thermal" and engine != "thermal":
+        raise HTTPException(
+            status_code=422,
+            detail="The thermal workflow is available only for the thermal engine.",
+        )
+    if engine == "thermal" and workflow != "thermal":
+        raise HTTPException(
+            status_code=422,
+            detail="The thermal engine requires workflow='thermal'.",
+        )
 
-    if engine in {"odm", "micmac", "gsplat"}:
+    if engine in {"odm", "micmac", "gsplat", "thermal"}:
         qa = dataset_qa(store.list_files(body.dataset_id))
         readiness_key = (
             "odm_multispectral"
             if engine == "odm" and workflow == "multispectral"
+            else "thermal"
+            if engine == "thermal"
             else engine
         )
         engine_readiness = qa["readiness"][readiness_key]

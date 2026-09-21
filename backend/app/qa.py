@@ -43,6 +43,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     platform_counts: Counter[str] = Counter()
     media_counts: Counter[str] = Counter()
     capture_groups: dict[str, set[str]] = {}
+    capture_group_platforms: dict[str, set[str]] = {}
     cameras: Counter[str] = Counter()
     gps_altitudes: list[float] = []
     relative_altitudes: list[float] = []
@@ -58,6 +59,10 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             capture_groups.setdefault(classification.capture_group, set()).add(
                 classification.media_kind
             )
+            capture_group_platforms.setdefault(
+                classification.capture_group,
+                set(),
+            ).add(classification.platform)
 
         metadata = item.get("metadata") or {}
         camera = metadata.get("camera") or {}
@@ -112,6 +117,39 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         for kinds in capture_groups.values()
         if kinds.intersection(required_m3m_kinds - {"RGB"})
     )
+
+    complete_thermal_group_ids = [
+        group
+        for group, kinds in capture_groups.items()
+        if {"WIDE", "THERMAL"}.issubset(kinds)
+    ]
+    complete_thermal_groups = len(complete_thermal_group_ids)
+    thermal_group_count = sum(
+        1
+        for kinds in capture_groups.values()
+        if "THERMAL" in kinds
+    )
+    thermal_group_platforms = {
+        platform
+        for group in complete_thermal_group_ids
+        for platform in capture_group_platforms.get(group, {"UNKNOWN"})
+        if platform != "UNKNOWN"
+    }
+    thermal_has_unknown_platform = any(
+        "UNKNOWN" in capture_group_platforms.get(group, {"UNKNOWN"})
+        for group in complete_thermal_group_ids
+    )
+    thermal_platform = (
+        next(iter(thermal_group_platforms))
+        if len(thermal_group_platforms) == 1 and not thermal_has_unknown_platform
+        else None
+    )
+    thermal_ready = (
+        complete_thermal_groups >= 1
+        and thermal_platform in {"M3T", "M4T"}
+        and len(thermal_group_platforms) == 1
+        and not thermal_has_unknown_platform
+    )
     warnings: list[dict[str, Any]] = []
     if missing_gps:
         warnings.append(
@@ -163,6 +201,20 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "eligible_images": mapping_inputs,
             "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
         },
+        "thermal": {
+            "ready": thermal_ready,
+            "eligible_images": complete_thermal_groups * 2,
+            "complete_groups": complete_thermal_groups,
+            "platform": thermal_platform,
+            "reason": (
+                None
+                if thermal_ready
+                else (
+                    "At least one complete WIDE+THERMAL capture group from a "
+                    "single confirmed M3T or M4T platform is required."
+                )
+            ),
+        },
         "odm_multispectral": {
             "ready": complete_multispectral_groups >= 2,
             "eligible_images": (
@@ -203,6 +255,13 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "multispectral": multispectral_inputs,
             "multispectral_groups": multispectral_group_count,
             "complete_multispectral_groups": complete_multispectral_groups,
+            "thermal_groups": thermal_group_count,
+            "complete_thermal_groups": complete_thermal_groups,
+        },
+        "thermal": {
+            "group_count": thermal_group_count,
+            "complete_groups": complete_thermal_groups,
+            "platform": thermal_platform,
         },
         "multispectral": {
             "required_media_kinds": sorted(required_m3m_kinds),
