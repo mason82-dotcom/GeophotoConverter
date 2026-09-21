@@ -15,6 +15,7 @@ from .config import (
     ensure_directories,
 )
 from .metadata import read_metadata
+from .maps import router as maps_router
 from .queue import enqueue, ping as redis_ping
 from .storage import store
 
@@ -23,6 +24,8 @@ app = FastAPI(
     version="0.1.0",
     description="Local aerial imagery ingestion and photogrammetry processing orchestration.",
 )
+
+app.include_router(maps_router)
 
 
 class DatasetCreate(BaseModel):

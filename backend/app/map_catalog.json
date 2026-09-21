@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "format": "shortbread-1.0",
+  "attribution": "© OpenStreetMap contributors; source package by Geofabrik GmbH",
+  "license": "OpenStreetMap data is available under the Open Database License (ODbL).",
+  "packs": [
+    {
+      "id": "baden-wuerttemberg",
+      "name": "Baden-Württemberg",
+      "group": "south-germany",
+      "default": true,
+      "filename": "baden-wuerttemberg-shortbread-1.0.mbtiles",
+      "url": "https://download.geofabrik.de/europe/germany/baden-wuerttemberg-shortbread-1.0.mbtiles"
+    },
+    {
+      "id": "bayern",
+      "name": "Bayern",
+      "group": "south-germany",
+      "default": false,
+      "filename": "bayern-shortbread-1.0.mbtiles",
+      "url": "https://download.geofabrik.de/europe/germany/bayern-shortbread-1.0.mbtiles"
+    },
+    {
+      "id": "hessen",
+      "name": "Hessen",
+      "group": "south-germany",
+      "default": false,
+      "filename": "hessen-shortbread-1.0.mbtiles",
+      "url": "https://download.geofabrik.de/europe/germany/hessen-shortbread-1.0.mbtiles"
+    },
+    {
+      "id": "rheinland-pfalz",
+      "name": "Rheinland-Pfalz",
+      "group": "south-germany",
+      "default": false,
+      "filename": "rheinland-pfalz-shortbread-1.0.mbtiles",
+      "url": "https://download.geofabrik.de/europe/germany/rheinland-pfalz-shortbread-1.0.mbtiles"
+    },
+    {
+      "id": "saarland",
+      "name": "Saarland",
+      "group": "south-germany",
+      "default": false,
+      "filename": "saarland-shortbread-1.0.mbtiles",
+      "url": "https://download.geofabrik.de/europe/germany/saarland-shortbread-1.0.mbtiles"
+    }
+  ]
+}

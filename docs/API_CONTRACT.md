@@ -71,3 +71,24 @@ Required UI states:
 - cancelled
 
 The frontend owns no processing logic. It submits jobs and renders backend state.
+
+
+## Offline maps
+
+### GET /maps
+Lists configured regional offline map packs and reports whether each MBTiles file is installed.
+
+### GET /maps/{region_id}/tilejson.json
+MapLibre-compatible TileJSON for an installed regional map pack.
+
+### GET /maps/{region_id}/tiles/{z}/{x}/{y}.pbf
+Returns an offline Shortbread vector tile from the local MBTiles database.
+
+Configured initial regions:
+- `baden-wuerttemberg` (default)
+- `bayern`
+- `hessen`
+- `rheinland-pfalz`
+- `saarland`
+
+Frontend map rendering must retain OpenStreetMap attribution.

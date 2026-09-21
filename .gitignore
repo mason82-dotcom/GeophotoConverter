@@ -1,0 +1,6 @@
+/data/
+*.mbtiles
+*.mbtiles.part
+__pycache__/
+*.py[cod]
+.env
