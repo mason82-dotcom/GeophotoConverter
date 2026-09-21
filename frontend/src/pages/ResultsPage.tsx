@@ -1,6 +1,6 @@
 import {
   Box,
-  Download,
+  Herunterladen,
   File,
   FileArchive,
   FileImage,
@@ -8,7 +8,7 @@ import {
   Layers3,
   LoaderCircle,
   Mountain,
-  RefreshCw,
+  AktualisierenCw,
   ScanLine,
   ScrollText,
   Sparkles,
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getJob, getJobLogs, listDatasets, listJobs } from '../api/client'
-import type { Artifact, Dataset, Job, JobLogs } from '../api/types'
+import type { Artefakt, Dataset, Job, JobLogs } from '../api/types'
 
 interface ResultJob {
   job: Job
@@ -36,23 +36,23 @@ function formatBytes(bytes?: number) {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[index]}`
 }
 
-function artifactLabel(artifact: Artifact) {
+function artifactLabel(artifact: Artefakt) {
   const type = artifact.type.toLowerCase()
   const name = artifact.name.toLowerCase()
   if (type.includes('orthophoto')) return { label: 'Orthophoto', icon: FileImage }
   if (type === 'dsm') return { label: 'DSM', icon: Mountain }
   if (type === 'dtm') return { label: 'DTM', icon: Mountain }
-  if (type.includes('point_cloud') || name.endsWith('.las') || name.endsWith('.laz')) return { label: 'Point cloud', icon: ScanLine }
+  if (type.includes('point_cloud') || name.endsWith('.las') || name.endsWith('.laz')) return { label: 'Punktwolke', icon: ScanLine }
   if (name.endsWith('.ply') || type.includes('ply')) return { label: type.includes('gsplat') ? 'gsplat PLY' : 'PLY', icon: Sparkles }
   if (name.endsWith('.obj') || type.includes('mesh')) return { label: 'Mesh / OBJ', icon: Box }
   if (name.endsWith('.tif') || name.endsWith('.tiff') || type.includes('geotiff')) return { label: 'GeoTIFF', icon: Layers3 }
-  if (type.includes('checkpoint') || /\.(ckpt|pt|pth)$/.test(name)) return { label: 'gsplat checkpoint', icon: FileArchive }
+  if (type.includes('checkpoint') || /\.(ckpt|pt|pth)$/.test(name)) return { label: 'gsplat-Prüfpunkt', icon: FileArchive }
   if (name.endsWith('.log') || type.includes('log')) return { label: 'Log', icon: ScrollText }
-  if (name.endsWith('.pdf')) return { label: 'Report', icon: FileText }
-  return { label: artifact.type || 'Artifact', icon: File }
+  if (name.endsWith('.pdf')) return { label: 'Bericht', icon: FileText }
+  return { label: artifact.type || 'Artefakt', icon: File }
 }
 
-export function ResultsPage() {
+export function ErgebnissePage() {
   const [items, setItems] = useState<ResultJob[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,20 +65,20 @@ export function ResultsPage() {
     try {
       const [jobs, datasetList] = await Promise.all([listJobs(), listDatasets()])
       const completed = jobs.filter((job) => job.status === 'completed')
-      const detailResults = await Promise.allSettled(
+      const detailErgebnisse = await Promise.allSettled(
         completed.map(async (job) => {
           const [detail, logs] = await Promise.all([getJob(job.id), getJobLogs(job.id, 60)])
           return { job: detail, logs }
         }),
       )
       setItems(
-        detailResults
+        detailErgebnisse
           .filter((result): result is PromiseFulfilledResult<ResultJob> => result.status === 'fulfilled')
           .map((result) => result.value),
       )
       setDatasets(datasetList)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Results could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'Ergebnisse konnten nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -91,23 +91,23 @@ export function ResultsPage() {
   const categories = useMemo(() => {
     const values = new Set<string>()
     items.forEach(({ job }) => job.artifacts?.forEach((artifact) => values.add(artifactLabel(artifact).label)))
-    if (items.some((item) => item.logs?.available)) values.add('Logs')
+    if (items.some((item) => item.logs?.available)) values.add('Protokolle')
     return Array.from(values).sort()
   }, [items])
 
   const datasetById = useMemo(() => new Map(datasets.map((dataset) => [dataset.id, dataset.name])), [datasets])
 
   if (loading) {
-    return <div className="panel loading-state"><LoaderCircle className="spin" size={24} /> Loading results…</div>
+    return <div className="panel loading-state"><LoaderCircle className="spin" size={24} /> Ergebnisse werden geladen …</div>
   }
 
   if (error && !items.length) {
     return (
       <div className="panel error-state">
         <TriangleAlert size={26} />
-        <h2>Results unavailable</h2>
+        <h2>Ergebnisse nicht verfügbar</h2>
         <p>{error}</p>
-        <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Retry</button>
+        <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Erneut versuchen</button>
       </div>
     )
   }
@@ -117,14 +117,14 @@ export function ResultsPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Processing outputs</p>
-            <h2>Result artifacts</h2>
-            <p>Completed backend jobs and their downloadable, backend-reported outputs.</p>
+            <p className="eyebrow">Verarbeitungsausgaben</p>
+            <h2>Ergebnisartefakte</h2>
+            <p>Abgeschlossene Backend-Aufträge und deren vom Backend gemeldete, herunterladbare Ausgaben.</p>
           </div>
-          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Refresh</button>
+          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Aktualisieren</button>
         </div>
-        <div className="result-filters" aria-label="Result type filter">
-          <button className={`filter-chip ${filter === 'all' ? 'filter-chip--active' : ''}`} type="button" onClick={() => setFilter('all')}>All</button>
+        <div className="result-filters" aria-label="Ergebnistyp-Filter">
+          <button className={`filter-chip ${filter === 'all' ? 'filter-chip--active' : ''}`} type="button" onClick={() => setFilter('all')}>Alle</button>
           {categories.map((category) => (
             <button key={category} className={`filter-chip ${filter === category ? 'filter-chip--active' : ''}`} type="button" onClick={() => setFilter(category)}>
               {category}
@@ -135,21 +135,21 @@ export function ResultsPage() {
 
       {!items.length ? (
         <section className="panel empty-state">
-          <p className="eyebrow">Results</p>
-          <h2>No completed outputs yet</h2>
-          <p>Completed processing jobs will appear here with their backend-provided artifacts.</p>
+          <p className="eyebrow">Ergebnisse</p>
+          <h2>Noch keine abgeschlossenen Ergebnisse</h2>
+          <p>Abgeschlossene Verarbeitungsaufträge erscheinen hier mit den vom Backend bereitgestellten Artefakten.</p>
         </section>
       ) : (
         <div className="result-job-list">
           {items.map(({ job, logs }) => {
             const artifacts = (job.artifacts ?? []).filter((artifact) => filter === 'all' || artifactLabel(artifact).label === filter)
-            const showLogs = logs?.available && (filter === 'all' || filter === 'Logs')
+            const showLogs = logs?.available && (filter === 'all' || filter === 'Protokolle')
             if (!artifacts.length && !showLogs) return null
             return (
               <section className="panel result-job" key={job.id}>
                 <div className="result-job-heading">
                   <div>
-                    <p className="eyebrow">{job.engine.toUpperCase()} · {job.profile}</p>
+                    <p className="eyebrow">{job.engine.toUpperCase()} · {profileText(job.profile)}</p>
                     <h3>{datasetById.get(job.dataset_id) ?? job.dataset_id.slice(0, 8)}</h3>
                   </div>
                   <span className="mono-badge">{job.id.slice(0, 8)}</span>
@@ -169,11 +169,11 @@ export function ResultsPage() {
                         </div>
                         {artifact.download_url ? (
                           <a className="button artifact-download" href={artifact.download_url} download>
-                            <Download size={15} />
-                            Download
+                            <Herunterladen size={15} />
+                            Herunterladen
                           </a>
                         ) : (
-                          <span className="status-chip status-chip--neutral">No URL</span>
+                          <span className="status-chip status-chip--neutral">Keine URL</span>
                         )}
                       </article>
                     )
@@ -183,13 +183,13 @@ export function ResultsPage() {
                     <article className="artifact-card artifact-card--log">
                       <div className="artifact-card-icon"><ScrollText size={20} /></div>
                       <div className="artifact-card-body">
-                        <span className="artifact-kind">Logs</span>
-                        <strong>Worker log tail</strong>
-                        <small>{logs?.lines.length ?? 0} lines loaded</small>
+                        <span className="artifact-kind">Protokolle</span>
+                        <strong>Letzte Worker-Protokollzeilen</strong>
+                        <small>{logs?.lines.length ?? 0} Zeilen geladen</small>
                       </div>
                       <details className="result-log-details">
-                        <summary>Inspect</summary>
-                        <pre>{logs?.lines.join('\n') || 'No log lines.'}</pre>
+                        <summary>Anzeigen</summary>
+                        <pre>{logs?.lines.join('\n') || 'Keine Protokollzeilen.'}</pre>
                       </details>
                     </article>
                   )}
