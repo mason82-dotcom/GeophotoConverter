@@ -19,9 +19,9 @@ def _safe_source(dataset_id: str, stored_path: str) -> Path:
     root = (DATASETS_ROOT / dataset_id / "images").resolve()
     source = Path(stored_path).resolve()
     if root not in source.parents:
-        raise HTTPException(status_code=403, detail="Invalid image path")
+        raise HTTPException(status_code=403, detail="Ungültiger Bildpfad")
     if not source.is_file():
-        raise HTTPException(status_code=404, detail="Image file not found")
+        raise HTTPException(status_code=404, detail="Bilddatei nicht gefunden")
     return source
 
 
@@ -45,7 +45,7 @@ def _render_dng(source: Path, work_dir: Path) -> Path:
     )
     if proc.returncode != 0 or not target.is_file():
         detail = (proc.stderr or proc.stdout).strip()
-        raise RuntimeError(f"LibRaw preview decode failed: {detail}")
+        raise RuntimeError(f"LibRaw konnte die Vorschau nicht dekodieren: {detail}")
     return target
 
 
@@ -86,14 +86,14 @@ def _generate_preview(source: Path, target: Path, size: int) -> None:
     except UnidentifiedImageError as exc:
         raise HTTPException(
             status_code=415,
-            detail="Image format cannot be decoded for preview",
+            detail="Bildformat kann für die Vorschau nicht dekodiert werden",
         ) from exc
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(
             status_code=422,
-            detail=f"Preview generation failed: {exc}",
+            detail=f"Vorschau konnte nicht erzeugt werden: {exc}",
         ) from exc
 
 
@@ -105,7 +105,7 @@ def file_preview(
 ) -> FileResponse:
     record = store.get_file(dataset_id, file_id)
     if record is None:
-        raise HTTPException(status_code=404, detail="Dataset image not found")
+        raise HTTPException(status_code=404, detail="Datensatzbild nicht gefunden")
 
     source = _safe_source(dataset_id, record["stored_path"])
     cache_key = record.get("sha256") or record["id"]

@@ -60,7 +60,7 @@ class JobCreate(BaseModel):
 def _dataset_or_404(dataset_id: str) -> dict:
     dataset = store.get_dataset(dataset_id)
     if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+        raise HTTPException(status_code=404, detail="Datensatz nicht gefunden")
     return dataset
 
 
@@ -238,7 +238,7 @@ async def upload_files(
             if isinstance(value, list):
                 declared_paths = [str(item) for item in value]
         except json.JSONDecodeError as exc:
-            raise HTTPException(status_code=400, detail="relative_paths must be a JSON array") from exc
+            raise HTTPException(status_code=400, detail="relative_paths muss ein JSON-Array sein") from exc
 
     image_root = DATASETS_ROOT / dataset_id / "images"
     image_root.mkdir(parents=True, exist_ok=True)
@@ -254,13 +254,13 @@ async def upload_files(
         suffix = rel_path.suffix.lower()
 
         if suffix not in SUPPORTED_EXTENSIONS:
-            rejected.append({"name": original_name, "reason": f"Unsupported extension: {suffix or 'none'}"})
+            rejected.append({"name": original_name, "reason": f"Nicht unterstützte Dateiendung: {suffix or 'keine'}"})
             await upload.close()
             continue
 
         target = (image_root / rel_path).resolve()
         if image_root.resolve() not in target.parents:
-            rejected.append({"name": original_name, "reason": "Unsafe path"})
+            rejected.append({"name": original_name, "reason": "Unsicherer Dateipfad"})
             await upload.close()
             continue
 
@@ -287,7 +287,7 @@ async def upload_files(
             rejected.append(
                 {
                     "name": original_name,
-                    "reason": f"File exceeds limit of {MAX_FILE_BYTES // (1024 * 1024)} MiB",
+                    "reason": f"Datei überschreitet das Limit von {MAX_FILE_BYTES // (1024 * 1024)} MiB",
                 }
             )
             continue
@@ -299,7 +299,7 @@ async def upload_files(
             rejected.append(
                 {
                     "name": original_name,
-                    "reason": "Duplicate file",
+                    "reason": "Datei ist ein Duplikat",
                     "duplicate_of": duplicate["relative_path"],
                     "sha256": checksum,
                 }
@@ -315,7 +315,7 @@ async def upload_files(
                 {
                     "name": original_name,
                     "reason": (
-                        "Dataset size limit exceeded "
+                        "Datensatz-Größenlimit überschritten "
                         f"({MAX_DATASET_BYTES / 1024 / 1024 / 1024:.0f} GiB)"
                     ),
                 }
@@ -371,7 +371,7 @@ def list_jobs() -> list[dict]:
 def get_job(job_id: str) -> dict:
     job = store.get_job(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Auftrag nicht gefunden")
 
     artifacts = job.get("artifacts") or []
     for index, artifact in enumerate(artifacts):
@@ -404,19 +404,19 @@ def download_job_artifact(job_id: str, artifact_index: int) -> FileResponse:
     job = get_job(job_id)
     artifacts = job.get("artifacts") or []
     if artifact_index < 0 or artifact_index >= len(artifacts):
-        raise HTTPException(status_code=404, detail="Artifact not found")
+        raise HTTPException(status_code=404, detail="Artefakt nicht gefunden")
 
     artifact = artifacts[artifact_index]
     relative_path = artifact.get("relative_path")
     if not relative_path:
-        raise HTTPException(status_code=404, detail="Artifact path is unavailable")
+        raise HTTPException(status_code=404, detail="Artefaktpfad ist nicht verfügbar")
 
     path = (DATA_ROOT / relative_path).resolve()
     data_root = DATA_ROOT.resolve()
     if data_root not in path.parents:
-        raise HTTPException(status_code=403, detail="Invalid artifact path")
+        raise HTTPException(status_code=403, detail="Ungültiger Artefaktpfad")
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Artifact file not found")
+        raise HTTPException(status_code=404, detail="Artefaktdatei nicht gefunden")
 
     return FileResponse(
         path=path,
@@ -431,27 +431,27 @@ def create_job(body: JobCreate) -> dict:
     profile = body.profile.lower().strip()
 
     if engine not in ENGINE_NAMES:
-        raise HTTPException(status_code=422, detail=f"Unknown engine: {engine}")
+        raise HTTPException(status_code=422, detail=f"Unbekannte Engine: {engine}")
     if profile not in PROFILE_NAMES:
-        raise HTTPException(status_code=422, detail=f"Unknown profile: {profile}")
+        raise HTTPException(status_code=422, detail=f"Unbekanntes Profil: {profile}")
 
     workflow = body.workflow.lower().strip()
     if workflow not in WORKFLOW_NAMES:
-        raise HTTPException(status_code=422, detail=f"Unknown workflow: {workflow}")
+        raise HTTPException(status_code=422, detail=f"Unbekannter Workflow: {workflow}")
     if workflow == "multispectral" and engine != "odm":
         raise HTTPException(
             status_code=422,
-            detail="The multispectral workflow is currently available only for ODM.",
+            detail="Der Multispektral-Workflow ist derzeit nur mit ODM verfügbar.",
         )
     if workflow == "thermal" and engine != "thermal":
         raise HTTPException(
             status_code=422,
-            detail="The thermal workflow is available only for the thermal engine.",
+            detail="Der Thermal-Workflow ist nur mit der Thermal-Engine verfügbar.",
         )
     if engine == "thermal" and workflow != "thermal":
         raise HTTPException(
             status_code=422,
-            detail="The thermal engine requires workflow='thermal'.",
+            detail="Die Thermal-Engine erfordert workflow='thermal'.",
         )
 
     if engine in {"odm", "micmac", "gsplat", "thermal"}:
@@ -483,10 +483,10 @@ def create_job(body: JobCreate) -> dict:
     if engine == "telesculptor":
         raise HTTPException(
             status_code=409,
-            detail="TeleSculptor is currently exposed as an experimental manual comparison service, not an automated job engine.",
+            detail="TeleSculptor ist derzeit nur als experimenteller manueller Vergleichsdienst verfügbar und keine automatisierte Job-Engine.",
         )
     if not redis_ping():
-        raise HTTPException(status_code=503, detail="Job queue is unavailable")
+        raise HTTPException(status_code=503, detail="Job-Warteschlange ist nicht verfügbar")
 
     job = store.create_job(
         body.dataset_id,
@@ -514,5 +514,5 @@ def cancel_job(job_id: str) -> dict:
     job = get_job(job_id)
     if job["status"] in {"completed", "failed", "cancelled"}:
         return job
-    store.update_job(job_id, status="cancel_requested", message="Cancellation requested")
+    store.update_job(job_id, status="cancel_requested", message="Abbruch angefordert")
     return get_job(job_id)
