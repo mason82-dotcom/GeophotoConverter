@@ -1,0 +1,57 @@
+name: geophoto-converter
+
+services:
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    ports:
+      - "${GEOPHOTO_HTTP_PORT:-8088}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - geophoto-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  dronedb:
+    image: dronedb/registry:latest
+    profiles: ["dronedb"]
+    restart: unless-stopped
+    environment:
+      INSTANCE_TYPE: "0"
+      TMPDIR: /data/temp
+      CPL_TMPDIR: /data/temp
+      TEMP: /data/temp
+    volumes:
+      - geophoto-dronedb:/data
+    ports:
+      - "${DRONEDB_PORT:-5000}:5000"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    profiles: ["ai"]
+    restart: unless-stopped
+    volumes:
+      - geophoto-openwebui:/app/backend/data
+    ports:
+      - "${OPENWEBUI_PORT:-3001}:8080"
+
+volumes:
+  geophoto-redis:
+  geophoto-dronedb:
+  geophoto-openwebui:
