@@ -318,3 +318,26 @@ def test_thermal_readiness_rejects_unknown_platform(client):
     assert qa.json()["thermal"]["complete_groups"] == 1
     assert qa.json()["thermal"]["platform"] is None
     assert qa.json()["readiness"]["thermal"]["ready"] is False
+
+
+def test_processing_profile_catalog_exposes_specialized_workflows(client):
+    response = client.get("/api/v1/processing/profiles")
+    assert response.status_code == 200
+    body = response.json()
+    engines = {item["key"]: item for item in body["engines"]}
+
+    odm_workflows = {
+        item["key"]: item
+        for item in engines["odm"]["workflows"]
+    }
+    assert odm_workflows["multispectral"]["platforms"] == ["M3M"]
+    assert odm_workflows["multispectral"]["radiometric_calibration"] == "camera"
+
+    thermal = engines["thermal"]
+    assert thermal["requires_dji_tsdk"] is True
+    thermal_workflow = thermal["workflows"][0]
+    assert thermal_workflow["temperature_space"] == "sensor_pixel"
+    assert thermal_workflow["wide_thermal_coregistered"] is False
+
+    assert engines["gsplat"]["requires_gpu"] is True
+    assert engines["telesculptor"]["automated"] is False

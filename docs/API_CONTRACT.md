@@ -121,3 +121,30 @@ Configured initial regions:
 - `saarland`
 
 Frontend map rendering must retain OpenStreetMap attribution.
+
+
+## Processing catalog
+
+### GET /processing/profiles
+Returns the backend-owned engine/workflow/profile catalog. The frontend should use this endpoint instead of hardcoding engine capabilities.
+
+It describes:
+- ODM RGB and M3M multispectral workflows
+- MicMac RGB reconstruction
+- gsplat GPU requirements and training-step profiles
+- DJI M3T/M4T thermal requirements and output semantics
+- TeleSculptor experimental/manual status
+
+Thermal results explicitly report that temperature rasters remain in sensor-pixel space and that WIDE/THERMAL images are not yet coregistered.
+
+### Thermal job example
+```json
+{
+  "dataset_id": "...",
+  "engine": "thermal",
+  "profile": "standard",
+  "workflow": "thermal"
+}
+```
+
+The optional thermal worker requires a locally supplied DJI Thermal SDK. No DJI SDK binaries are included in this repository.

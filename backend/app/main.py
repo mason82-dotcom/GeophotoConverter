@@ -25,6 +25,7 @@ from .config import (
 from .metadata import read_metadata
 from .maps import router as maps_router
 from .queue import enqueue, ping as redis_ping, worker_state
+from .profiles import processing_catalog
 from .qa import dataset_qa
 from .storage import store
 
@@ -78,6 +79,11 @@ def health() -> dict:
     }
 
 
+@app.get("/api/v1/processing/profiles")
+def processing_profiles() -> dict:
+    return processing_catalog()
+
+
 @app.get("/api/v1/services")
 def services() -> dict:
     queue_ok = redis_ping()
@@ -97,6 +103,9 @@ def services() -> dict:
     engines["gsplat"]["gpu"] = True
     engines["thermal"]["profile"] = "thermal"
     engines["thermal"]["requires_dji_tsdk"] = True
+    engines["thermal"]["platforms"] = ["M3T", "M4T"]
+    engines["thermal"]["wide_thermal_coregistered"] = False
+    engines["thermal"]["georeferenced_temperature_raster"] = False
 
     return {
         "redis": {"status": "ok" if queue_ok else "unavailable"},
