@@ -43,6 +43,21 @@ services:
       redis:
         condition: service_healthy
 
+  micmac-worker:
+    build:
+      context: .
+      dockerfile: workers/micmac/Dockerfile
+    profiles: ["micmac"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
   dronedb:
     image: dronedb/registry:latest
     profiles: ["dronedb"]
