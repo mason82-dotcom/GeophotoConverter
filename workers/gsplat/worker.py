@@ -75,17 +75,17 @@ def handle(payload: dict) -> None:
     sparse_dir.mkdir(parents=True, exist_ok=True)
     result_dir.mkdir(parents=True, exist_ok=True)
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="Preparing gsplat/COLMAP project.")
+    update_job(job_id, status="running", progress=1, phase="staging", message="gsplat/COLMAP-Projekt wird vorbereitet.")
     manifest = prepare_photogrammetry_images(dataset_id, scene_dir / "images")
     image_count = manifest["prepared_count"]
     if image_count < 3:
-        raise ValueError("gsplat requires at least three RGB/WIDE images after normalization.")
+        raise ValueError("gsplat benötigt nach der Normalisierung mindestens drei RGB/WIDE-Bilder.")
 
     update_job(
         job_id, progress=8, phase="colmap_features",
         message=(
-            f"COLMAP extracting features from {image_count} RGB/WIDE images "
-            f"({manifest['skipped_count']} non-mapping images skipped)."
+            f"COLMAP extrahiert Merkmale aus {image_count} RGB/WIDE-Bildern "
+            f"({manifest['skipped_count']} Nicht-Mapping-Bilder übersprungen)."
         ),
     )
     if not _run(job_id, scene_dir, log_path, [
@@ -98,7 +98,7 @@ def handle(payload: dict) -> None:
     ]):
         return
 
-    update_job(job_id, progress=23, phase="colmap_matching", message=f"COLMAP {profile['matcher']} matching image features.")
+    update_job(job_id, progress=23, phase="colmap_matching", message=f"COLMAP {profile['matcher']} gleicht Bildmerkmale ab.")
     if not _run(job_id, scene_dir, log_path, [
         "colmap", profile["matcher"],
         "--database_path", str(database),
@@ -106,7 +106,7 @@ def handle(payload: dict) -> None:
     ]):
         return
 
-    update_job(job_id, progress=42, phase="colmap_mapping", message="COLMAP reconstructing camera poses and sparse point cloud.")
+    update_job(job_id, progress=42, phase="colmap_mapping", message="COLMAP rekonstruiert Kameraposen und die dünne Punktwolke.")
     if not _run(job_id, scene_dir, log_path, [
         "colmap", "mapper",
         "--database_path", str(database),
@@ -123,7 +123,7 @@ def handle(payload: dict) -> None:
         if candidates[0].name != "0":
             candidates[0].rename(model_dir)
 
-    update_job(job_id, progress=65, phase="gsplat_training", message=f"Training gsplat profile '{profile_name}' on CUDA.")
+    update_job(job_id, progress=65, phase="gsplat_training", message=f"gsplat trainiert Profil '{profile_name}' mit CUDA.")
     code = run_process(
         job_id,
         [
@@ -144,7 +144,7 @@ def handle(payload: dict) -> None:
     artifacts = _collect_artifacts(result_dir, job_id)
     update_job(
         job_id, status="completed", progress=100, phase="completed",
-        message=f"gsplat completed with {len(artifacts)} detected artifacts.",
+        message=f"gsplat abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 
