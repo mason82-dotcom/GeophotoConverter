@@ -49,7 +49,7 @@ ARTIFACTS = [
 def _stage_images(dataset_id: str, project_dir: Path) -> int:
     source = DATA_ROOT / "datasets" / dataset_id / "images"
     if not source.exists():
-        raise FileNotFoundError(f"Dataset image directory not found: {source}")
+        raise FileNotFoundError(f"Bildverzeichnis des Datensatzes nicht gefunden: {source}")
 
     target = project_dir / "images"
     if target.exists():
@@ -67,7 +67,7 @@ def _stage_images(dataset_id: str, project_dir: Path) -> int:
         except OSError:
             shutil.copy2(path, dest)
     if count < 2:
-        raise ValueError("ODM requires at least two supported images.")
+        raise ValueError("ODM benötigt mindestens zwei unterstützte Bilder.")
     return count
 
 
@@ -114,14 +114,14 @@ def handle(payload: dict) -> None:
     profile = payload.get("profile", "standard")
     options = PROFILES.get(profile)
     if options is None:
-        raise ValueError(f"Unsupported ODM profile: {profile}")
+        raise ValueError(f"Nicht unterstütztes ODM-Profil: {profile}")
 
     job_root = DATA_ROOT / "jobs" / job_id
     project_dir = job_root / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     log_path = job_root / "worker.log"
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="Preparing ODM project.")
+    update_job(job_id, status="running", progress=1, phase="staging", message="ODM-Projekt wird vorbereitet.")
     image_count = _stage_images(dataset_id, project_dir)
     update_job(
         job_id,
@@ -148,7 +148,7 @@ def handle(payload: dict) -> None:
     if code == 130:
         return
     if code != 0:
-        raise RuntimeError(f"ODM exited with code {code}. See {log_path}")
+        raise RuntimeError(f"ODM wurde mit Code {code}. Siehe {log_path}")
 
     artifacts = _collect_artifacts(project_dir, job_id)
     update_job(
@@ -156,7 +156,7 @@ def handle(payload: dict) -> None:
         status="completed",
         progress=100,
         phase="completed",
-        message=f"ODM completed with {len(artifacts)} detected artifacts.",
+        message=f"ODM abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 
