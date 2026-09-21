@@ -34,7 +34,7 @@ def test_upload_is_hashed_and_duplicate_is_rejected(client):
     )
     assert second.status_code == 200
     rejected = second.json()["rejected"]
-    assert rejected[0]["reason"] == "Duplicate file"
+    assert rejected[0]["reason"] == "Datei ist ein Duplikat"
     assert rejected[0]["duplicate_of"] == "flight-a/DJI_0001.JPG"
 
 
