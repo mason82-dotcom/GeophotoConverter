@@ -34,3 +34,8 @@ export function readinessText(value?: string | boolean | null) {
     'Not ready': 'Nicht bereit',
   } as Record<string, string>)[value] ?? value
 }
+
+export function workflowText(workflow?: string | null) {
+  if (!workflow) return '—'
+  return ({ rgb: 'RGB', multispectral: 'Multispektral', thermal: 'Thermal' } as Record<string, string>)[workflow] ?? workflow
+}
