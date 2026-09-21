@@ -86,8 +86,12 @@ export function ImportPage() {
   }, [items, totalBytes])
 
   const successful = items.filter((item) => item.status === 'uploaded').length
-  const pending = items.some((item) => item.status === 'queued' || item.status === 'uploading')
-  const canUpload = items.length > 0 && datasetName.trim().length > 0 && !pending && !isStarting && successful !== items.length
+  const uploadInProgress = items.some((item) => item.status === 'uploading')
+  const hasUploadCandidate = items.some(
+    (item) => isSupported(item.file) && ['queued', 'error', 'cancelled'].includes(item.status),
+  )
+  const canUpload =
+    datasetName.trim().length > 0 && hasUploadCandidate && !uploadInProgress && !isStarting
 
   function addFiles(files: FileList | File[]) {
     const incoming = Array.from(files) as FileWithPath[]
