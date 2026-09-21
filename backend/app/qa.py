@@ -125,15 +125,15 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     readiness = {
         "odm": {
             "ready": total >= 2,
-            "reason": None if total >= 2 else "At least two supported images are required.",
+            "reason": None if total >= 2 else "Mindestens zwei unterstützte Bilder sind erforderlich.",
         },
         "micmac": {
             "ready": total >= 3,
-            "reason": None if total >= 3 else "At least three images are required.",
+            "reason": None if total >= 3 else "Mindestens drei Bilder sind erforderlich.",
         },
         "gsplat": {
             "ready": total >= 3,
-            "reason": None if total >= 3 else "At least three images are required.",
+            "reason": None if total >= 3 else "Mindestens drei Bilder sind erforderlich.",
         },
     }
     ready_count = sum(1 for state in readiness.values() if state["ready"])
