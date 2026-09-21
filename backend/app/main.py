@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import shutil
+import os
+import uuid
+from collections import deque
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .config import (
+    DATA_ROOT,
     DATASETS_ROOT,
     ENGINE_NAMES,
+    MAX_DATASET_BYTES,
+    MAX_FILE_BYTES,
     PROFILE_NAMES,
     SUPPORTED_EXTENSIONS,
     ensure_directories,
@@ -17,6 +24,7 @@ from .config import (
 from .metadata import read_metadata
 from .maps import router as maps_router
 from .queue import enqueue, ping as redis_ping, worker_state
+from .qa import dataset_qa
 from .storage import store
 
 app = FastAPI(
@@ -126,9 +134,60 @@ def get_dataset(dataset_id: str) -> dict:
         for item in files
         if (item.get("metadata") or {}).get("gps", {}).get("latitude") is not None
     )
+    qa = dataset_qa(files)
+    for item in files:
+        item["classification"] = qa["classifications"].get(item["relative_path"])
+    qa.pop("classifications", None)
+
     dataset["files"] = files
     dataset["geotagged_percent"] = round(tagged * 100 / total, 1) if total else 0.0
+    dataset["qa"] = qa
     return dataset
+
+
+@app.get("/api/v1/datasets/{dataset_id}/qa")
+def get_dataset_qa(dataset_id: str) -> dict:
+    _dataset_or_404(dataset_id)
+    qa = dataset_qa(store.list_files(dataset_id))
+    qa.pop("classifications", None)
+    return qa
+
+
+@app.get("/api/v1/datasets/{dataset_id}/geojson")
+def dataset_geojson(dataset_id: str) -> dict:
+    _dataset_or_404(dataset_id)
+    features = []
+    for item in store.list_files(dataset_id):
+        metadata = item.get("metadata") or {}
+        gps = metadata.get("gps") or {}
+        latitude = gps.get("latitude")
+        longitude = gps.get("longitude")
+        if latitude is None or longitude is None:
+            continue
+
+        features.append(
+            {
+                "type": "Feature",
+                "id": item["id"],
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude],
+                },
+                "properties": {
+                    "file_id": item["id"],
+                    "relative_path": item["relative_path"],
+                    "altitude": gps.get("altitude"),
+                    "capture_time": metadata.get("capture_time"),
+                    "camera": metadata.get("camera"),
+                    "dji": metadata.get("dji"),
+                },
+            }
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
 
 
 @app.post("/api/v1/datasets/{dataset_id}/files")
@@ -153,6 +212,7 @@ async def upload_files(
 
     accepted: list[dict] = []
     rejected: list[dict] = []
+    dataset_bytes = store.dataset_size_bytes(dataset_id)
 
     for index, upload in enumerate(files):
         original_name = upload.filename or f"upload-{index}"
@@ -172,20 +232,73 @@ async def upload_files(
             continue
 
         target.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = target.with_name(f".{target.name}.{uuid.uuid4().hex}.part")
         size = 0
-        with target.open("wb") as handle:
-            while chunk := await upload.read(1024 * 1024):
-                handle.write(chunk)
-                size += len(chunk)
-        await upload.close()
+        digest = hashlib.sha256()
+        exceeded_limit = False
 
+        try:
+            with temp_path.open("wb") as handle:
+                while chunk := await upload.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_FILE_BYTES:
+                        exceeded_limit = True
+                        break
+                    digest.update(chunk)
+                    handle.write(chunk)
+        finally:
+            await upload.close()
+
+        if exceeded_limit:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": f"File exceeds limit of {MAX_FILE_BYTES // (1024 * 1024)} MiB",
+                }
+            )
+            continue
+
+        checksum = digest.hexdigest()
+        duplicate = store.find_file_by_sha256(dataset_id, checksum)
+        if duplicate is not None:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": "Duplicate file",
+                    "duplicate_of": duplicate["relative_path"],
+                    "sha256": checksum,
+                }
+            )
+            continue
+
+        existing = store.get_file_by_relative_path(dataset_id, rel_path.as_posix())
+        replaced_size = int(existing["size_bytes"]) if existing else 0
+        projected_size = dataset_bytes - replaced_size + size
+        if projected_size > MAX_DATASET_BYTES:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": (
+                        "Dataset size limit exceeded "
+                        f"({MAX_DATASET_BYTES / 1024 / 1024 / 1024:.0f} GiB)"
+                    ),
+                }
+            )
+            continue
+
+        os.replace(temp_path, target)
         record = store.add_file(
             dataset_id=dataset_id,
             relative_path=rel_path.as_posix(),
             stored_path=target,
             size_bytes=size,
             media_type=upload.content_type,
+            sha256=checksum,
         )
+        dataset_bytes = projected_size
         accepted.append(record)
 
     return {"accepted": accepted, "rejected": rejected}
@@ -226,7 +339,56 @@ def get_job(job_id: str) -> dict:
     job = store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    artifacts = job.get("artifacts") or []
+    for index, artifact in enumerate(artifacts):
+        artifact["download_url"] = f"/api/v1/jobs/{job_id}/artifacts/{index}"
     return job
+
+
+@app.get("/api/v1/jobs/{job_id}/logs")
+def get_job_logs(
+    job_id: str,
+    tail: int = Query(default=200, ge=1, le=5000),
+) -> dict:
+    get_job(job_id)
+    log_path = DATA_ROOT / "jobs" / job_id / "worker.log"
+    if not log_path.is_file():
+        return {"job_id": job_id, "lines": [], "available": False}
+
+    with log_path.open("r", encoding="utf-8", errors="replace") as handle:
+        lines = list(deque((line.rstrip("\n") for line in handle), maxlen=tail))
+
+    return {
+        "job_id": job_id,
+        "lines": lines,
+        "available": True,
+    }
+
+
+@app.get("/api/v1/jobs/{job_id}/artifacts/{artifact_index}")
+def download_job_artifact(job_id: str, artifact_index: int) -> FileResponse:
+    job = get_job(job_id)
+    artifacts = job.get("artifacts") or []
+    if artifact_index < 0 or artifact_index >= len(artifacts):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    artifact = artifacts[artifact_index]
+    relative_path = artifact.get("relative_path")
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="Artifact path is unavailable")
+
+    path = (DATA_ROOT / relative_path).resolve()
+    data_root = DATA_ROOT.resolve()
+    if data_root not in path.parents:
+        raise HTTPException(status_code=403, detail="Invalid artifact path")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact file not found")
+
+    return FileResponse(
+        path=path,
+        filename=artifact.get("name") or path.name,
+    )
 
 
 @app.post("/api/v1/jobs", status_code=201)

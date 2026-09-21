@@ -26,8 +26,16 @@ Dataset details including image count, geotag coverage and processing readiness.
 Multipart upload. Field name: `files`.
 Optional form field: `relative_paths` as JSON array preserving browser folder paths.
 
+Uploads are streamed to a temporary file and atomically moved into place after validation. The backend calculates SHA-256 for each image, rejects duplicate content within the same dataset, and enforces configurable per-file and per-dataset size limits.
+
 ### POST /datasets/{dataset_id}/scan
 Analyze uploaded imagery and extract EXIF/XMP/GPS metadata.
+
+### GET /datasets/{dataset_id}/qa
+Returns dataset QA including geotag coverage, platform/media classification, camera models, altitude ranges, capture period, warnings and per-engine readiness.
+
+### GET /datasets/{dataset_id}/geojson
+Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
 
 ## Jobs
 
@@ -47,7 +55,13 @@ Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
 Allowed profiles: `preview`, `standard`, `high`.
 
 ### GET /jobs/{job_id}
-Returns status, progress, phase, logs tail and artifact summary.
+Returns status, progress, phase and artifact summary. Each artifact includes a relative `download_url`.
+
+### GET /jobs/{job_id}/logs?tail=200
+Returns the last 1–5000 worker log lines. If processing has not produced a log yet, `available` is false.
+
+### GET /jobs/{job_id}/artifacts/{artifact_index}
+Streams one job artifact. Clients should use the `download_url` supplied by the job response instead of constructing paths themselves.
 
 ### POST /jobs/{job_id}/cancel
 Request cancellation.

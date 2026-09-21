@@ -66,5 +66,16 @@ def read_metadata(path: Path) -> dict[str, Any]:
             "gimbal_pitch": _first(raw, "XMP:GimbalPitchDegree"),
             "gimbal_roll": _first(raw, "XMP:GimbalRollDegree"),
             "rtk_flag": _first(raw, "XMP:RtkFlag", "XMP:RTKFlag"),
+            "product_name": _first(
+                raw,
+                "XMP:ProductName",
+                "XMP:AircraftType",
+                "MakerNotes:AircraftType",
+            ),
+            "aircraft_type": _first(
+                raw,
+                "XMP:AircraftType",
+                "MakerNotes:AircraftType",
+            ),
         },
     }
