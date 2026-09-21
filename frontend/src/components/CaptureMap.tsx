@@ -9,7 +9,7 @@ interface CaptureMapProps {
   onSelect: (fileId: string) => void
 }
 
-const OSM_ATTRIBUTION = '© OpenStreetMap contributors'
+const OSM_ATTRIBUTION = '© OpenStreetMap-Mitwirkende'
 
 function baseStyle(mapPackId?: string): StyleSpecification {
   const sources: StyleSpecification['sources'] = {
@@ -256,13 +256,13 @@ export function CaptureMap({ files, mapPackId, selectedId, onSelect }: CaptureMa
 
   return (
     <div className="map-frame">
-      <div ref={containerRef} className="capture-map" aria-label="Dataset capture map" />
+      <div ref={containerRef} className="capture-map" aria-label="Karte der Datensatz-Aufnahmepunkte" />
       {!positionedFiles.length && (
-        <div className="map-overlay-message">No geotagged capture points in this dataset.</div>
+        <div className="map-overlay-message">Keine georeferenzierten Aufnahmepunkte in diesem Datensatz.</div>
       )}
       {!mapPackId && (
         <div className="map-pack-warning">
-          Offline basemap not installed. Capture geometry remains available.
+          Offline-Basiskarte nicht installiert. Die Aufnahmegeometrie bleibt verfügbar.
         </div>
       )}
     </div>
