@@ -34,6 +34,7 @@ jobs:
       - name: Import FastAPI application
         env:
           PYTHONPATH: backend
+          GEOPHOTO_DATA_ROOT: /tmp/geophoto-data
         run: python -c "from app.main import app; assert app.version"
 
   frontend:
