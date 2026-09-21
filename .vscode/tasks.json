@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Docker: Core up",
+      "label": "Docker: Kern starten",
       "type": "process",
       "command": "docker",
       "args": [
@@ -17,7 +17,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Docker: Core down",
+      "label": "Docker: Kern stoppen",
       "type": "process",
       "command": "docker",
       "args": [
@@ -27,7 +27,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Docker: Redis only",
+      "label": "Docker: Nur Redis",
       "type": "process",
       "command": "docker",
       "args": [
@@ -39,7 +39,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Docker: Logs",
+      "label": "Docker: Protokolle",
       "type": "process",
       "command": "docker",
       "args": [
@@ -51,7 +51,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Frontend: Install",
+      "label": "Frontend: Installieren",
       "type": "process",
       "command": "npm",
       "args": [
@@ -63,7 +63,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Frontend: Dev",
+      "label": "Frontend: Entwicklung",
       "type": "process",
       "command": "npm",
       "args": [
@@ -79,7 +79,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Frontend: Build",
+      "label": "Frontend: Bauen",
       "type": "process",
       "command": "npm",
       "args": [
@@ -92,7 +92,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Backend: Install",
+      "label": "Backend: Installieren",
       "type": "process",
       "command": "python",
       "args": [
@@ -108,7 +108,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Backend: Dev",
+      "label": "Backend: Entwicklung",
       "type": "process",
       "command": "python",
       "args": [
@@ -131,7 +131,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Check: Backend syntax",
+      "label": "Prüfen: Backend-Syntax",
       "type": "process",
       "command": "python",
       "args": [
@@ -143,7 +143,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Check: Compose",
+      "label": "Prüfen: Compose",
       "type": "process",
       "command": "docker",
       "args": [
@@ -154,12 +154,12 @@
       "problemMatcher": []
     },
     {
-      "label": "Check: Full stack",
+      "label": "Prüfen: Gesamtsystem",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "Check: Backend syntax",
-        "Frontend: Build",
-        "Check: Compose"
+        "Prüfen: Backend-Syntax",
+        "Frontend: Bauen",
+        "Prüfen: Compose"
       ],
       "problemMatcher": []
     }
