@@ -24,6 +24,7 @@ from .config import (
 from .metadata import read_metadata
 from .maps import router as maps_router
 from .queue import enqueue, ping as redis_ping, worker_state
+from .qa import dataset_qa
 from .storage import store
 
 app = FastAPI(
@@ -133,9 +134,23 @@ def get_dataset(dataset_id: str) -> dict:
         for item in files
         if (item.get("metadata") or {}).get("gps", {}).get("latitude") is not None
     )
+    qa = dataset_qa(files)
+    for item in files:
+        item["classification"] = qa["classifications"].get(item["relative_path"])
+    qa.pop("classifications", None)
+
     dataset["files"] = files
     dataset["geotagged_percent"] = round(tagged * 100 / total, 1) if total else 0.0
+    dataset["qa"] = qa
     return dataset
+
+
+@app.get("/api/v1/datasets/{dataset_id}/qa")
+def get_dataset_qa(dataset_id: str) -> dict:
+    _dataset_or_404(dataset_id)
+    qa = dataset_qa(store.list_files(dataset_id))
+    qa.pop("classifications", None)
+    return qa
 
 
 @app.get("/api/v1/datasets/{dataset_id}/geojson")

@@ -31,6 +31,9 @@ Uploads are streamed to a temporary file and atomically moved into place after v
 ### POST /datasets/{dataset_id}/scan
 Analyze uploaded imagery and extract EXIF/XMP/GPS metadata.
 
+### GET /datasets/{dataset_id}/qa
+Returns dataset QA including geotag coverage, platform/media classification, camera models, altitude ranges, capture period, warnings and per-engine readiness.
+
 ### GET /datasets/{dataset_id}/geojson
 Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
 
