@@ -27,6 +27,7 @@ from .maps import router as maps_router
 from .job_options import normalize_job_options
 from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
+from .previews import router as previews_router
 from .qa import dataset_qa
 from .storage import store
 
@@ -37,6 +38,7 @@ app = FastAPI(
 )
 
 app.include_router(maps_router)
+app.include_router(previews_router)
 
 
 class DatasetCreate(BaseModel):
@@ -152,6 +154,9 @@ def get_dataset(dataset_id: str) -> dict:
     qa = dataset_qa(files)
     for item in files:
         item["classification"] = qa["classifications"].get(item["relative_path"])
+        item["preview_url"] = (
+            f"/api/v1/datasets/{dataset_id}/files/{item['id']}/preview"
+        )
     qa.pop("classifications", None)
 
     dataset["files"] = files
