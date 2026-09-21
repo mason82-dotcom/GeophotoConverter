@@ -16,7 +16,7 @@ from .config import (
 )
 from .metadata import read_metadata
 from .maps import router as maps_router
-from .queue import enqueue, ping as redis_ping
+from .queue import enqueue, ping as redis_ping, worker_state
 from .storage import store
 
 app = FastAPI(
@@ -70,11 +70,25 @@ def health() -> dict:
 
 @app.get("/api/v1/services")
 def services() -> dict:
+    queue_ok = redis_ping()
+    engines = {}
+    for engine in ("odm", "micmac", "gsplat"):
+        if queue_ok:
+            try:
+                engines[engine] = worker_state(engine)
+            except Exception:
+                engines[engine] = {"engine": engine, "status": "unknown", "queue_depth": None}
+        else:
+            engines[engine] = {"engine": engine, "status": "unavailable", "queue_depth": None}
+
+    engines["odm"]["profile"] = "odm"
+    engines["micmac"]["profile"] = "micmac"
+    engines["gsplat"]["profile"] = "gsplat"
+    engines["gsplat"]["gpu"] = True
+
     return {
-        "redis": {"status": "ok" if redis_ping() else "unavailable"},
-        "odm": {"status": "optional", "profile": "odm"},
-        "micmac": {"status": "optional", "profile": "micmac"},
-        "gsplat": {"status": "optional", "profile": "gsplat", "gpu": True},
+        "redis": {"status": "ok" if queue_ok else "unavailable"},
+        **engines,
         "telesculptor": {
             "status": "experimental",
             "profile": "experimental",

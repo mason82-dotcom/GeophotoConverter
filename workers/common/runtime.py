@@ -5,6 +5,7 @@ import os
 import signal
 import sqlite3
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Callable
@@ -127,9 +128,32 @@ def run_process(
         return proc.wait()
 
 
+def _heartbeat(engine: str) -> None:
+    client = redis_client()
+    key = f"geophoto:worker:{engine}"
+    while True:
+        try:
+            client.set(
+                key,
+                json.dumps(
+                    {
+                        "engine": engine,
+                        "status": "online",
+                        "pid": os.getpid(),
+                        "updated_at": time.time(),
+                    }
+                ),
+                ex=15,
+            )
+        except Exception:
+            pass
+        time.sleep(5)
+
+
 def consume(engine: str, handler: Callable[[dict], None]) -> None:
     queue = f"geophoto:queue:{engine}"
     client = redis_client()
+    threading.Thread(target=_heartbeat, args=(engine,), daemon=True).start()
     while True:
         item = client.brpop(queue, timeout=5)
         if not item:
