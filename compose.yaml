@@ -76,6 +76,24 @@ services:
       redis:
         condition: service_healthy
 
+  thermal-worker:
+    build:
+      context: .
+      dockerfile: workers/thermal/Dockerfile
+    profiles: ["thermal"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      DJI_TSDK_DIR: /opt/dji-tsdk
+      DJI_TSDK_VERSION: ${DJI_TSDK_VERSION:-}
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+      - ${DJI_TSDK_HOST_PATH:-./dji-tsdk}:/opt/dji-tsdk:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
   dronedb:
     image: dronedb/registry:latest
     profiles: ["dronedb"]
