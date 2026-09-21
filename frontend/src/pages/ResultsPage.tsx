@@ -39,6 +39,7 @@ function formatBytes(bytes?: number) {
 function artifactLabel(artifact: Artifact) {
   const type = artifact.type.toLowerCase()
   const name = artifact.name.toLowerCase()
+  if (type.includes('multiband_orthophoto')) return { label: 'Multiband orthophoto', icon: FileImage }
   if (type.includes('orthophoto')) return { label: 'Orthophoto', icon: FileImage }
   if (type === 'dsm') return { label: 'DSM', icon: Mountain }
   if (type === 'dtm') return { label: 'DTM', icon: Mountain }
@@ -149,7 +150,7 @@ export function ResultsPage() {
               <section className="panel result-job" key={job.id}>
                 <div className="result-job-heading">
                   <div>
-                    <p className="eyebrow">{job.engine.toUpperCase()} · {job.profile}</p>
+                    <p className="eyebrow">{job.engine.toUpperCase()} · {job.workflow ?? 'rgb'} · {job.profile}</p>
                     <h3>{datasetById.get(job.dataset_id) ?? job.dataset_id.slice(0, 8)}</h3>
                   </div>
                   <span className="mono-badge">{job.id.slice(0, 8)}</span>

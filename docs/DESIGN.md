@@ -288,10 +288,16 @@ Gaussian Splatting / 3DGS. GPU-oriented designation must remain visible.
 ### TeleSculptor
 Experimental / legacy comparison. Do not present it as equivalent production automation while the backend rejects automated jobs.
 
+Workflows:
+- RGB / WIDE — default photogrammetry workflow
+- M3M Multispectral — ODM-only workflow for complete RGB + Green + Red + Red Edge + NIR capture groups
+
 Profiles:
 - Preview
 - Standard
 - High
+
+The workflow selector must use backend QA/readiness. M3M multispectral must remain unavailable for MicMac, gsplat and TeleSculptor unless the API contract changes.
 
 The frontend submits backend jobs only.
 

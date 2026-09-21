@@ -8,6 +8,7 @@ import type {
   MapCatalog,
   ProcessingEngine,
   ProcessingProfile,
+  ProcessingWorkflow,
   ServicesResponse,
   UploadResponse,
 } from './types'
@@ -110,6 +111,7 @@ export async function createJob(
   datasetId: string,
   engine: ProcessingEngine,
   profile: ProcessingProfile,
+  workflow: ProcessingWorkflow = 'rgb',
 ): Promise<Job> {
   const response = await fetch(`${API_BASE}/jobs`, {
     method: 'POST',
@@ -118,6 +120,7 @@ export async function createJob(
       dataset_id: datasetId,
       engine,
       profile,
+      workflow,
     }),
   })
   return readJson<Job>(response)

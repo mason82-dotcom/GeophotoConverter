@@ -179,7 +179,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
                 onClick={() => void selectJob(job.id)}
               >
                 <div>
-                  <strong>{job.engine.toUpperCase()} · {job.profile}</strong>
+                  <strong>{job.engine.toUpperCase()} · {job.workflow ?? 'rgb'} · {job.profile}</strong>
                   <span>{job.id.slice(0, 8)} · {job.phase || job.status}</span>
                 </div>
                 <span className={`status-chip ${statusClass(job.status)}`}>{job.status}</span>
@@ -192,7 +192,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
               <div className="job-detail-heading">
                 <div>
                   <p className="eyebrow">Job {selectedJob.id.slice(0, 8)}</p>
-                  <h3>{selectedJob.engine.toUpperCase()} / {selectedJob.profile}</h3>
+                  <h3>{selectedJob.engine.toUpperCase()} / {selectedJob.workflow ?? 'rgb'} / {selectedJob.profile}</h3>
                 </div>
                 <span className={`status-chip ${statusClass(selectedJob.status)}`}>{selectedJob.status}</span>
               </div>

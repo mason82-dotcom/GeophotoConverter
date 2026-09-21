@@ -86,6 +86,7 @@ export interface QaRange {
 export interface EngineReadiness {
   ready: boolean
   eligible_images: number
+  complete_groups?: number
   reason: string | null
 }
 
@@ -116,11 +117,19 @@ export interface DatasetQa {
     rgb_wide: number
     thermal: number
     multispectral: number
+    multispectral_groups: number
+    complete_multispectral_groups: number
+  }
+  multispectral: {
+    required_media_kinds: string[]
+    group_count: number
+    complete_groups: number
   }
   readiness: {
     odm: EngineReadiness
     micmac: EngineReadiness
     gsplat: EngineReadiness
+    odm_multispectral: EngineReadiness
   }
 }
 
@@ -168,6 +177,7 @@ export interface MapCatalog {
 
 export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'telesculptor'
 export type ProcessingProfile = 'preview' | 'standard' | 'high'
+export type ProcessingWorkflow = 'rgb' | 'multispectral'
 
 export interface Artifact {
   type: string
@@ -182,6 +192,7 @@ export interface Job {
   dataset_id: string
   engine: ProcessingEngine
   profile: ProcessingProfile
+  workflow?: ProcessingWorkflow
   status: string
   progress: number
   phase?: string | null

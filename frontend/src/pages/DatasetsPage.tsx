@@ -307,10 +307,15 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
                       </div>
                     )
                   })}
+                  <div className={`qa-engine-card ${qa.readiness.odm_multispectral.ready ? 'qa-engine-card--ready' : 'qa-engine-card--blocked'}`}>
+                    <strong>ODM M3M</strong>
+                    <span>{qa.readiness.odm_multispectral.ready ? 'Ready' : qa.readiness.odm_multispectral.reason ?? 'Blocked'}</span>
+                    <small>{qa.readiness.odm_multispectral.complete_groups ?? 0} complete capture groups</small>
+                  </div>
                   <div className="qa-engine-card">
                     <strong>Inputs</strong>
                     <span>RGB/WIDE {qa.engine_inputs.rgb_wide} · Thermal {qa.engine_inputs.thermal}</span>
-                    <small>Multispectral {qa.engine_inputs.multispectral}</small>
+                    <small>Multispectral {qa.engine_inputs.multispectral} · complete groups {qa.engine_inputs.complete_multispectral_groups}</small>
                   </div>
                 </div>
               )}

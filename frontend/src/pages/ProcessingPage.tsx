@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createJob, getDatasetQa, getServices, listDatasets } from '../api/client'
-import { ApiError, type Dataset, type DatasetQa, type Job, type ProcessingEngine, type ProcessingProfile, type ServicesResponse } from '../api/types'
+import { ApiError, type Dataset, type DatasetQa, type Job, type ProcessingEngine, type ProcessingProfile, type ProcessingWorkflow, type ServicesResponse } from '../api/types'
 import { JobMonitor } from '../components/JobMonitor'
 
 interface EngineDefinition {
@@ -109,6 +109,7 @@ export function ProcessingPage() {
   const [qaLoading, setQaLoading] = useState(false)
   const [engine, setEngine] = useState<ProcessingEngine>('odm')
   const [profile, setProfile] = useState<ProcessingProfile>('standard')
+  const [workflow, setWorkflow] = useState<ProcessingWorkflow>('rgb')
   const [createdJob, setCreatedJob] = useState<Job>()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -164,7 +165,12 @@ export function ProcessingPage() {
     [datasets, datasetId],
   )
   const selectedEngine = ENGINES.find((item) => item.id === engine)!
-  const engineReadiness = engine === 'telesculptor' ? undefined : qa?.readiness[engine]
+  const engineReadiness =
+    engine === 'telesculptor'
+      ? undefined
+      : engine === 'odm' && workflow === 'multispectral'
+        ? qa?.readiness.odm_multispectral
+        : qa?.readiness[engine]
   const canSubmit =
     Boolean(datasetId) &&
     engine !== 'telesculptor' &&
@@ -178,7 +184,7 @@ export function ProcessingPage() {
     setCreatedJob(undefined)
     setError(undefined)
     try {
-      setCreatedJob(await createJob(datasetId, engine, profile))
+      setCreatedJob(await createJob(datasetId, engine, profile, workflow))
     } catch (requestError) {
       setError(apiMessage(requestError))
     } finally {
@@ -252,7 +258,10 @@ export function ProcessingPage() {
                 type="button"
                 className={`engine-card ${selected ? 'engine-card--selected' : ''}`}
                 aria-pressed={selected}
-                onClick={() => setEngine(item.id)}
+                onClick={() => {
+                  setEngine(item.id)
+                  if (item.id !== 'odm') setWorkflow('rgb')
+                }}
               >
                 <div className="engine-card-top">
                   <span className="engine-icon"><Icon size={21} /></span>
@@ -273,6 +282,44 @@ export function ProcessingPage() {
               </button>
             )
           })}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Processing workflow</p>
+            <h3>Dataset interpretation</h3>
+          </div>
+        </div>
+        <div className="workflow-card-grid">
+          <button
+            type="button"
+            className={`workflow-card ${workflow === 'rgb' ? 'workflow-card--selected' : ''}`}
+            aria-pressed={workflow === 'rgb'}
+            onClick={() => setWorkflow('rgb')}
+          >
+            <div>
+              <strong>RGB / WIDE mapping</strong>
+              <span>Standard photogrammetry input for ODM, MicMac and gsplat.</span>
+            </div>
+            <small>{qa?.engine_inputs.rgb_wide ?? 0} eligible images</small>
+          </button>
+          <button
+            type="button"
+            className={`workflow-card ${workflow === 'multispectral' ? 'workflow-card--selected' : ''}`}
+            aria-pressed={workflow === 'multispectral'}
+            disabled={engine !== 'odm'}
+            onClick={() => setWorkflow('multispectral')}
+          >
+            <div>
+              <strong>M3M multispectral</strong>
+              <span>ODM-only multiband workflow requiring complete RGB + G + R + RE + NIR capture groups.</span>
+            </div>
+            <small>
+              {qa?.readiness.odm_multispectral.complete_groups ?? 0} complete groups · {qa?.readiness.odm_multispectral.eligible_images ?? 0} images
+            </small>
+          </button>
         </div>
       </section>
 
@@ -310,7 +357,7 @@ export function ProcessingPage() {
       <section className="panel job-submit-panel">
         <div>
           <p className="eyebrow">Job request</p>
-          <h3>{selectedEngine.name} · {PROFILES.find((item) => item.id === profile)?.name}</h3>
+          <h3>{selectedEngine.name} · {workflow === 'multispectral' ? 'M3M Multispectral' : 'RGB'} · {PROFILES.find((item) => item.id === profile)?.name}</h3>
           {engine === 'telesculptor' ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
@@ -339,7 +386,7 @@ export function ProcessingPage() {
           <CheckCircle2 size={18} />
           <div>
             <strong>Job created</strong>
-            <span>{createdJob.id} · {createdJob.engine} · {createdJob.profile} · {createdJob.status}</span>
+            <span>{createdJob.id} · {createdJob.engine} · {createdJob.workflow ?? workflow} · {createdJob.profile} · {createdJob.status}</span>
           </div>
         </div>
       )}

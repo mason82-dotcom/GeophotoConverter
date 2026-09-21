@@ -100,7 +100,7 @@ export function DroneDBPage() {
             {!jobs.length && <option value="">No completed jobs with artifacts</option>}
             {jobs.map((job) => {
               const name = datasets.find((dataset) => dataset.id === job.dataset_id)?.name ?? job.dataset_id.slice(0, 8)
-              return <option key={job.id} value={job.id}>{name} · {job.engine} · {job.profile}</option>
+              return <option key={job.id} value={job.id}>{name} · {job.engine} · {job.workflow ?? 'rgb'} · {job.profile}</option>
             })}
           </select>
         </label>
@@ -114,6 +114,10 @@ export function DroneDBPage() {
             <article>
               <span>Engine</span>
               <strong>{selectedJob.engine.toUpperCase()}</strong>
+            </article>
+            <article>
+              <span>Workflow</span>
+              <strong>{selectedJob.workflow ?? 'rgb'}</strong>
             </article>
             <article>
               <span>Profile</span>
