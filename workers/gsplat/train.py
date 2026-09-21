@@ -30,8 +30,8 @@ PROFILES = {
 def run(data_dir: Path, result_dir: Path, profile_name: str) -> None:
     if not torch.cuda.is_available():
         raise RuntimeError(
-            "CUDA is unavailable. Start the gsplat compose profile on a host "
-            "with an NVIDIA GPU and NVIDIA Container Toolkit."
+            "CUDA ist nicht verfügbar. Das gsplat-Compose-Profil muss auf einem Host "
+            "mit NVIDIA-GPU und NVIDIA Container Toolkit gestartet werden."
         )
 
     profile = PROFILES[profile_name]
