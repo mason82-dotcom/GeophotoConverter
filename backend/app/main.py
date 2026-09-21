@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
-import shutil
+from collections import deque
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .config import (
+    DATA_ROOT,
     DATASETS_ROOT,
     ENGINE_NAMES,
     PROFILE_NAMES,
@@ -131,6 +133,43 @@ def get_dataset(dataset_id: str) -> dict:
     return dataset
 
 
+@app.get("/api/v1/datasets/{dataset_id}/geojson")
+def dataset_geojson(dataset_id: str) -> dict:
+    _dataset_or_404(dataset_id)
+    features = []
+    for item in store.list_files(dataset_id):
+        metadata = item.get("metadata") or {}
+        gps = metadata.get("gps") or {}
+        latitude = gps.get("latitude")
+        longitude = gps.get("longitude")
+        if latitude is None or longitude is None:
+            continue
+
+        features.append(
+            {
+                "type": "Feature",
+                "id": item["id"],
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [longitude, latitude],
+                },
+                "properties": {
+                    "file_id": item["id"],
+                    "relative_path": item["relative_path"],
+                    "altitude": gps.get("altitude"),
+                    "capture_time": metadata.get("capture_time"),
+                    "camera": metadata.get("camera"),
+                    "dji": metadata.get("dji"),
+                },
+            }
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+
 @app.post("/api/v1/datasets/{dataset_id}/files")
 async def upload_files(
     dataset_id: str,
@@ -226,7 +265,56 @@ def get_job(job_id: str) -> dict:
     job = store.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    artifacts = job.get("artifacts") or []
+    for index, artifact in enumerate(artifacts):
+        artifact["download_url"] = f"/api/v1/jobs/{job_id}/artifacts/{index}"
     return job
+
+
+@app.get("/api/v1/jobs/{job_id}/logs")
+def get_job_logs(
+    job_id: str,
+    tail: int = Query(default=200, ge=1, le=5000),
+) -> dict:
+    get_job(job_id)
+    log_path = DATA_ROOT / "jobs" / job_id / "worker.log"
+    if not log_path.is_file():
+        return {"job_id": job_id, "lines": [], "available": False}
+
+    with log_path.open("r", encoding="utf-8", errors="replace") as handle:
+        lines = list(deque((line.rstrip("\n") for line in handle), maxlen=tail))
+
+    return {
+        "job_id": job_id,
+        "lines": lines,
+        "available": True,
+    }
+
+
+@app.get("/api/v1/jobs/{job_id}/artifacts/{artifact_index}")
+def download_job_artifact(job_id: str, artifact_index: int) -> FileResponse:
+    job = get_job(job_id)
+    artifacts = job.get("artifacts") or []
+    if artifact_index < 0 or artifact_index >= len(artifacts):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    artifact = artifacts[artifact_index]
+    relative_path = artifact.get("relative_path")
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="Artifact path is unavailable")
+
+    path = (DATA_ROOT / relative_path).resolve()
+    data_root = DATA_ROOT.resolve()
+    if data_root not in path.parents:
+        raise HTTPException(status_code=403, detail="Invalid artifact path")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact file not found")
+
+    return FileResponse(
+        path=path,
+        filename=artifact.get("name") or path.name,
+    )
 
 
 @app.post("/api/v1/jobs", status_code=201)

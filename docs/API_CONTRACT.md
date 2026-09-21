@@ -29,6 +29,9 @@ Optional form field: `relative_paths` as JSON array preserving browser folder pa
 ### POST /datasets/{dataset_id}/scan
 Analyze uploaded imagery and extract EXIF/XMP/GPS metadata.
 
+### GET /datasets/{dataset_id}/geojson
+Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
+
 ## Jobs
 
 ### GET /jobs
@@ -47,7 +50,13 @@ Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
 Allowed profiles: `preview`, `standard`, `high`.
 
 ### GET /jobs/{job_id}
-Returns status, progress, phase, logs tail and artifact summary.
+Returns status, progress, phase and artifact summary. Each artifact includes a relative `download_url`.
+
+### GET /jobs/{job_id}/logs?tail=200
+Returns the last 1–5000 worker log lines. If processing has not produced a log yet, `available` is false.
+
+### GET /jobs/{job_id}/artifacts/{artifact_index}
+Streams one job artifact. Clients should use the `download_url` supplied by the job response instead of constructing paths themselves.
 
 ### POST /jobs/{job_id}/cancel
 Request cancellation.
