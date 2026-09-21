@@ -35,6 +35,6 @@ def normalize_job_options(
 
     if options:
         raise ValueError(
-            f"Engine/workflow {engine}/{workflow} does not accept job options yet."
+            f"Engine/Workflow {engine}/{workflow} unterstützt derzeit keine Job-Optionen."
         )
     return {}

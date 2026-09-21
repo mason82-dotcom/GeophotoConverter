@@ -14,10 +14,10 @@ def processing_catalog() -> dict[str, Any]:
                 "workflows": [
                     {
                         "key": "rgb",
-                        "title": "RGB / Wide Mapping",
+                        "title": "RGB-/Weitwinkel-Mapping",
                         "description": (
-                            "Orthophoto, terrain products, point cloud and mesh "
-                            "from RGB/WIDE aerial imagery."
+                            "Orthofoto, Geländemodelle, Punktwolke und Mesh "
+                            "aus RGB/WIDE-Luftbildern."
                         ),
                         "eligible_media_kinds": ["RGB", "WIDE"],
                         "minimum_images": 2,
@@ -31,25 +31,25 @@ def processing_catalog() -> dict[str, Any]:
                         ],
                         "profiles": {
                             "preview": {
-                                "purpose": "Fast coverage and matching check.",
+                                "purpose": "Schnelle Prüfung von Abdeckung und Bildzuordnung.",
                                 "orthophoto_resolution_cm": 10,
                             },
                             "standard": {
-                                "purpose": "General mapping and terrain reconstruction.",
+                                "purpose": "Allgemeines Mapping und Geländerekonstruktion.",
                                 "orthophoto_resolution_cm": 5,
                             },
                             "high": {
-                                "purpose": "Higher-quality survey processing.",
+                                "purpose": "Hochwertigere Verarbeitung für Vermessungsaufgaben.",
                                 "orthophoto_resolution_cm": 2,
                             },
                         },
                     },
                     {
                         "key": "multispectral",
-                        "title": "M3M Multispectral",
+                        "title": "M3M Multispektral",
                         "description": (
-                            "Process complete DJI Mavic 3 Multispectral capture "
-                            "groups together as a calibrated multiband orthophoto."
+                            "Vollständige DJI-Mavic-3-Multispektral-Aufnahmegruppen "
+                            "gemeinsam als kalibriertes Multiband-Orthofoto verarbeiten."
                         ),
                         "platforms": ["M3M"],
                         "eligible_media_kinds": [
@@ -63,7 +63,7 @@ def processing_catalog() -> dict[str, Any]:
                         "radiometric_calibration": "camera",
                         "camera_plus_sun": {
                             "enabled": False,
-                            "reason": "ODM documents camera+sun as experimental.",
+                            "reason": "ODM kennzeichnet camera+sun als experimentell.",
                         },
                         "outputs": [
                             "multiband_orthophoto",
@@ -72,15 +72,15 @@ def processing_catalog() -> dict[str, Any]:
                         ],
                         "profiles": {
                             "preview": {
-                                "purpose": "Coarse multispectral validation.",
+                                "purpose": "Grobe Multispektral-Prüfung.",
                                 "orthophoto_resolution_cm": 10,
                             },
                             "standard": {
-                                "purpose": "Calibrated multispectral mapping.",
+                                "purpose": "Kalibriertes Multispektral-Mapping.",
                                 "orthophoto_resolution_cm": 5,
                             },
                             "high": {
-                                "purpose": "Higher-resolution multispectral mapping.",
+                                "purpose": "Höher aufgelöstes Multispektral-Mapping.",
                                 "orthophoto_resolution_cm": 2,
                             },
                         },
@@ -94,19 +94,19 @@ def processing_catalog() -> dict[str, Any]:
                 "workflows": [
                     {
                         "key": "rgb",
-                        "title": "RGB / Wide Reconstruction",
+                        "title": "RGB-/Weitwinkel-Rekonstruktion",
                         "eligible_media_kinds": ["RGB", "WIDE"],
                         "minimum_images": 3,
                         "outputs": ["sparse_point_cloud", "dense_point_cloud"],
                         "profiles": {
                             "preview": {
-                                "purpose": "Tie points, orientation and sparse cloud.",
+                                "purpose": "Verknüpfungspunkte, Orientierung und dünne Punktwolke.",
                             },
                             "standard": {
-                                "purpose": "Sparse + C3DC QuickMac dense cloud.",
+                                "purpose": "Dünne Punktwolke plus dichte C3DC-QuickMac-Punktwolke.",
                             },
                             "high": {
-                                "purpose": "Sparse + C3DC BigMac dense cloud.",
+                                "purpose": "Dünne Punktwolke plus dichte C3DC-BigMac-Punktwolke.",
                             },
                         },
                     }
@@ -120,21 +120,21 @@ def processing_catalog() -> dict[str, Any]:
                 "workflows": [
                     {
                         "key": "rgb",
-                        "title": "RGB / Wide 3D Gaussian Splatting",
+                        "title": "RGB-/Weitwinkel-3D-Gaussian-Splatting",
                         "eligible_media_kinds": ["RGB", "WIDE"],
                         "minimum_images": 3,
                         "outputs": ["gaussian_splat_ply", "checkpoint", "training_stats"],
                         "profiles": {
                             "preview": {
-                                "purpose": "Fast reduced-resolution training.",
+                                "purpose": "Schnelles Training mit reduzierter Auflösung.",
                                 "max_steps": 3000,
                             },
                             "standard": {
-                                "purpose": "Balanced reconstruction.",
+                                "purpose": "Ausgewogene Rekonstruktion.",
                                 "max_steps": 7000,
                             },
                             "high": {
-                                "purpose": "Longer higher-detail training.",
+                                "purpose": "Längeres Training mit höherem Detailgrad.",
                                 "max_steps": 15000,
                             },
                         },
@@ -143,14 +143,14 @@ def processing_catalog() -> dict[str, Any]:
             },
             {
                 "key": "thermal",
-                "title": "DJI Radiometric Thermal",
+                "title": "DJI Radiometrische Thermografie",
                 "automated": True,
                 "requires_dji_tsdk": True,
                 "platforms": ["M3T", "M4T"],
                 "workflows": [
                     {
                         "key": "thermal",
-                        "title": "WIDE + Radiometric Thermal",
+                        "title": "WIDE + radiometrisches Thermalbild",
                         "minimum_complete_groups": 1,
                         "required_pair": ["WIDE", "THERMAL"],
                         "temperature_space": "sensor_pixel",
@@ -162,30 +162,30 @@ def processing_catalog() -> dict[str, Any]:
                                 "minimum_exclusive": 0.0,
                                 "maximum": 1.0,
                                 "default": None,
-                                "note": "Optional DIRP measurement override.",
+                                "note": "Optionale DIRP-Messwertvorgabe.",
                             },
                             "distance_m": {
                                 "type": "number",
                                 "minimum_exclusive": 0.0,
                                 "default": None,
-                                "note": "Optional DIRP measurement override.",
+                                "note": "Optionale DIRP-Messwertvorgabe.",
                             },
                             "humidity_pct": {
                                 "type": "number",
                                 "minimum": 0.0,
                                 "maximum": 100.0,
                                 "default": None,
-                                "note": "Optional DIRP measurement override.",
+                                "note": "Optionale DIRP-Messwertvorgabe.",
                             },
                             "reflection_c": {
                                 "type": "number",
                                 "default": None,
-                                "note": "Optional reflected temperature override.",
+                                "note": "Optionale Vorgabe der reflektierten Temperatur.",
                             },
                             "ambient_temp_c": {
                                 "type": "number",
                                 "default": None,
-                                "note": "Optional ambient temperature override.",
+                                "note": "Optionale Vorgabe der Umgebungstemperatur.",
                             },
                             "hotspot_delta_c": {
                                 "type": "number",
@@ -209,13 +209,13 @@ def processing_catalog() -> dict[str, Any]:
                         ],
                         "profiles": {
                             "preview": {
-                                "purpose": "Uses SDK-native radiometry.",
+                                "purpose": "Verwendet die SDK-native Radiometrie.",
                             },
                             "standard": {
-                                "purpose": "Uses SDK-native radiometry.",
+                                "purpose": "Verwendet die SDK-native Radiometrie.",
                             },
                             "high": {
-                                "purpose": "Uses SDK-native radiometry.",
+                                "purpose": "Verwendet die SDK-native Radiometrie.",
                             },
                         },
                     }
@@ -227,8 +227,8 @@ def processing_catalog() -> dict[str, Any]:
                 "automated": False,
                 "experimental": True,
                 "description": (
-                    "Manual/experimental comparison engine; not part of the "
-                    "automated job queue."
+                    "Manuelle/experimentelle Vergleichs-Engine; nicht Teil der "
+                    "automatisierten Job-Warteschlange."
                 ),
                 "workflows": [],
             },

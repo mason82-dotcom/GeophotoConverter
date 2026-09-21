@@ -341,3 +341,13 @@ def test_processing_profile_catalog_exposes_specialized_workflows(client):
 
     assert engines["gsplat"]["requires_gpu"] is True
     assert engines["telesculptor"]["automated"] is False
+
+
+def test_processing_catalog_user_text_is_german(client):
+    response = client.get("/api/v1/processing/profiles")
+    assert response.status_code == 200
+    engines = {item["key"]: item for item in response.json()["engines"]}
+    odm_workflows = {item["key"]: item for item in engines["odm"]["workflows"]}
+    assert "Multispektral" in odm_workflows["multispectral"]["title"]
+    assert "Schnelle Prüfung" in odm_workflows["rgb"]["profiles"]["preview"]["purpose"]
+    assert "Thermografie" in engines["thermal"]["title"]

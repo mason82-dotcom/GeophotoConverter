@@ -189,17 +189,17 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         "odm": {
             "ready": mapping_inputs >= 2,
             "eligible_images": mapping_inputs,
-            "reason": None if mapping_inputs >= 2 else "At least two RGB/WIDE images are required.",
+            "reason": None if mapping_inputs >= 2 else "Mindestens zwei RGB/WIDE-Bilder sind erforderlich.",
         },
         "micmac": {
             "ready": mapping_inputs >= 3,
             "eligible_images": mapping_inputs,
-            "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
+            "reason": None if mapping_inputs >= 3 else "Mindestens drei RGB/WIDE-Bilder sind erforderlich.",
         },
         "gsplat": {
             "ready": mapping_inputs >= 3,
             "eligible_images": mapping_inputs,
-            "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
+            "reason": None if mapping_inputs >= 3 else "Mindestens drei RGB/WIDE-Bilder sind erforderlich.",
         },
         "thermal": {
             "ready": thermal_ready,
@@ -210,8 +210,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 None
                 if thermal_ready
                 else (
-                    "At least one complete WIDE+THERMAL capture group from a "
-                    "single confirmed M3T or M4T platform is required."
+                    "Mindestens eine vollständige WIDE+THERMAL-Aufnahmegruppe von "
+                    "genau einer bestätigten M3T- oder M4T-Plattform ist erforderlich."
                 )
             ),
         },
@@ -225,8 +225,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 None
                 if complete_multispectral_groups >= 2
                 else (
-                    "At least two complete M3M capture groups are required "
-                    "(RGB + Green + Red + Red Edge + NIR)."
+                    "Mindestens zwei vollständige M3M-Aufnahmegruppen sind erforderlich "
+                    "(RGB + Grün + Rot + Red Edge + NIR)."
                 )
             ),
         },
