@@ -28,7 +28,7 @@ PROFILES = {
 def _stage_images(dataset_id: str, scene_dir: Path) -> int:
     source = DATA_ROOT / "datasets" / dataset_id / "images"
     if not source.exists():
-        raise FileNotFoundError(f"Dataset image directory not found: {source}")
+        raise FileNotFoundError(f"Bildverzeichnis des Datensatzes nicht gefunden: {source}")
 
     image_dir = scene_dir / "images"
     image_dir.mkdir(parents=True, exist_ok=True)
@@ -45,8 +45,8 @@ def _stage_images(dataset_id: str, scene_dir: Path) -> int:
 
     if count < 3:
         raise ValueError(
-            "gsplat requires at least three JPEG/PNG/TIFF images. "
-            "DNG/R-JPEG normalization is not enabled yet."
+            "gsplat benötigt mindestens drei JPEG/PNG/TIFF-Bilder. "
+            "DNG/R-JPEG-Normalisierung ist noch nicht aktiviert."
         )
     return count
 
@@ -99,7 +99,7 @@ def handle(payload: dict) -> None:
     profile_name = payload.get("profile", "standard")
     profile = PROFILES.get(profile_name)
     if profile is None:
-        raise ValueError(f"Unsupported gsplat profile: {profile_name}")
+        raise ValueError(f"Nicht unterstütztes gsplat-Profil: {profile_name}")
 
     job_root = DATA_ROOT / "jobs" / job_id
     gsplat_root = job_root / "gsplat"
@@ -119,7 +119,7 @@ def handle(payload: dict) -> None:
         status="running",
         progress=1,
         phase="staging",
-        message="Preparing gsplat/COLMAP project.",
+        message="gsplat/COLMAP-Projekt wird vorbereitet.",
     )
     image_count = _stage_images(dataset_id, scene_dir)
 
@@ -127,7 +127,7 @@ def handle(payload: dict) -> None:
         job_id,
         progress=8,
         phase="colmap_features",
-        message=f"COLMAP extracting features from {image_count} images.",
+        message=f"COLMAP extrahiert Merkmale aus {image_count} Bildern.",
     )
     if not _run(
         job_id,
@@ -175,7 +175,7 @@ def handle(payload: dict) -> None:
         job_id,
         progress=42,
         phase="colmap_mapping",
-        message="COLMAP reconstructing camera poses and sparse point cloud.",
+        message="COLMAP rekonstruiert Kameraposen und eine dünne Punktwolke.",
     )
     if not _run(
         job_id,
@@ -198,7 +198,7 @@ def handle(payload: dict) -> None:
     if not model_dir.is_dir():
         candidates = sorted(path for path in sparse_dir.iterdir() if path.is_dir())
         if not candidates:
-            raise RuntimeError("COLMAP did not produce a sparse reconstruction.")
+            raise RuntimeError("COLMAP hat keine dünne Rekonstruktion erzeugt.")
         model_dir = candidates[0]
         if model_dir.name != "0":
             target = sparse_dir / "0"
@@ -230,7 +230,7 @@ def handle(payload: dict) -> None:
     if code == 130:
         return
     if code != 0:
-        raise RuntimeError(f"gsplat training exited with code {code}.")
+        raise RuntimeError(f"gsplat-Training wurde mit Code {code} beendet.")
 
     artifacts = _collect_artifacts(result_dir, job_id)
     update_job(
@@ -238,7 +238,7 @@ def handle(payload: dict) -> None:
         status="completed",
         progress=100,
         phase="completed",
-        message=f"gsplat completed with {len(artifacts)} detected artifacts.",
+        message=f"gsplat abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 
