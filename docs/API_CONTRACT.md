@@ -1,52 +1,55 @@
-# GeoPhotoConverter API Contract v0.1
+# GeoPhotoConverter API-Vertrag v0.1
 
-Base URL: `/api/v1`
+Basis-URL: `/api/v1`
 
-## Health
+## Systemstatus
 
 ### GET /health
-Returns service status.
+Liefert den Dienststatus.
 
-## Datasets
+## Datensätze
 
 ### GET /datasets
-List imported datasets.
+Listet importierte Datensätze auf.
 
 ### POST /datasets
-Create a dataset.
+Erstellt einen Datensatz.
+
 Body:
 ```json
-{"name":"Survey 2026-09-21","description":"optional"}
+{"name":"Befliegung 2026-09-21","description":"optional"}
 ```
 
 ### GET /datasets/{dataset_id}
-Dataset details including image count, geotag coverage and processing readiness. The response also exposes backend-authoritative `platform`, `duplicate_count`, and `processing_readiness` summary fields alongside the full `qa` object.
+Liefert Datensatzdetails einschließlich Bildanzahl, Georeferenzierungsabdeckung und Verarbeitungsbereitschaft. Zusätzlich werden die vom Backend berechneten Zusammenfassungsfelder `platform`, `duplicate_count` und `processing_readiness` sowie das vollständige `qa`-Objekt ausgegeben.
 
 ### POST /datasets/{dataset_id}/files
-Multipart upload. Field name: `files`.
-Optional form field: `relative_paths` as JSON array preserving browser folder paths.
+Multipart-Upload. Feldname: `files`.
 
-Uploads are streamed to a temporary file and atomically moved into place after validation. The backend calculates SHA-256 for each image, rejects duplicate content within the same dataset, and enforces configurable per-file and per-dataset size limits.
+Optionales Formularfeld: `relative_paths` als JSON-Array zur Beibehaltung der vom Browser gelieferten Ordnerpfade.
+
+Uploads werden zunächst in eine temporäre Datei gestreamt und nach erfolgreicher Validierung atomar an die Zielposition verschoben. Das Backend berechnet für jedes Bild SHA-256, lehnt doppelte Inhalte innerhalb desselben Datensatzes ab und erzwingt konfigurierbare Größenlimits pro Datei und Datensatz.
 
 ### POST /datasets/{dataset_id}/scan
-Analyze uploaded imagery and extract EXIF/XMP/GPS metadata.
+Analysiert hochgeladene Bilddaten und extrahiert EXIF-/XMP-/GPS-Metadaten.
 
 ### GET /datasets/{dataset_id}/qa
-Returns dataset QA including geotag coverage, platform/media classification, camera models, altitude ranges, capture period, warnings and per-engine readiness.
+Liefert die Datensatz-QA einschließlich Georeferenzierungsabdeckung, Plattform-/Medienklassifikation, Kameramodellen, Höhenbereichen, Aufnahmezeitraum, Warnungen und Bereitschaft je Verarbeitungs-Engine.
 
 ### GET /datasets/{dataset_id}/geojson
-Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
+Liefert die georeferenzierten Bildpositionen als GeoJSON-`FeatureCollection` für MapLibre.
 
 ### GET /datasets/{dataset_id}/files/{file_id}/preview?size=960
-Returns a browser-displayable JPEG preview with EXIF orientation applied. `size` is the maximum preview dimension (128–2048 px). Formats unsupported by Pillow return HTTP 415 instead of exposing filesystem paths.
+Liefert eine im Browser darstellbare JPEG-Vorschau mit angewendeter EXIF-Ausrichtung. `size` ist die maximale Kantenlänge der Vorschau (128–2048 px). Von Pillow nicht unterstützte Formate liefern HTTP 415; Dateisystempfade werden nicht offengelegt.
 
-## Jobs
+## Aufträge
 
 ### GET /jobs
-List processing jobs.
+Listet Verarbeitungsaufträge auf.
 
 ### POST /jobs
-Create a processing job.
+Erstellt einen Verarbeitungsauftrag.
+
 ```json
 {
   "dataset_id":"...",
@@ -54,58 +57,61 @@ Create a processing job.
   "profile":"preview"
 }
 ```
-Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
-Allowed profiles: `preview`, `standard`, `high`.
+
+Erlaubte Engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
+
+Erlaubte Profile: `preview`, `standard`, `high`.
 
 ### GET /jobs/{job_id}
-Returns status, progress, phase and artifact summary. Each artifact includes a relative `download_url`.
+Liefert Status, Fortschritt, Phase und eine Artefakt-Zusammenfassung. Jedes Artefakt enthält eine relative `download_url`.
 
 ### GET /jobs/{job_id}/logs?tail=200
-Returns the last 1–5000 worker log lines. If processing has not produced a log yet, `available` is false.
+Liefert die letzten 1–5000 Worker-Protokollzeilen. Falls die Verarbeitung noch kein Protokoll erzeugt hat, ist `available` gleich `false`.
 
 ### GET /jobs/{job_id}/artifacts/{artifact_index}
-Streams one job artifact. Clients should use the `download_url` supplied by the job response instead of constructing paths themselves.
+Überträgt ein Auftragsartefakt. Clients sollen die vom Auftrag gelieferte `download_url` verwenden und keine Dateipfade selbst zusammensetzen.
 
 ### POST /jobs/{job_id}/cancel
-Request cancellation.
+Fordert den Abbruch eines Auftrags an.
 
-## Services
+## Dienste
 
 ### GET /services
-Returns availability/status for ODM, MicMac, gsplat, DroneDB and Open WebUI.
+Liefert Verfügbarkeit und Status von ODM, MicMac, gsplat, DroneDB und Open WebUI.
 
-## Frontend contract
+## Frontend-Vertrag
 
-The frontend must not hardcode backend hostnames. Use relative `/api/v1` calls.
+Das Frontend darf keine Backend-Hostnamen fest eintragen. Es verwendet relative `/api/v1`-Aufrufe.
 
-Required UI states:
-- loading
-- empty
-- error
-- uploading with per-file progress
-- processing
-- completed
-- cancelled
+Erforderliche UI-Zustände:
 
-The frontend owns no processing logic. It submits jobs and renders backend state.
+- Laden
+- Leerzustand
+- Fehler
+- Upload mit Fortschritt je Datei
+- Verarbeitung
+- Abgeschlossen
+- Abgebrochen
 
+Das Frontend enthält keine eigene Verarbeitungslogik. Es erstellt Aufträge und stellt den vom Backend gelieferten Zustand dar.
 
-## Offline maps
+## Offline-Karten
 
 ### GET /maps
-Lists configured regional offline map packs and reports whether each MBTiles file is installed.
+Listet konfigurierte regionale Offline-Kartenpakete auf und meldet, ob die jeweilige MBTiles-Datei installiert ist.
 
 ### GET /maps/{region_id}/tilejson.json
-MapLibre-compatible TileJSON for an installed regional map pack.
+Liefert MapLibre-kompatibles TileJSON für ein installiertes regionales Kartenpaket.
 
 ### GET /maps/{region_id}/tiles/{z}/{x}/{y}.pbf
-Returns an offline Shortbread vector tile from the local MBTiles database.
+Liefert eine Offline-Shortbread-Vektorkachel aus der lokalen MBTiles-Datenbank.
 
-Configured initial regions:
-- `baden-wuerttemberg` (default)
+Initial konfigurierte Regionen:
+
+- `baden-wuerttemberg` (Standard)
 - `bayern`
 - `hessen`
 - `rheinland-pfalz`
 - `saarland`
 
-Frontend map rendering must retain OpenStreetMap attribution.
+Die Kartenanzeige im Frontend muss die OpenStreetMap-Attribution sichtbar lassen.
