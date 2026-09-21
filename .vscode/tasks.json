@@ -1,0 +1,167 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker: Core up",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "up",
+        "-d",
+        "--build",
+        "web",
+        "api",
+        "redis"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Core down",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "down"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Redis only",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "up",
+        "-d",
+        "redis"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Logs",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "logs",
+        "-f",
+        "--tail=100"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Install",
+      "type": "process",
+      "command": "npm",
+      "args": [
+        "install"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Dev",
+      "type": "process",
+      "command": "npm",
+      "args": [
+        "run",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "GEOPHOTO_DEV_API_TARGET": "http://127.0.0.1:8088"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Build",
+      "type": "process",
+      "command": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Install",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Dev",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8088"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "GEOPHOTO_DATA_ROOT": "${workspaceFolder}/data",
+          "GEOPHOTO_REDIS_URL": "redis://127.0.0.1:6379/0"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: Backend syntax",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "compileall",
+        "backend/app",
+        "workers"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: Compose",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "config",
+        "--quiet"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Check: Full stack",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Check: Backend syntax",
+        "Frontend: Build",
+        "Check: Compose"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

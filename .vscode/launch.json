@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: FastAPI (debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8088"
+      ],
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "GEOPHOTO_DATA_ROOT": "${workspaceFolder}/data",
+        "GEOPHOTO_REDIS_URL": "redis://127.0.0.1:6379/0"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
