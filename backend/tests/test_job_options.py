@@ -45,7 +45,7 @@ def test_invalid_thermal_options_are_rejected(options, field):
 
 
 def test_nonthermal_options_are_rejected():
-    with pytest.raises(ValueError, match="does not accept job options"):
+    with pytest.raises(ValueError, match="unterstützt derzeit keine Job-Optionen"):
         normalize_job_options(
             "odm",
             "rgb",
