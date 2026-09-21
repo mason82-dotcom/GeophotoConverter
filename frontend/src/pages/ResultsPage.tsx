@@ -83,9 +83,9 @@ export function ResultsPage() {
         }),
       )
       setItems(
-        detailResults
-          .filter((result): result is PromiseFulfilledResult<ResultJob> => result.status === 'fulfilled')
-          .map((result) => result.value),
+        detailResults.flatMap((result) =>
+          result.status === 'fulfilled' ? [result.value] : [],
+        ),
       )
       setDatasets(datasetList)
     } catch (requestError) {
