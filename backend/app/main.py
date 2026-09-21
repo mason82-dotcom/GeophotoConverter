@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import uuid
 from collections import deque
 from pathlib import Path, PurePosixPath
 
@@ -12,6 +15,8 @@ from .config import (
     DATA_ROOT,
     DATASETS_ROOT,
     ENGINE_NAMES,
+    MAX_DATASET_BYTES,
+    MAX_FILE_BYTES,
     PROFILE_NAMES,
     SUPPORTED_EXTENSIONS,
     ensure_directories,
@@ -192,6 +197,7 @@ async def upload_files(
 
     accepted: list[dict] = []
     rejected: list[dict] = []
+    dataset_bytes = store.dataset_size_bytes(dataset_id)
 
     for index, upload in enumerate(files):
         original_name = upload.filename or f"upload-{index}"
@@ -211,20 +217,73 @@ async def upload_files(
             continue
 
         target.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = target.with_name(f".{target.name}.{uuid.uuid4().hex}.part")
         size = 0
-        with target.open("wb") as handle:
-            while chunk := await upload.read(1024 * 1024):
-                handle.write(chunk)
-                size += len(chunk)
-        await upload.close()
+        digest = hashlib.sha256()
+        exceeded_limit = False
 
+        try:
+            with temp_path.open("wb") as handle:
+                while chunk := await upload.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_FILE_BYTES:
+                        exceeded_limit = True
+                        break
+                    digest.update(chunk)
+                    handle.write(chunk)
+        finally:
+            await upload.close()
+
+        if exceeded_limit:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": f"File exceeds limit of {MAX_FILE_BYTES // (1024 * 1024)} MiB",
+                }
+            )
+            continue
+
+        checksum = digest.hexdigest()
+        duplicate = store.find_file_by_sha256(dataset_id, checksum)
+        if duplicate is not None:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": "Duplicate file",
+                    "duplicate_of": duplicate["relative_path"],
+                    "sha256": checksum,
+                }
+            )
+            continue
+
+        existing = store.get_file_by_relative_path(dataset_id, rel_path.as_posix())
+        replaced_size = int(existing["size_bytes"]) if existing else 0
+        projected_size = dataset_bytes - replaced_size + size
+        if projected_size > MAX_DATASET_BYTES:
+            temp_path.unlink(missing_ok=True)
+            rejected.append(
+                {
+                    "name": original_name,
+                    "reason": (
+                        "Dataset size limit exceeded "
+                        f"({MAX_DATASET_BYTES / 1024 / 1024 / 1024:.0f} GiB)"
+                    ),
+                }
+            )
+            continue
+
+        os.replace(temp_path, target)
         record = store.add_file(
             dataset_id=dataset_id,
             relative_path=rel_path.as_posix(),
             stored_path=target,
             size_bytes=size,
             media_type=upload.content_type,
+            sha256=checksum,
         )
+        dataset_bytes = projected_size
         accepted.append(record)
 
     return {"accepted": accepted, "rejected": rejected}

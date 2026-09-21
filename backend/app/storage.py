@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS files (
     stored_path TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
     media_type TEXT,
+    sha256 TEXT,
     metadata_json TEXT,
     scan_error TEXT,
     created_at TEXT NOT NULL,
@@ -60,6 +61,16 @@ class Store:
         self._lock = threading.RLock()
         with self.connect() as conn:
             conn.executescript(_SCHEMA)
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(files)").fetchall()
+            }
+            if "sha256" not in columns:
+                conn.execute("ALTER TABLE files ADD COLUMN sha256 TEXT")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
+                "ON files(dataset_id, sha256)"
+            )
 
     def connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -134,6 +145,7 @@ class Store:
         stored_path: Path,
         size_bytes: int,
         media_type: str | None,
+        sha256: str,
     ) -> dict[str, Any]:
         file_id = self.new_id()
         now = self.now()
@@ -141,13 +153,50 @@ class Store:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO files(
-                    id,dataset_id,relative_path,stored_path,size_bytes,media_type,created_at
-                ) VALUES(?,?,?,?,?,?,?)
+                    id,dataset_id,relative_path,stored_path,size_bytes,media_type,sha256,created_at
+                ) VALUES(?,?,?,?,?,?,?,?)
                 """,
-                (file_id, dataset_id, relative_path, str(stored_path), size_bytes, media_type, now),
+                (
+                    file_id,
+                    dataset_id,
+                    relative_path,
+                    str(stored_path),
+                    size_bytes,
+                    media_type,
+                    sha256,
+                    now,
+                ),
             )
             conn.execute("UPDATE datasets SET updated_at=? WHERE id=?", (now, dataset_id))
             row = conn.execute("SELECT * FROM files WHERE id=?", (file_id,)).fetchone()
+        return self.row(row)
+
+    def dataset_size_bytes(self, dataset_id: str) -> int:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM files WHERE dataset_id=?",
+                (dataset_id,),
+            ).fetchone()
+        return int(row["total"]) if row else 0
+
+    def find_file_by_sha256(self, dataset_id: str, sha256: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM files WHERE dataset_id=? AND sha256=? LIMIT 1",
+                (dataset_id, sha256),
+            ).fetchone()
+        return self.row(row)
+
+    def get_file_by_relative_path(
+        self,
+        dataset_id: str,
+        relative_path: str,
+    ) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM files WHERE dataset_id=? AND relative_path=?",
+                (dataset_id, relative_path),
+            ).fetchone()
         return self.row(row)
 
     def list_files(self, dataset_id: str) -> list[dict[str, Any]]:

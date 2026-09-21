@@ -9,6 +9,8 @@ DATASETS_ROOT = DATA_ROOT / "datasets"
 MAPS_ROOT = DATA_ROOT / "maps"
 DB_PATH = DATA_ROOT / "geophoto.db"
 REDIS_URL = os.getenv("GEOPHOTO_REDIS_URL", "redis://redis:6379/0")
+MAX_FILE_BYTES = int(os.getenv("GEOPHOTO_MAX_FILE_MB", "500")) * 1024 * 1024
+MAX_DATASET_BYTES = int(os.getenv("GEOPHOTO_MAX_DATASET_GB", "50")) * 1024 * 1024 * 1024
 
 SUPPORTED_EXTENSIONS = {
     ".jpg",

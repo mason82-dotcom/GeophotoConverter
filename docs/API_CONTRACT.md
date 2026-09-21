@@ -26,6 +26,8 @@ Dataset details including image count, geotag coverage and processing readiness.
 Multipart upload. Field name: `files`.
 Optional form field: `relative_paths` as JSON array preserving browser folder paths.
 
+Uploads are streamed to a temporary file and atomically moved into place after validation. The backend calculates SHA-256 for each image, rejects duplicate content within the same dataset, and enforces configurable per-file and per-dataset size limits.
+
 ### POST /datasets/{dataset_id}/scan
 Analyze uploaded imagery and extract EXIF/XMP/GPS metadata.
 
