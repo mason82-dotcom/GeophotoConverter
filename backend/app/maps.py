@@ -28,7 +28,7 @@ def _pack(region_id: str) -> dict[str, Any]:
 def _map_path(pack: dict[str, Any]) -> Path:
     path = (MAPS_ROOT / pack["filename"]).resolve()
     if MAPS_ROOT.resolve() not in path.parents:
-        raise HTTPException(status_code=500, detail="Ungültiger Pfad zum Kartenpaket")
+        raise HTTPException(status_code=500, detail="Ungültiger Kartenpaket-Pfad")
     return path
 
 

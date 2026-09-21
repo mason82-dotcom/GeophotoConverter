@@ -112,7 +112,7 @@ def classify_media(
         r"^(?P<base>DJI_.+?)\.(?:JPG|JPEG|TIF|TIFF|DNG|RJPEG)$",
         upper,
     )
-    if path.suffix.lower() in {".jpg", ".jpeg", ".dng"}:
+    if path.suffix.lower() in {".jpg", ".jpeg", ".dng", ".tif", ".tiff"}:
         media_kind = "RGB"
     else:
         media_kind = "UNKNOWN"

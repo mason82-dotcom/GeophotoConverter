@@ -1,12 +1,15 @@
 import type {
   Dataset,
   DatasetDetail,
+  DatasetQa,
   DatasetScanResponse,
   Job,
   JobLogs,
   MapCatalog,
+  ProcessingCatalog,
   ProcessingEngine,
   ProcessingProfile,
+  ProcessingWorkflow,
   ServicesResponse,
   UploadResponse,
 } from './types'
@@ -22,7 +25,7 @@ async function readJson<T>(response: Response): Promise<T> {
     } catch {
       detail = await response.text()
     }
-    throw new ApiError(`Anfrage fehlgeschlagen mit Status ${response.status}`, response.status, detail)
+    throw new ApiError(`Request failed with status ${response.status}`, response.status, detail)
   }
   return response.json() as Promise<T>
 }
@@ -34,6 +37,12 @@ export async function listDatasets(): Promise<Dataset[]> {
 export async function getDataset(datasetId: string): Promise<DatasetDetail> {
   return readJson<DatasetDetail>(
     await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}`),
+  )
+}
+
+export async function getDatasetQa(datasetId: string): Promise<DatasetQa> {
+  return readJson<DatasetQa>(
+    await fetch(`${API_BASE}/datasets/${encodeURIComponent(datasetId)}/qa`),
   )
 }
 
@@ -60,8 +69,22 @@ export async function listMapPacks(): Promise<MapCatalog> {
   return readJson<MapCatalog>(await fetch(`${API_BASE}/maps`))
 }
 
+export interface HealthResponse {
+  status: string
+  redis?: string
+  version?: string
+}
+
+export async function getHealth(): Promise<HealthResponse> {
+  return readJson<HealthResponse>(await fetch(`${API_BASE}/health`))
+}
+
 export async function getServices(): Promise<ServicesResponse> {
   return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
+}
+
+export async function getProcessingCatalog(): Promise<ProcessingCatalog> {
+  return readJson<ProcessingCatalog>(await fetch(`${API_BASE}/processing/profiles`))
 }
 
 export async function listJobs(): Promise<Job[]> {
@@ -93,6 +116,8 @@ export async function createJob(
   datasetId: string,
   engine: ProcessingEngine,
   profile: ProcessingProfile,
+  workflow: ProcessingWorkflow = 'rgb',
+  options: Record<string, number> = {},
 ): Promise<Job> {
   const response = await fetch(`${API_BASE}/jobs`, {
     method: 'POST',
@@ -101,6 +126,8 @@ export async function createJob(
       dataset_id: datasetId,
       engine,
       profile,
+      workflow,
+      options,
     }),
   })
   return readJson<Job>(response)
@@ -136,15 +163,15 @@ export function uploadDatasetFile(
         resolve(request.response as UploadResponse)
         return
       }
-      reject(new ApiError(`Upload fehlgeschlagen mit Status ${request.status}`, request.status, request.response))
+      reject(new ApiError(`Upload failed with status ${request.status}`, request.status, request.response))
     })
 
     request.addEventListener('error', () => {
-      reject(new ApiError('Upload fehlgeschlagen, weil die API nicht erreichbar ist.', 0))
+      reject(new ApiError('Upload failed because the API could not be reached.', 0))
     })
 
     request.addEventListener('abort', () => {
-      reject(new DOMException('Upload abgebrochen', 'AbortError'))
+      reject(new DOMException('Upload cancelled', 'AbortError'))
     })
 
     const abort = () => request.abort()

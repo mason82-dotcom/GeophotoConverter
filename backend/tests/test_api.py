@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 from pathlib import Path
-
-from PIL import Image
 
 from app.config import DATA_ROOT
 from app.storage import store
@@ -37,7 +34,7 @@ def test_upload_is_hashed_and_duplicate_is_rejected(client):
     )
     assert second.status_code == 200
     rejected = second.json()["rejected"]
-    assert rejected[0]["reason"] == "Doppelte Datei"
+    assert rejected[0]["reason"] == "Duplicate file"
     assert rejected[0]["duplicate_of"] == "flight-a/DJI_0001.JPG"
 
 
@@ -164,48 +161,193 @@ def test_dataset_qa_classifies_multispectral_and_platform(client):
     assert classifications["M3M/DJI_0001_MS_NIR.TIF"]["platform"] == "M3M"
 
 
-def test_dataset_detail_exposes_qa_summary_fields(client):
+def test_job_readiness_ignores_thermal_images(client):
     dataset = _dataset(client)
-    response = client.post(
-        f"/api/v1/datasets/{dataset['id']}/files",
-        files=[("files", ("DJI_0100.JPG", b"rgb", "image/jpeg"))],
-    )
-    file_id = response.json()["accepted"][0]["id"]
-    store.update_file_scan(
-        file_id,
-        {
-            "camera": {"make": "DJI", "model": "Mavic 3 Enterprise"},
-            "gps": {"latitude": 49.0, "longitude": 8.0, "altitude": 110.0},
-            "dji": {"product_name": "Mavic 3 Enterprise"},
+    for index in range(3):
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (f"DJI_000{index}_T.JPG", f"thermal-{index}".encode(), "image/jpeg"),
+                )
+            ],
+            data={
+                "relative_paths": json.dumps(
+                    [f"M3T/DJI_000{index}_T.JPG"]
+                )
+            },
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["engine_inputs"]["thermal"] == 3
+    assert qa.json()["engine_inputs"]["rgb_wide"] == 0
+    assert qa.json()["readiness"]["odm"]["ready"] is False
+
+    job = client.post(
+        "/api/v1/jobs",
+        json={
+            "dataset_id": dataset["id"],
+            "engine": "odm",
+            "profile": "preview",
         },
-        None,
     )
-
-    detail = client.get(f"/api/v1/datasets/{dataset['id']}")
-    assert detail.status_code == 200
-    body = detail.json()
-    assert body["platform"] == "M3E"
-    assert body["duplicate_count"] == 0
-    assert body["processing_readiness"] == "Not ready"
+    assert job.status_code == 409
+    assert job.json()["detail"]["eligible_images"] == 0
 
 
-def test_dataset_file_preview_returns_browser_jpeg(client):
+def test_job_readiness_counts_dng_rgb_inputs(client):
     dataset = _dataset(client)
-    source = io.BytesIO()
-    Image.new("RGB", (64, 32), (40, 80, 120)).save(source, format="JPEG")
+    for index in range(3):
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (f"DJI_100{index}_D.DNG", f"dng-{index}".encode(), "image/dng"),
+                )
+            ],
+        )
+        assert response.status_code == 200
 
-    upload = client.post(
-        f"/api/v1/datasets/{dataset['id']}/files",
-        files=[("files", ("DJI_0200.JPG", source.getvalue(), "image/jpeg"))],
-    )
-    file_id = upload.json()["accepted"][0]["id"]
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["engine_inputs"]["rgb_wide"] == 3
+    assert body["readiness"]["micmac"]["ready"] is True
+    assert body["readiness"]["gsplat"]["ready"] is True
 
-    preview = client.get(
-        f"/api/v1/datasets/{dataset['id']}/files/{file_id}/preview",
-        params={"size": 128},
-    )
-    assert preview.status_code == 200
-    assert preview.headers["content-type"].startswith("image/jpeg")
-    rendered = Image.open(io.BytesIO(preview.content))
-    assert rendered.width <= 128
-    assert rendered.height <= 128
+
+def test_m3m_multispectral_readiness_requires_complete_groups(client):
+    dataset = _dataset(client)
+    suffixes = [
+        ("D.JPG", "image/jpeg"),
+        ("MS_G.TIF", "image/tiff"),
+        ("MS_R.TIF", "image/tiff"),
+        ("MS_RE.TIF", "image/tiff"),
+        ("MS_NIR.TIF", "image/tiff"),
+    ]
+
+    for capture in ("DJI_2001", "DJI_2002"):
+        for index, (suffix, media_type) in enumerate(suffixes):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[
+                    (
+                        "files",
+                        (
+                            name,
+                            f"{capture}-{index}".encode(),
+                            media_type,
+                        ),
+                    )
+                ],
+                data={"relative_paths": json.dumps([f"M3M/{name}"])},
+            )
+            assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["multispectral"]["complete_groups"] == 2
+    assert body["readiness"]["odm_multispectral"]["ready"] is True
+    assert body["readiness"]["odm_multispectral"]["eligible_images"] == 10
+
+
+def test_m3m_multispectral_readiness_rejects_incomplete_groups(client):
+    dataset = _dataset(client)
+    for index, suffix in enumerate(("D.JPG", "MS_G.TIF", "MS_NIR.TIF")):
+        name = f"DJI_3001_{suffix}"
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (name, f"incomplete-{index}".encode(), "image/jpeg"),
+                )
+            ],
+            data={"relative_paths": json.dumps([f"M3M/{name}"])},
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["multispectral"]["complete_groups"] == 0
+    assert qa.json()["readiness"]["odm_multispectral"]["ready"] is False
+
+
+def test_thermal_readiness_requires_confirmed_wide_thermal_pairs(client):
+    dataset = _dataset(client)
+    for capture in ("DJI_4001", "DJI_4002"):
+        for suffix, payload in (
+            ("W.JPG", b"wide"),
+            ("T.JPG", b"thermal"),
+        ):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[("files", (name, payload + capture.encode(), "image/jpeg"))],
+                data={"relative_paths": json.dumps([f"M3T/{name}"])},
+            )
+            assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["thermal"]["complete_groups"] == 2
+    assert body["thermal"]["platform"] == "M3T"
+    assert body["readiness"]["thermal"]["ready"] is True
+    assert body["readiness"]["thermal"]["eligible_images"] == 4
+
+
+def test_thermal_readiness_rejects_unknown_platform(client):
+    dataset = _dataset(client)
+    for suffix, payload in (("W.JPG", b"wide"), ("T.JPG", b"thermal")):
+        name = f"DJI_5001_{suffix}"
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[("files", (name, payload, "image/jpeg"))],
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["thermal"]["complete_groups"] == 1
+    assert qa.json()["thermal"]["platform"] is None
+    assert qa.json()["readiness"]["thermal"]["ready"] is False
+
+
+def test_processing_profile_catalog_exposes_specialized_workflows(client):
+    response = client.get("/api/v1/processing/profiles")
+    assert response.status_code == 200
+    body = response.json()
+    engines = {item["key"]: item for item in body["engines"]}
+
+    odm_workflows = {
+        item["key"]: item
+        for item in engines["odm"]["workflows"]
+    }
+    assert odm_workflows["multispectral"]["platforms"] == ["M3M"]
+    assert odm_workflows["multispectral"]["radiometric_calibration"] == "camera"
+
+    thermal = engines["thermal"]
+    assert thermal["requires_dji_tsdk"] is True
+    thermal_workflow = thermal["workflows"][0]
+    assert thermal_workflow["temperature_space"] == "sensor_pixel"
+    assert thermal_workflow["wide_thermal_coregistered"] is False
+
+    assert engines["gsplat"]["requires_gpu"] is True
+    assert engines["telesculptor"]["automated"] is False
+
+
+def test_processing_catalog_user_text_is_german(client):
+    response = client.get("/api/v1/processing/profiles")
+    assert response.status_code == 200
+    engines = {item["key"]: item for item in response.json()["engines"]}
+    odm_workflows = {item["key"]: item for item in engines["odm"]["workflows"]}
+    assert "Multispektral" in odm_workflows["multispectral"]["title"]
+    assert "Schnelle Prüfung" in odm_workflows["rgb"]["profiles"]["preview"]["purpose"]
+    assert "Thermografie" in engines["thermal"]["title"]

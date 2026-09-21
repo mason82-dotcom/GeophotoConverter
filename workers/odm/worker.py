@@ -1,38 +1,58 @@
 from __future__ import annotations
 
 import re
-import shutil
 from pathlib import Path
 
+from common.images import (
+    prepare_multispectral_images,
+    prepare_photogrammetry_images,
+)
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "odm"
-SUPPORTED = {".jpg", ".jpeg", ".tif", ".tiff", ".dng", ".rjpeg"}
 
 PROFILES = {
     "preview": [
-        "--fast-orthophoto",
-        "--skip-3dmodel",
-        "--pc-quality",
-        "lowest",
-        "--orthophoto-resolution",
-        "10",
+        "--fast-orthophoto", "--skip-3dmodel", "--pc-quality", "lowest",
+        "--orthophoto-resolution", "10",
     ],
     "standard": [
-        "--dsm",
-        "--dtm",
-        "--pc-quality",
-        "medium",
-        "--orthophoto-resolution",
-        "5",
+        "--dsm", "--dtm", "--pc-quality", "medium",
+        "--orthophoto-resolution", "5",
     ],
     "high": [
-        "--dsm",
-        "--dtm",
-        "--pc-quality",
-        "high",
-        "--orthophoto-resolution",
-        "2",
+        "--dsm", "--dtm", "--pc-quality", "high",
+        "--orthophoto-resolution", "2",
+    ],
+}
+
+MULTISPECTRAL_PROFILES = {
+    "preview": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "medium",
+        "--pc-quality", "lowest",
+        "--orthophoto-resolution", "10",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
+    ],
+    "standard": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "high",
+        "--pc-quality", "medium",
+        "--orthophoto-resolution", "5",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
+    ],
+    "high": [
+        "--radiometric-calibration", "camera",
+        "--feature-quality", "high",
+        "--pc-quality", "high",
+        "--orthophoto-resolution", "2",
+        "--auto-boundary",
+        "--build-overviews",
+        "--skip-3dmodel",
     ],
 }
 
@@ -46,65 +66,40 @@ ARTIFACTS = [
 ]
 
 
-def _stage_images(dataset_id: str, project_dir: Path) -> int:
-    source = DATA_ROOT / "datasets" / dataset_id / "images"
-    if not source.exists():
-        raise FileNotFoundError(f"Bildverzeichnis des Datensatzes nicht gefunden: {source}")
-
-    target = project_dir / "images"
-    if target.exists():
-        shutil.rmtree(target)
-    target.mkdir(parents=True, exist_ok=True)
-
-    count = 0
-    for path in sorted(source.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED:
-            continue
-        count += 1
-        dest = target / f"{count:06d}_{path.name}"
-        try:
-            dest.symlink_to(path)
-        except OSError:
-            shutil.copy2(path, dest)
-    if count < 2:
-        raise ValueError("ODM benötigt mindestens zwei unterstützte Bilder.")
-    return count
-
-
 def _progress(line: str) -> float | None:
     match = re.search(r"(?:progress|completed)\D+(\d{1,3})(?:\.\d+)?%", line, re.IGNORECASE)
     if match:
         return float(match.group(1))
-    stages = [
-        ("opensfm", 20.0),
-        ("openmvs", 45.0),
-        ("odm_filterpoints", 60.0),
-        ("odm_meshing", 70.0),
-        ("odm_texturing", 80.0),
-        ("odm_georeferencing", 88.0),
-        ("odm_dem", 93.0),
+    for token, value in [
+        ("opensfm", 20.0), ("openmvs", 45.0), ("odm_filterpoints", 60.0),
+        ("odm_meshing", 70.0), ("odm_texturing", 80.0),
+        ("odm_georeferencing", 88.0), ("odm_dem", 93.0),
         ("odm_orthophoto", 97.0),
-    ]
-    lowered = line.lower()
-    for token, value in stages:
-        if token in lowered:
+    ]:
+        if token in line.lower():
             return value
     return None
 
 
-def _collect_artifacts(project_dir: Path, job_id: str) -> list[dict]:
-    result: list[dict] = []
+def _collect_artifacts(
+    project_dir: Path,
+    job_id: str,
+    workflow: str,
+) -> list[dict]:
+    result = []
     for kind, relative in ARTIFACTS:
         path = project_dir / relative
         if path.is_file():
-            result.append(
-                {
-                    "type": kind,
-                    "name": path.name,
-                    "relative_path": f"jobs/{job_id}/project/{relative}",
-                    "size_bytes": path.stat().st_size,
-                }
-            )
+            result.append({
+                "type": (
+                    "multiband_orthophoto"
+                    if workflow == "multispectral" and kind == "orthophoto"
+                    else kind
+                ),
+                "name": path.name,
+                "relative_path": f"jobs/{job_id}/project/{relative}",
+                "size_bytes": path.stat().st_size,
+            })
     return result
 
 
@@ -112,35 +107,65 @@ def handle(payload: dict) -> None:
     job_id = payload["job_id"]
     dataset_id = payload["dataset_id"]
     profile = payload.get("profile", "standard")
-    options = PROFILES.get(profile)
+    workflow = payload.get("workflow", "rgb")
+    if workflow == "multispectral":
+        options = MULTISPECTRAL_PROFILES.get(profile)
+    else:
+        options = PROFILES.get(profile)
     if options is None:
-        raise ValueError(f"Nicht unterstütztes ODM-Profil: {profile}")
+        raise ValueError(
+            f"Unsupported ODM profile/workflow combination: {profile}/{workflow}"
+        )
 
     job_root = DATA_ROOT / "jobs" / job_id
     project_dir = job_root / "project"
     project_dir.mkdir(parents=True, exist_ok=True)
     log_path = job_root / "worker.log"
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="ODM-Projekt wird vorbereitet.")
-    image_count = _stage_images(dataset_id, project_dir)
+    update_job(
+        job_id,
+        status="running",
+        progress=1,
+        phase="staging",
+        message=f"Preparing ODM {workflow} project.",
+    )
+    if workflow == "multispectral":
+        manifest = prepare_multispectral_images(
+            dataset_id,
+            project_dir / "images",
+        )
+        image_count = manifest["prepared_count"]
+        if image_count < 10:
+            raise ValueError(
+                "ODM multispectral requires at least two complete M3M capture "
+                "groups (10 prepared images)."
+            )
+        input_label = "M3M multispectral"
+    else:
+        manifest = prepare_photogrammetry_images(
+            dataset_id,
+            project_dir / "images",
+        )
+        image_count = manifest["prepared_count"]
+        if image_count < 2:
+            raise ValueError(
+                "ODM requires at least two RGB/WIDE images after normalization."
+            )
+        input_label = "RGB/WIDE"
+
     update_job(
         job_id,
         progress=5,
         phase="processing",
-        message=f"ODM processing {image_count} images using profile '{profile}'.",
+        message=(
+            f"ODM processing {image_count} {input_label} images using "
+            f"profile '{profile}' ({manifest['skipped_count']} images skipped)."
+        ),
     )
 
-    command = [
-        "python3",
-        "/code/run.py",
-        "--project-path",
-        str(job_root),
-        "project",
-        *options,
-    ]
     code = run_process(
         job_id,
-        command,
+        ["python3", "/code/run.py", "--project-path", str(job_root), "project", *options],
         cwd=Path("/code"),
         log_path=log_path,
         progress_probe=_progress,
@@ -148,15 +173,15 @@ def handle(payload: dict) -> None:
     if code == 130:
         return
     if code != 0:
-        raise RuntimeError(f"ODM wurde mit Code {code}. Siehe {log_path}")
+        raise RuntimeError(f"ODM exited with code {code}. See {log_path}")
 
-    artifacts = _collect_artifacts(project_dir, job_id)
+    artifacts = _collect_artifacts(project_dir, job_id, workflow)
     update_job(
         job_id,
         status="completed",
         progress=100,
         phase="completed",
-        message=f"ODM abgeschlossen; {len(artifacts)} Artefakte erkannt.",
+        message=f"ODM completed with {len(artifacts)} detected artifacts.",
         artifacts=artifacts,
     )
 

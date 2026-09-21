@@ -42,20 +42,27 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     platform_counts: Counter[str] = Counter()
     media_counts: Counter[str] = Counter()
+    capture_groups: dict[str, set[str]] = {}
+    capture_group_platforms: dict[str, set[str]] = {}
     cameras: Counter[str] = Counter()
     gps_altitudes: list[float] = []
     relative_altitudes: list[float] = []
     times: list[datetime] = []
     missing_gps = 0
     metadata_errors = 0
-    checksums: Counter[str] = Counter(
-        str(item["sha256"]) for item in files if item.get("sha256")
-    )
 
     for item in files:
         classification = reconciled[item["relative_path"]]
         platform_counts[classification.platform] += 1
         media_counts[classification.media_kind] += 1
+        if classification.capture_group:
+            capture_groups.setdefault(classification.capture_group, set()).add(
+                classification.media_kind
+            )
+            capture_group_platforms.setdefault(
+                classification.capture_group,
+                set(),
+            ).add(classification.platform)
 
         metadata = item.get("metadata") or {}
         camera = metadata.get("camera") or {}
@@ -87,6 +94,62 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     total = len(files)
     geotagged = total - missing_gps
+    mapping_inputs = media_counts.get("RGB", 0) + media_counts.get("WIDE", 0)
+    thermal_inputs = media_counts.get("THERMAL", 0)
+    multispectral_inputs = sum(
+        media_counts.get(kind, 0)
+        for kind in ("MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR")
+    )
+    required_m3m_kinds = {
+        "RGB",
+        "MS_GREEN",
+        "MS_RED",
+        "MS_RED_EDGE",
+        "MS_NIR",
+    }
+    complete_multispectral_groups = sum(
+        1
+        for kinds in capture_groups.values()
+        if required_m3m_kinds.issubset(kinds)
+    )
+    multispectral_group_count = sum(
+        1
+        for kinds in capture_groups.values()
+        if kinds.intersection(required_m3m_kinds - {"RGB"})
+    )
+
+    complete_thermal_group_ids = [
+        group
+        for group, kinds in capture_groups.items()
+        if {"WIDE", "THERMAL"}.issubset(kinds)
+    ]
+    complete_thermal_groups = len(complete_thermal_group_ids)
+    thermal_group_count = sum(
+        1
+        for kinds in capture_groups.values()
+        if "THERMAL" in kinds
+    )
+    thermal_group_platforms = {
+        platform
+        for group in complete_thermal_group_ids
+        for platform in capture_group_platforms.get(group, {"UNKNOWN"})
+        if platform != "UNKNOWN"
+    }
+    thermal_has_unknown_platform = any(
+        "UNKNOWN" in capture_group_platforms.get(group, {"UNKNOWN"})
+        for group in complete_thermal_group_ids
+    )
+    thermal_platform = (
+        next(iter(thermal_group_platforms))
+        if len(thermal_group_platforms) == 1 and not thermal_has_unknown_platform
+        else None
+    )
+    thermal_ready = (
+        complete_thermal_groups >= 1
+        and thermal_platform in {"M3T", "M4T"}
+        and len(thermal_group_platforms) == 1
+        and not thermal_has_unknown_platform
+    )
     warnings: list[dict[str, Any]] = []
     if missing_gps:
         warnings.append(
@@ -124,38 +187,56 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     readiness = {
         "odm": {
-            "ready": total >= 2,
-            "reason": None if total >= 2 else "Mindestens zwei unterstützte Bilder sind erforderlich.",
+            "ready": mapping_inputs >= 2,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 2 else "Mindestens zwei RGB/WIDE-Bilder sind erforderlich.",
         },
         "micmac": {
-            "ready": total >= 3,
-            "reason": None if total >= 3 else "Mindestens drei Bilder sind erforderlich.",
+            "ready": mapping_inputs >= 3,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 3 else "Mindestens drei RGB/WIDE-Bilder sind erforderlich.",
         },
         "gsplat": {
-            "ready": total >= 3,
-            "reason": None if total >= 3 else "Mindestens drei Bilder sind erforderlich.",
+            "ready": mapping_inputs >= 3,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 3 else "Mindestens drei RGB/WIDE-Bilder sind erforderlich.",
+        },
+        "thermal": {
+            "ready": thermal_ready,
+            "eligible_images": complete_thermal_groups * 2,
+            "complete_groups": complete_thermal_groups,
+            "platform": thermal_platform,
+            "reason": (
+                None
+                if thermal_ready
+                else (
+                    "Mindestens eine vollständige WIDE+THERMAL-Aufnahmegruppe von "
+                    "genau einer bestätigten M3T- oder M4T-Plattform ist erforderlich."
+                )
+            ),
+        },
+        "odm_multispectral": {
+            "ready": complete_multispectral_groups >= 2,
+            "eligible_images": (
+                complete_multispectral_groups * len(required_m3m_kinds)
+            ),
+            "complete_groups": complete_multispectral_groups,
+            "reason": (
+                None
+                if complete_multispectral_groups >= 2
+                else (
+                    "Mindestens zwei vollständige M3M-Aufnahmegruppen sind erforderlich "
+                    "(RGB + Grün + Rot + Red Edge + NIR)."
+                )
+            ),
         },
     }
-    ready_count = sum(1 for state in readiness.values() if state["ready"])
-    processing_readiness = (
-        "Ready" if ready_count == len(readiness)
-        else "Partially ready" if ready_count
-        else "Not ready"
-    )
-    known_platforms = {
-        name: count for name, count in platform_counts.items() if name != "UNKNOWN"
-    }
-    platform = max(known_platforms, key=known_platforms.get) if known_platforms else None
-    duplicate_count = sum(count - 1 for count in checksums.values() if count > 1)
 
     return {
         "image_count": total,
         "geotagged_count": geotagged,
         "geotagged_percent": round(geotagged * 100 / total, 1) if total else 0.0,
         "platforms": dict(platform_counts),
-        "platform": platform,
-        "duplicate_count": duplicate_count,
-        "processing_readiness": processing_readiness,
         "media_kinds": dict(media_counts),
         "camera_models": dict(cameras),
         "altitude": {
@@ -168,6 +249,25 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "count": len(times),
         },
         "warnings": warnings,
+        "engine_inputs": {
+            "rgb_wide": mapping_inputs,
+            "thermal": thermal_inputs,
+            "multispectral": multispectral_inputs,
+            "multispectral_groups": multispectral_group_count,
+            "complete_multispectral_groups": complete_multispectral_groups,
+            "thermal_groups": thermal_group_count,
+            "complete_thermal_groups": complete_thermal_groups,
+        },
+        "thermal": {
+            "group_count": thermal_group_count,
+            "complete_groups": complete_thermal_groups,
+            "platform": thermal_platform,
+        },
+        "multispectral": {
+            "required_media_kinds": sorted(required_m3m_kinds),
+            "group_count": multispectral_group_count,
+            "complete_groups": complete_multispectral_groups,
+        },
         "readiness": readiness,
         "classifications": {
             path: classification.as_dict()

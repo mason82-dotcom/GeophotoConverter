@@ -5,7 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GEOPHOTO_DATA_ROOT=/data
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libimage-exiftool-perl curl \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        libimage-exiftool-perl \
+        libraw-bin \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

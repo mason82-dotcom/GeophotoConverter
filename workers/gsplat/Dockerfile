@@ -18,6 +18,8 @@ RUN apt-get update \
         git \
         libgl1 \
         libglib2.0-0 \
+        libimage-exiftool-perl \
+        libraw-bin \
         ninja-build \
         python3 \
         python3-pip \
@@ -59,8 +61,6 @@ RUN pip install --no-cache-dir \
         splines \
         redis==6.4.0
 
-# Install Python code without compiling CUDA during docker build.
-# The CUDA extension JIT-compiles on first GPU use and is cached in TORCH_EXTENSIONS_DIR.
 RUN cd /opt/gsplat \
     && BUILD_NO_CUDA=1 BUILD_EXPERIMENTAL=0 pip install --no-cache-dir -e .
 

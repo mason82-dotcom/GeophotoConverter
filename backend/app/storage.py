@@ -43,11 +43,14 @@ CREATE TABLE IF NOT EXISTS jobs (
     dataset_id TEXT NOT NULL,
     engine TEXT NOT NULL,
     profile TEXT NOT NULL,
+    workflow TEXT NOT NULL DEFAULT 'rgb',
+    options_json TEXT NOT NULL DEFAULT '{}',
     status TEXT NOT NULL,
     progress REAL NOT NULL DEFAULT 0,
     phase TEXT,
     message TEXT,
     artifacts_json TEXT,
+    publication_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
@@ -67,6 +70,20 @@ class Store:
             }
             if "sha256" not in columns:
                 conn.execute("ALTER TABLE files ADD COLUMN sha256 TEXT")
+            job_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            if "workflow" not in job_columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN workflow TEXT NOT NULL DEFAULT 'rgb'"
+                )
+            if "options_json" not in job_columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}'"
+                )
+            if "publication_json" not in job_columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN publication_json TEXT")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
                 "ON files(dataset_id, sha256)"
@@ -90,7 +107,12 @@ class Store:
         if row is None:
             return None
         data = dict(row)
-        for key in ("metadata_json", "artifacts_json"):
+        for key in (
+            "metadata_json",
+            "artifacts_json",
+            "options_json",
+            "publication_json",
+        ):
             if data.get(key):
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
             else:
@@ -187,7 +209,11 @@ class Store:
             ).fetchone()
         return self.row(row)
 
-    def get_file(self, dataset_id: str, file_id: str) -> dict[str, Any] | None:
+    def get_file(
+        self,
+        dataset_id: str,
+        file_id: str,
+    ) -> dict[str, Any] | None:
         with self.connect() as conn:
             row = conn.execute(
                 "SELECT * FROM files WHERE dataset_id=? AND id=?",
@@ -230,16 +256,36 @@ class Store:
                 (status, now, dataset_id),
             )
 
-    def create_job(self, dataset_id: str, engine: str, profile: str) -> dict[str, Any]:
+    def create_job(
+        self,
+        dataset_id: str,
+        engine: str,
+        profile: str,
+        workflow: str = "rgb",
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         job_id = self.new_id()
         now = self.now()
         with self._lock, self.connect() as conn:
             conn.execute(
                 """
-                INSERT INTO jobs(id,dataset_id,engine,profile,status,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?)
+                INSERT INTO jobs(
+                    id,dataset_id,engine,profile,workflow,options_json,
+                    status,created_at,updated_at
+                )
+                VALUES(?,?,?,?,?,?,?,?,?)
                 """,
-                (job_id, dataset_id, engine, profile, "queued", now, now),
+                (
+                    job_id,
+                    dataset_id,
+                    engine,
+                    profile,
+                    workflow,
+                    json.dumps(options or {}),
+                    "queued",
+                    now,
+                    now,
+                ),
             )
         return self.get_job(job_id)
 
@@ -252,6 +298,17 @@ class Store:
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         return self.row(row)
+
+    def update_job_publication(
+        self,
+        job_id: str,
+        publication: dict[str, Any],
+    ) -> None:
+        with self._lock, self.connect() as conn:
+            conn.execute(
+                "UPDATE jobs SET publication_json=?, updated_at=? WHERE id=?",
+                (json.dumps(publication), self.now(), job_id),
+            )
 
     def update_job(
         self,

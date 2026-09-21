@@ -5,12 +5,10 @@ import json
 import os
 import uuid
 from collections import deque
-from io import BytesIO
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, Response
-from PIL import Image, ImageOps, UnidentifiedImageError
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from .config import (
@@ -21,21 +19,29 @@ from .config import (
     MAX_FILE_BYTES,
     PROFILE_NAMES,
     SUPPORTED_EXTENSIONS,
+    WORKFLOW_NAMES,
     ensure_directories,
 )
 from .metadata import read_metadata
 from .maps import router as maps_router
+from .job_options import normalize_job_options
+from .dronedb import router as dronedb_router
 from .queue import enqueue, ping as redis_ping, worker_state
+from .profiles import processing_catalog
+from .previews import router as previews_router
 from .qa import dataset_qa
+from .services import external_services
 from .storage import store
 
 app = FastAPI(
     title="GeoPhoto Converter API",
     version="0.1.0",
-    description="Lokaler Import von Luftbilddaten und Orchestrierung der photogrammetrischen Verarbeitung.",
+    description="Local aerial imagery ingestion and photogrammetry processing orchestration.",
 )
 
 app.include_router(maps_router)
+app.include_router(previews_router)
+app.include_router(dronedb_router)
 
 
 class DatasetCreate(BaseModel):
@@ -47,6 +53,8 @@ class JobCreate(BaseModel):
     dataset_id: str
     engine: str
     profile: str = "standard"
+    workflow: str = "rgb"
+    options: dict[str, object] = Field(default_factory=dict)
 
 
 def _dataset_or_404(dataset_id: str) -> dict:
@@ -78,23 +86,41 @@ def health() -> dict:
     }
 
 
+@app.get("/api/v1/processing/profiles")
+def processing_profiles() -> dict:
+    return processing_catalog()
+
+
 @app.get("/api/v1/services")
-def services() -> dict:
+def services(request: Request) -> dict:
     queue_ok = redis_ping()
     engines = {}
-    for engine in ("odm", "micmac", "gsplat"):
+    for engine in ("odm", "micmac", "gsplat", "thermal"):
         if queue_ok:
             try:
                 engines[engine] = worker_state(engine)
             except Exception:
-                engines[engine] = {"engine": engine, "status": "unknown", "queue_depth": None}
+                engines[engine] = {
+                    "engine": engine,
+                    "status": "unknown",
+                    "queue_depth": None,
+                }
         else:
-            engines[engine] = {"engine": engine, "status": "unavailable", "queue_depth": None}
+            engines[engine] = {
+                "engine": engine,
+                "status": "unavailable",
+                "queue_depth": None,
+            }
 
     engines["odm"]["profile"] = "odm"
     engines["micmac"]["profile"] = "micmac"
     engines["gsplat"]["profile"] = "gsplat"
     engines["gsplat"]["gpu"] = True
+    engines["thermal"]["profile"] = "thermal"
+    engines["thermal"]["requires_dji_tsdk"] = True
+    engines["thermal"]["platforms"] = ["M3T", "M4T"]
+    engines["thermal"]["wide_thermal_coregistered"] = False
+    engines["thermal"]["georeferenced_temperature_raster"] = False
 
     return {
         "redis": {"status": "ok" if queue_ok else "unavailable"},
@@ -102,10 +128,12 @@ def services() -> dict:
         "telesculptor": {
             "status": "experimental",
             "profile": "experimental",
-            "note": "Ältere Vergleichs-Engine; nicht Teil der standardmäßigen automatisierten Pipeline.",
+            "note": (
+                "Legacy comparison engine; not part of the default "
+                "automated pipeline."
+            ),
         },
-        "dronedb": {"status": "optional", "profile": "dronedb"},
-        "open_webui": {"status": "optional", "profile": "ai"},
+        **external_services(request),
     }
 
 
@@ -139,13 +167,13 @@ def get_dataset(dataset_id: str) -> dict:
     qa = dataset_qa(files)
     for item in files:
         item["classification"] = qa["classifications"].get(item["relative_path"])
+        item["preview_url"] = (
+            f"/api/v1/datasets/{dataset_id}/files/{item['id']}/preview"
+        )
     qa.pop("classifications", None)
 
     dataset["files"] = files
     dataset["geotagged_percent"] = round(tagged * 100 / total, 1) if total else 0.0
-    dataset["platform"] = qa.get("platform")
-    dataset["duplicate_count"] = qa.get("duplicate_count", 0)
-    dataset["processing_readiness"] = qa.get("processing_readiness")
     dataset["qa"] = qa
     return dataset
 
@@ -195,48 +223,6 @@ def dataset_geojson(dataset_id: str) -> dict:
     }
 
 
-@app.get("/api/v1/datasets/{dataset_id}/files/{file_id}/preview")
-def preview_dataset_file(
-    dataset_id: str,
-    file_id: str,
-    size: int = Query(default=960, ge=128, le=2048),
-) -> Response:
-    _dataset_or_404(dataset_id)
-    item = store.get_file(dataset_id, file_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Datensatzdatei nicht gefunden")
-
-    source = Path(item["stored_path"]).resolve()
-    image_root = (DATASETS_ROOT / dataset_id / "images").resolve()
-    if source != image_root and image_root not in source.parents:
-        raise HTTPException(status_code=403, detail="Ungültiger Datensatz-Dateipfad")
-    if not source.is_file():
-        raise HTTPException(status_code=404, detail="Datensatzdatei fehlt")
-
-    try:
-        with Image.open(source) as opened:
-            opened.draft("RGB", (size, size))
-            image = ImageOps.exif_transpose(opened)
-            image.thumbnail((size, size))
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            buffer = BytesIO()
-            image.save(buffer, format="JPEG", quality=86, optimize=True)
-    except UnidentifiedImageError as exc:
-        raise HTTPException(
-            status_code=415,
-            detail="Vorschauerzeugung wird für dieses Bildformat nicht unterstützt",
-        ) from exc
-    except OSError as exc:
-        raise HTTPException(status_code=422, detail="Bildvorschau konnte nicht erzeugt werden") from exc
-
-    return Response(
-        content=buffer.getvalue(),
-        media_type="image/jpeg",
-        headers={"Cache-Control": "private, max-age=3600"},
-    )
-
-
 @app.post("/api/v1/datasets/{dataset_id}/files")
 async def upload_files(
     dataset_id: str,
@@ -268,13 +254,13 @@ async def upload_files(
         suffix = rel_path.suffix.lower()
 
         if suffix not in SUPPORTED_EXTENSIONS:
-            rejected.append({"name": original_name, "reason": f"Unsupported extension: {suffix or 'none'}"})
+            rejected.append({"name": original_name, "reason": f"Nicht unterstützte Dateiendung: {suffix or 'keine'}"})
             await upload.close()
             continue
 
         target = (image_root / rel_path).resolve()
         if image_root.resolve() not in target.parents:
-            rejected.append({"name": original_name, "reason": "Unsicherer Pfad"})
+            rejected.append({"name": original_name, "reason": "Unsicherer Dateipfad"})
             await upload.close()
             continue
 
@@ -313,7 +299,7 @@ async def upload_files(
             rejected.append(
                 {
                     "name": original_name,
-                    "reason": "Doppelte Datei",
+                    "reason": "Datei ist ein Duplikat",
                     "duplicate_of": duplicate["relative_path"],
                     "sha256": checksum,
                 }
@@ -329,7 +315,7 @@ async def upload_files(
                 {
                     "name": original_name,
                     "reason": (
-                        "Größenlimit des Datensatzes überschritten "
+                        "Datensatz-Größenlimit überschritten "
                         f"({MAX_DATASET_BYTES / 1024 / 1024 / 1024:.0f} GiB)"
                     ),
                 }
@@ -448,15 +434,67 @@ def create_job(body: JobCreate) -> dict:
         raise HTTPException(status_code=422, detail=f"Unbekannte Engine: {engine}")
     if profile not in PROFILE_NAMES:
         raise HTTPException(status_code=422, detail=f"Unbekanntes Profil: {profile}")
+
+    workflow = body.workflow.lower().strip()
+    if workflow not in WORKFLOW_NAMES:
+        raise HTTPException(status_code=422, detail=f"Unbekannter Workflow: {workflow}")
+    if workflow == "multispectral" and engine != "odm":
+        raise HTTPException(
+            status_code=422,
+            detail="Der Multispektral-Workflow ist derzeit nur mit ODM verfügbar.",
+        )
+    if workflow == "thermal" and engine != "thermal":
+        raise HTTPException(
+            status_code=422,
+            detail="Der Thermal-Workflow ist nur mit der Thermal-Engine verfügbar.",
+        )
+    if engine == "thermal" and workflow != "thermal":
+        raise HTTPException(
+            status_code=422,
+            detail="Die Thermal-Engine erfordert workflow='thermal'.",
+        )
+
+    if engine in {"odm", "micmac", "gsplat", "thermal"}:
+        qa = dataset_qa(store.list_files(body.dataset_id))
+        readiness_key = (
+            "odm_multispectral"
+            if engine == "odm" and workflow == "multispectral"
+            else "thermal"
+            if engine == "thermal"
+            else engine
+        )
+        engine_readiness = qa["readiness"][readiness_key]
+        if not engine_readiness["ready"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": engine_readiness["reason"],
+                    "engine": engine,
+                    "workflow": workflow,
+                    "eligible_images": engine_readiness["eligible_images"],
+                    "engine_inputs": qa["engine_inputs"],
+                },
+            )
+    try:
+        job_options = normalize_job_options(engine, workflow, body.options)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if engine == "telesculptor":
         raise HTTPException(
             status_code=409,
-            detail="TeleSculptor ist derzeit nur als experimenteller manueller Vergleichsdienst verfügbar und keine automatisierte Auftrags-Engine.",
+            detail="TeleSculptor ist derzeit nur als experimenteller manueller Vergleichsdienst verfügbar und keine automatisierte Job-Engine.",
         )
     if not redis_ping():
-        raise HTTPException(status_code=503, detail="Auftragswarteschlange ist nicht verfügbar")
+        raise HTTPException(status_code=503, detail="Job-Warteschlange ist nicht verfügbar")
 
-    job = store.create_job(body.dataset_id, engine, profile)
+    job = store.create_job(
+        body.dataset_id,
+        engine,
+        profile,
+        workflow,
+        job_options,
+    )
     enqueue(
         engine,
         {
@@ -464,6 +502,8 @@ def create_job(body: JobCreate) -> dict:
             "dataset_id": body.dataset_id,
             "engine": engine,
             "profile": profile,
+            "workflow": workflow,
+            "options": job_options,
         },
     )
     return job

@@ -15,6 +15,7 @@ RUN apt-get update \
         imagemagick \
         libgl1 \
         libimage-exiftool-perl \
+        libraw-bin \
         libx11-6 \
         proj-bin \
         python3 \

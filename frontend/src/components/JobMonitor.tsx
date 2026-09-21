@@ -13,7 +13,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { cancelJob, getJob, getJobLogs, listJobs } from '../api/client'
 import type { Job, JobLogs } from '../api/types'
-import { profileText, statusText } from '../i18n'
 
 interface JobMonitorProps {
   focusJobId?: string
@@ -77,7 +76,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
       setJobs((current) => current.map((item) => (item.id === job.id ? job : item)))
       setError(undefined)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Auftragsstatus konnte nicht geladen werden.')
+      setError(requestError instanceof Error ? requestError.message : 'Job state could not be loaded.')
     } finally {
       if (!quiet) setRefreshing(false)
     }
@@ -100,7 +99,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
       }
       setError(undefined)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Aufträge konnten nicht geladen werden.')
+      setError(requestError instanceof Error ? requestError.message : 'Jobs could not be loaded.')
     } finally {
       setLoading(false)
     }
@@ -111,7 +110,8 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
   }, [focusJobId, loadJobs])
 
   useEffect(() => {
-    if (!selectedId || !selectedJob || TERMINAL.has(selectedJob.status)) return
+    const autoRefresh = window.localStorage.getItem('geophoto.ui.autoRefresh') !== 'false'
+    if (!autoRefresh || !selectedId || !selectedJob || TERMINAL.has(selectedJob.status)) return
     const timer = window.setInterval(() => {
       void loadSelected(selectedId, true)
     }, 2500)
@@ -143,7 +143,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
       setSelectedJob(next)
       setJobs((current) => current.map((job) => (job.id === next.id ? next : job)))
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Abbruch fehlgeschlagen.')
+      setError(requestError instanceof Error ? requestError.message : 'Cancellation failed.')
     } finally {
       setCancelling(false)
     }
@@ -153,23 +153,23 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
     <section className="panel jobs-panel">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Auftragsüberwachung</p>
-          <h2>Verarbeitungsaktivität</h2>
-          <p>Backend-Status, Phase, Fortschritt, Worker-Protokolle und erzeugte Artefakte.</p>
+          <p className="eyebrow">Job monitoring</p>
+          <h2>Processing activity</h2>
+          <p>Backend status, phase, progress, worker logs and generated artifacts.</p>
         </div>
         <button className="button" type="button" onClick={() => void loadJobs()} disabled={loading}>
           <RefreshCw className={refreshing ? 'spin' : ''} size={16} />
-          Aufträge aktualisieren
+          Refresh jobs
         </button>
       </div>
 
       {loading && !jobs.length ? (
-        <div className="compact-empty"><LoaderCircle className="spin" size={22} /> Aufträge werden geladen …</div>
+        <div className="compact-empty"><LoaderCircle className="spin" size={22} /> Loading jobs…</div>
       ) : !jobs.length ? (
-        <div className="compact-empty"><Clock3 size={22} /> Noch keine Verarbeitungsaufträge.</div>
+        <div className="compact-empty"><Clock3 size={22} /> No processing jobs yet.</div>
       ) : (
         <div className="job-monitor-grid">
-          <div className="job-list" role="list" aria-label="Verarbeitungsaufträge">
+          <div className="job-list" role="list" aria-label="Processing jobs">
             {jobs.map((job) => (
               <button
                 key={job.id}
@@ -179,10 +179,10 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
                 onClick={() => void selectJob(job.id)}
               >
                 <div>
-                  <strong>{job.engine.toUpperCase()} · {profileText(job.profile)}</strong>
-                  <span>{job.id.slice(0, 8)} · {job.phase || statusText(job.status)}</span>
+                  <strong>{job.engine.toUpperCase()} · {job.workflow ?? 'rgb'} · {job.profile}</strong>
+                  <span>{job.id.slice(0, 8)} · {job.phase || job.status}</span>
                 </div>
-                <span className={`status-chip ${statusClass(job.status)}`}>{statusText(job.status)}</span>
+                <span className={`status-chip ${statusClass(job.status)}`}>{job.status}</span>
               </button>
             ))}
           </div>
@@ -192,29 +192,29 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
               <div className="job-detail-heading">
                 <div>
                   <p className="eyebrow">Job {selectedJob.id.slice(0, 8)}</p>
-                  <h3>{selectedJob.engine.toUpperCase()} / {profileText(selectedJob.profile)}</h3>
+                  <h3>{selectedJob.engine.toUpperCase()} / {selectedJob.workflow ?? 'rgb'} / {selectedJob.profile}</h3>
                 </div>
-                <span className={`status-chip ${statusClass(selectedJob.status)}`}>{statusText(selectedJob.status)}</span>
+                <span className={`status-chip ${statusClass(selectedJob.status)}`}>{selectedJob.status}</span>
               </div>
 
               <div className="job-metrics">
                 <div><span>Phase</span><strong>{selectedJob.phase || '—'}</strong></div>
-                <div><span>Fortschritt</span><strong>{progress.toFixed(0)}%</strong></div>
-                <div><span>Laufzeit</span><strong>{formatElapsed(selectedJob, now)}</strong></div>
-                <div><span>Artefakte</span><strong>{selectedJob.artifacts?.length ?? 0}</strong></div>
+                <div><span>Progress</span><strong>{progress.toFixed(0)}%</strong></div>
+                <div><span>Runtime</span><strong>{formatElapsed(selectedJob, now)}</strong></div>
+                <div><span>Artifacts</span><strong>{selectedJob.artifacts?.length ?? 0}</strong></div>
               </div>
 
               <div className="job-progress-block">
-                <div className="progress-track progress-track--large" role="progressbar" aria-label="Auftragsfortschritt" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+                <div className="progress-track progress-track--large" role="progressbar" aria-label="Job progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
                   <div className="progress-fill" style={{ width: `${progress}%` }} />
                 </div>
-                <span>{selectedJob.message || 'Warte auf Backend-Status …'}</span>
+                <span>{selectedJob.message || 'Waiting for backend status…'}</span>
               </div>
 
               {selectedJob.status === 'failed' && (
                 <div className="inline-message inline-message--error" role="alert">
                   <AlertTriangle size={17} />
-                  <span>{selectedJob.message || 'Verarbeitung ohne Fehlermeldung fehlgeschlagen.'}</span>
+                  <span>{selectedJob.message || 'Processing failed without an error message.'}</span>
                 </div>
               )}
 
@@ -226,26 +226,26 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
                   onClick={() => void cancel()}
                 >
                   {cancelling ? <LoaderCircle className="spin" size={16} /> : <Square size={15} />}
-                  {selectedJob.status === 'cancel_requested' ? 'Abbruch angefordert' : 'Auftrag abbrechen'}
+                  {selectedJob.status === 'cancel_requested' ? 'Cancellation requested' : 'Cancel job'}
                 </button>
               </div>
 
               <div className="job-subgrid">
                 <section className="job-subpanel">
                   <div className="job-subpanel-title">
-                    <span><ScrollText size={16} /> Letzte Protokollzeilen</span>
-                    <span>{logs?.available ? `${logs.lines.length} Zeilen` : 'Nicht verfügbar'}</span>
+                    <span><ScrollText size={16} /> Log tail</span>
+                    <span>{logs?.available ? `${logs.lines.length} lines` : 'Not available'}</span>
                   </div>
                   <pre className="log-tail" tabIndex={0}>
                     {logs?.available && logs.lines.length
                       ? logs.lines.join('\n')
-                      : 'Das Worker-Protokoll wurde noch nicht erstellt.'}
+                      : 'Worker log has not been created yet.'}
                   </pre>
                 </section>
 
                 <section className="job-subpanel">
                   <div className="job-subpanel-title">
-                    <span><FileOutput size={16} /> Artefakte</span>
+                    <span><FileOutput size={16} /> Artifacts</span>
                     <span>{selectedJob.artifacts?.length ?? 0}</span>
                   </div>
                   <div className="artifact-list">
@@ -257,19 +257,19 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
                             <span>{artifact.type} · {formatBytes(artifact.size_bytes)}</span>
                           </div>
                           {artifact.download_url ? (
-                            <a className="mini-button" href={artifact.download_url} download title={`${artifact.name} herunterladen`}>
+                            <a className="mini-button" href={artifact.download_url} download title={`Download ${artifact.name}`}>
                               <Download size={15} />
                               <span className="visually-hidden">Download {artifact.name}</span>
                             </a>
                           ) : (
-                            <Ban size={15} aria-label="Download nicht verfügbar" />
+                            <Ban size={15} aria-label="Download unavailable" />
                           )}
                         </div>
                       ))
                     ) : (
                       <div className="artifact-empty">
                         <FileOutput size={20} />
-                        <span>Noch keine Artefakte gemeldet.</span>
+                        <span>No artifacts reported yet.</span>
                       </div>
                     )}
                   </div>
