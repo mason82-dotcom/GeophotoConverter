@@ -5,8 +5,10 @@ import {
   FileArchive,
   FileImage,
   FileText,
+  Flame,
   Layers3,
   LoaderCircle,
+  MapPinned,
   Mountain,
   RefreshCw,
   ScanLine,
@@ -39,6 +41,13 @@ function formatBytes(bytes?: number) {
 function artifactLabel(artifact: Artifact) {
   const type = artifact.type.toLowerCase()
   const name = artifact.name.toLowerCase()
+  if (type === 'thermal_temperature_tiff') return { label: 'Temperature TIFF', icon: Flame }
+  if (type === 'thermal_preview') return { label: 'Thermal preview', icon: FileImage }
+  if (type === 'thermal_hotspot_mask') return { label: 'Hotspot mask', icon: Flame }
+  if (type === 'thermal_hotspots') return { label: 'Hotspots', icon: Flame }
+  if (type === 'thermal_capture_points') return { label: 'Thermal capture points', icon: MapPinned }
+  if (type === 'thermal_summary') return { label: 'Thermal summary', icon: FileText }
+  if (type === 'thermal_registration_audit') return { label: 'Registration audit', icon: ScanLine }
   if (type.includes('multiband_orthophoto')) return { label: 'Multiband orthophoto', icon: FileImage }
   if (type.includes('orthophoto')) return { label: 'Orthophoto', icon: FileImage }
   if (type === 'dsm') return { label: 'DSM', icon: Mountain }

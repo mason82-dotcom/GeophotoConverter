@@ -6,6 +6,7 @@ import type {
   Job,
   JobLogs,
   MapCatalog,
+  ProcessingCatalog,
   ProcessingEngine,
   ProcessingProfile,
   ProcessingWorkflow,
@@ -82,6 +83,10 @@ export async function getServices(): Promise<ServicesResponse> {
   return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
 }
 
+export async function getProcessingCatalog(): Promise<ProcessingCatalog> {
+  return readJson<ProcessingCatalog>(await fetch(`${API_BASE}/processing/profiles`))
+}
+
 export async function listJobs(): Promise<Job[]> {
   return readJson<Job[]>(await fetch(`${API_BASE}/jobs`))
 }
@@ -112,6 +117,7 @@ export async function createJob(
   engine: ProcessingEngine,
   profile: ProcessingProfile,
   workflow: ProcessingWorkflow = 'rgb',
+  options: Record<string, number> = {},
 ): Promise<Job> {
   const response = await fetch(`${API_BASE}/jobs`, {
     method: 'POST',
@@ -121,6 +127,7 @@ export async function createJob(
       engine,
       profile,
       workflow,
+      options,
     }),
   })
   return readJson<Job>(response)

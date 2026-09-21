@@ -285,19 +285,27 @@ Alternative SfM/photogrammetry pipeline.
 ### gsplat
 Gaussian Splatting / 3DGS. GPU-oriented designation must remain visible.
 
+### DJI Radiometric Thermal
+M3T/M4T WIDE + THERMAL workflow. The frontend must surface that the local DJI Thermal SDK is required when reported by the backend. Temperature rasters remain in sensor-pixel space; WIDE and THERMAL imagery are not coregistered and no georeferenced temperature raster should be implied.
+
 ### TeleSculptor
 Experimental / legacy comparison. Do not present it as equivalent production automation while the backend rejects automated jobs.
 
 Workflows:
-- RGB / WIDE — default photogrammetry workflow
+- RGB / WIDE — standard photogrammetry workflow
 - M3M Multispectral — ODM-only workflow for complete RGB + Green + Red + Red Edge + NIR capture groups
+- Thermal — backend-defined M3T/M4T WIDE + radiometric THERMAL workflow
 
 Profiles:
 - Preview
 - Standard
 - High
 
-The workflow selector must use backend QA/readiness. M3M multispectral must remain unavailable for MicMac, gsplat and TeleSculptor unless the API contract changes.
+The workflow selector must use backend QA/readiness. The backend processing catalog at `GET /api/v1/processing/profiles` is authoritative for engines, workflows, profiles, requirements, typed job options and outputs; the frontend may only hardcode presentation choices such as icons.
+
+M3M multispectral must remain ODM-only and Thermal must remain on the Thermal engine unless the API contract changes.
+
+Typed job options must be rendered only from the backend catalog schema. The frontend must not expose arbitrary engine CLI flags. Thermal measurement overrides and hotspot parameters are validated client-side for basic usability and remain authoritative backend/DJI DIRP validation concerns.
 
 The frontend submits backend jobs only.
 
@@ -335,6 +343,11 @@ Recognized presentation categories include:
 - gsplat PLY
 - gsplat checkpoints
 - logs
+- thermal temperature TIFFs
+- thermal previews and hotspot products
+- thermal capture points, summaries and registration audits
+
+Thermal temperature products must be described as sensor-pixel-space outputs unless the backend explicitly reports georeferencing/coregistration.
 
 Download actions use backend-supplied `download_url` only.
 

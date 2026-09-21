@@ -87,6 +87,7 @@ export interface EngineReadiness {
   ready: boolean
   eligible_images: number
   complete_groups?: number
+  platform?: string | null
   reason: string | null
 }
 
@@ -119,6 +120,13 @@ export interface DatasetQa {
     multispectral: number
     multispectral_groups: number
     complete_multispectral_groups: number
+    thermal_groups: number
+    complete_thermal_groups: number
+  }
+  thermal: {
+    group_count: number
+    complete_groups: number
+    platform: string | null
   }
   multispectral: {
     required_media_kinds: string[]
@@ -129,6 +137,7 @@ export interface DatasetQa {
     odm: EngineReadiness
     micmac: EngineReadiness
     gsplat: EngineReadiness
+    thermal: EngineReadiness
     odm_multispectral: EngineReadiness
   }
 }
@@ -175,9 +184,63 @@ export interface MapCatalog {
   packs: MapPack[]
 }
 
-export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'telesculptor'
+export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'thermal' | 'telesculptor'
 export type ProcessingProfile = 'preview' | 'standard' | 'high'
-export type ProcessingWorkflow = 'rgb' | 'multispectral'
+export type ProcessingWorkflow = 'rgb' | 'multispectral' | 'thermal'
+
+export interface ProcessingProfileDefinition {
+  purpose?: string
+  orthophoto_resolution_cm?: number
+  max_steps?: number
+}
+
+export interface ProcessingOptionDefinition {
+  type: 'number' | 'integer'
+  minimum?: number
+  minimum_exclusive?: number
+  maximum?: number
+  default?: number | null
+  note?: string
+}
+
+export interface ProcessingWorkflowDefinition {
+  key: ProcessingWorkflow
+  title: string
+  description?: string
+  eligible_media_kinds?: string[]
+  minimum_images?: number
+  minimum_complete_groups?: number
+  platforms?: string[]
+  outputs?: string[]
+  required_pair?: string[]
+  temperature_space?: string
+  wide_thermal_coregistered?: boolean
+  georeferenced_temperature_raster?: boolean
+  radiometric_calibration?: string
+  camera_plus_sun?: {
+    enabled: boolean
+    reason?: string
+  }
+  options?: Record<string, ProcessingOptionDefinition>
+  profiles: Partial<Record<ProcessingProfile, ProcessingProfileDefinition>>
+}
+
+export interface ProcessingEngineDefinition {
+  key: ProcessingEngine
+  title: string
+  automated: boolean
+  experimental?: boolean
+  description?: string
+  requires_gpu?: boolean
+  requires_dji_tsdk?: boolean
+  platforms?: string[]
+  workflows: ProcessingWorkflowDefinition[]
+}
+
+export interface ProcessingCatalog {
+  profiles: ProcessingProfile[]
+  engines: ProcessingEngineDefinition[]
+}
 
 export interface Artifact {
   type: string
@@ -193,6 +256,7 @@ export interface Job {
   engine: ProcessingEngine
   profile: ProcessingProfile
   workflow?: ProcessingWorkflow
+  options?: Record<string, number>
   status: string
   progress: number
   phase?: string | null
@@ -213,6 +277,11 @@ export interface ServiceState {
   profile?: string
   gpu?: boolean
   note?: string
+  queue_depth?: number | null
+  requires_dji_tsdk?: boolean
+  platforms?: string[]
+  wide_thermal_coregistered?: boolean
+  georeferenced_temperature_raster?: boolean
 }
 
 export type ServicesResponse = Record<string, ServiceState>
