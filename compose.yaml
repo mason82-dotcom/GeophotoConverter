@@ -28,6 +28,21 @@ services:
       timeout: 3s
       retries: 10
 
+  odm-worker:
+    build:
+      context: .
+      dockerfile: workers/odm/Dockerfile
+    profiles: ["odm"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
   dronedb:
     image: dronedb/registry:latest
     profiles: ["dronedb"]
