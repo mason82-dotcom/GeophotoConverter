@@ -31,7 +31,7 @@ PROFILES = {
 def _stage_images(dataset_id: str, work_dir: Path) -> int:
     source = DATA_ROOT / "datasets" / dataset_id / "images"
     if not source.exists():
-        raise FileNotFoundError(f"Dataset image directory not found: {source}")
+        raise FileNotFoundError(f"Bildverzeichnis des Datensatzes nicht gefunden: {source}")
 
     work_dir.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -48,8 +48,8 @@ def _stage_images(dataset_id: str, work_dir: Path) -> int:
 
     if count < 3:
         raise ValueError(
-            "MicMac currently requires at least three JPEG/TIFF images. "
-            "DNG/R-JPEG conversion is not enabled in this worker yet."
+            "MicMac benötigt derzeit mindestens drei JPEG/TIFF-Bilder. "
+            "DNG/R-JPEG-Konvertierung ist in diesem Worker noch nicht aktiviert."
         )
     return count
 
@@ -100,7 +100,7 @@ def handle(payload: dict) -> None:
     profile_name = payload.get("profile", "standard")
     profile = PROFILES.get(profile_name)
     if profile is None:
-        raise ValueError(f"Unsupported MicMac profile: {profile_name}")
+        raise ValueError(f"Nicht unterstütztes MicMac-Profil: {profile_name}")
 
     job_root = DATA_ROOT / "jobs" / job_id
     work_dir = job_root / "micmac"
@@ -114,7 +114,7 @@ def handle(payload: dict) -> None:
         status="running",
         progress=1,
         phase="staging",
-        message="Preparing MicMac project.",
+        message="MicMac-Projekt wird vorbereitet.",
     )
     image_count = _stage_images(dataset_id, work_dir)
 
@@ -122,7 +122,7 @@ def handle(payload: dict) -> None:
         job_id,
         progress=8,
         phase="tie_points",
-        message=f"MicMac Tapioca matching {image_count} images.",
+        message=f"MicMac Tapioca gleicht {image_count} Bilder ab.",
     )
     if not _run(
         job_id,
@@ -156,7 +156,7 @@ def handle(payload: dict) -> None:
         job_id,
         progress=58,
         phase="sparse_cloud",
-        message="Generating MicMac sparse point cloud.",
+        message="MicMac erzeugt eine dünne Punktwolke.",
     )
     if not _run(
         job_id,
@@ -172,7 +172,7 @@ def handle(payload: dict) -> None:
             job_id,
             progress=68,
             phase="dense_cloud",
-            message=f"Generating dense point cloud with C3DC {dense_mode}.",
+            message=f"Dichte Punktwolke wird mit C3DC {dense_mode} erzeugt.",
         )
         if not _run(
             job_id,
@@ -195,7 +195,7 @@ def handle(payload: dict) -> None:
         status="completed",
         progress=100,
         phase="completed",
-        message=f"MicMac completed with {len(artifacts)} detected artifacts.",
+        message=f"MicMac abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 
