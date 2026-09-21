@@ -1,0 +1,99 @@
+name: Full-stack CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - agent/fullstack-integration
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Compile Python sources
+        run: python -m compileall backend/app workers
+
+      - name: Import FastAPI application
+        env:
+          PYTHONPATH: backend
+          GEOPHOTO_DATA_ROOT: /tmp/geophoto-data
+        run: python -c "from app.main import app; assert app.version"
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  integration:
+    name: Docker integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+      - name: Build core images
+        run: docker compose build api web
+
+      - name: Start core stack
+        run: docker compose up -d redis api web
+
+      - name: Wait for same-origin API path
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs --tail=200
+          exit 1
+
+      - name: Show service state
+        if: always()
+        run: docker compose ps
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v

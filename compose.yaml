@@ -1,0 +1,161 @@
+name: geophoto-converter
+
+services:
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${GEOPHOTO_BIND_ADDRESS:-0.0.0.0}:${GEOPHOTO_WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      GEOPHOTO_MAX_FILE_MB: ${GEOPHOTO_MAX_FILE_MB:-500}
+      GEOPHOTO_MAX_DATASET_GB: ${GEOPHOTO_MAX_DATASET_GB:-50}
+      DRONEDB_BASE_URL: http://dronedb:5000
+      DRONEDB_USERNAME: ${DRONEDB_USERNAME:-admin}
+      DRONEDB_PASSWORD: ${DRONEDB_PASSWORD:-password123}
+      DRONEDB_ORG: ${DRONEDB_ORG:-geophoto}
+      DRONEDB_PUBLIC_URL: ${DRONEDB_PUBLIC_URL:-}
+      DRONEDB_PUBLIC_PORT: ${DRONEDB_PORT:-5000}
+      OPENWEBUI_INTERNAL_URL: http://open-webui:8080
+      OPENWEBUI_PUBLIC_URL: ${OPENWEBUI_PUBLIC_URL:-}
+      OPENWEBUI_PUBLIC_PORT: ${OPENWEBUI_PORT:-3001}
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    ports:
+      - "${GEOPHOTO_BIND_ADDRESS:-0.0.0.0}:${GEOPHOTO_HTTP_PORT:-8088}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - geophoto-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  odm-worker:
+    build:
+      context: .
+      dockerfile: workers/odm/Dockerfile
+    profiles: ["odm"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  micmac-worker:
+    build:
+      context: .
+      dockerfile: workers/micmac/Dockerfile
+    profiles: ["micmac"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gsplat-worker:
+    build:
+      context: .
+      dockerfile: workers/gsplat/Dockerfile
+    profiles: ["gsplat"]
+    restart: unless-stopped
+    gpus: all
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      TORCH_EXTENSIONS_DIR: /root/.cache/torch_extensions
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+      - geophoto-gsplat-cache:/root/.cache/torch_extensions
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  thermal-worker:
+    build:
+      context: .
+      dockerfile: workers/thermal/Dockerfile
+    profiles: ["thermal"]
+    restart: unless-stopped
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      DJI_TSDK_DIR: /opt/dji-tsdk
+      DJI_TSDK_VERSION: ${DJI_TSDK_VERSION:-}
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+      - ${DJI_TSDK_HOST_PATH:-./dji-tsdk}:/opt/dji-tsdk:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  dronedb:
+    image: dronedb/registry:latest
+    profiles: ["dronedb"]
+    restart: unless-stopped
+    environment:
+      INSTANCE_TYPE: "0"
+      TMPDIR: /data/temp
+      CPL_TMPDIR: /data/temp
+      TEMP: /data/temp
+    volumes:
+      - geophoto-dronedb:/data
+    ports:
+      - "${GEOPHOTO_BIND_ADDRESS:-0.0.0.0}:${DRONEDB_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/quickhealth"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    profiles: ["ai"]
+    restart: unless-stopped
+    volumes:
+      - geophoto-openwebui:/app/backend/data
+    ports:
+      - "${GEOPHOTO_BIND_ADDRESS:-0.0.0.0}:${OPENWEBUI_PORT:-3001}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  geophoto-redis:
+  geophoto-gsplat-cache:
+  geophoto-dronedb:
+  geophoto-openwebui:

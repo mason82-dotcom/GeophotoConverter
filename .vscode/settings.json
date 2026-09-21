@@ -1,0 +1,28 @@
+{
+  "explorer.compactFolders": false,
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "python.analysis.extraPaths": [
+    "backend"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.venv/**": true,
+    "**/frontend/node_modules/**": true,
+    "**/frontend/dist/**": true,
+    "**/data/**": true
+  },
+  "search.exclude": {
+    "**/.venv/**": true,
+    "**/frontend/node_modules/**": true,
+    "**/frontend/dist/**": true,
+    "**/data/**": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}
