@@ -121,7 +121,7 @@ def run_process(
                     job_id,
                     status="cancelled",
                     phase="cancelled",
-                    message="Processing cancelled by user.",
+                    message="Verarbeitung durch Benutzer abgebrochen.",
                 )
                 return 130
 
