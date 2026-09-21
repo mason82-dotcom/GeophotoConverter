@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createJob, getServices, listDatasets } from '../api/client'
 import { ApiError, type Dataset, type Job, type ProcessingEngine, type ProcessingProfile, type ServicesResponse } from '../api/types'
 import { JobMonitor } from '../components/JobMonitor'
+import { profileText, readinessText, statusText } from '../i18n'
 
 interface EngineDefinition {
   id: ProcessingEngine
@@ -34,37 +35,37 @@ const ENGINES: EngineDefinition[] = [
   {
     id: 'odm',
     name: 'OpenDroneMap',
-    eyebrow: 'Primary photogrammetry',
-    description: 'Survey mapping pipeline for georeferenced aerial imagery.',
-    output: 'Orthophoto · DSM/DTM · point cloud · mesh',
-    note: 'Recommended default for conventional mapping products.',
+    eyebrow: 'Primäre Photogrammetrie',
+    description: 'Vermessungs-Pipeline für georeferenzierte Luftbilder.',
+    output: 'Orthophoto · DSM/DTM · Punktwolke · mesh',
+    note: 'Empfohlener Standard für klassische Vermessungsprodukte.',
     icon: Map,
   },
   {
     id: 'micmac',
     name: 'MicMac',
-    eyebrow: 'Alternative photogrammetry',
-    description: 'Alternative SfM and reconstruction engine for comparison workflows.',
-    output: 'SfM · reconstruction · photogrammetry outputs',
-    note: 'Useful as an independent processing path.',
+    eyebrow: 'Alternative Photogrammetrie',
+    description: 'Alternative SfM- und Rekonstruktions-Engine für Vergleichsabläufe.',
+    output: 'SfM · reconstruction · Photogrammetrie-Ausgaben',
+    note: 'Nützlich als unabhängiger Verarbeitungsweg.',
     icon: ScanLine,
   },
   {
     id: 'gsplat',
     name: 'gsplat',
     eyebrow: 'Gaussian Splatting / 3DGS',
-    description: 'GPU-oriented scene reconstruction using Gaussian splatting.',
-    output: '3DGS PLY · checkpoints · scene assets',
-    note: 'Designed for CUDA-capable GPU processing.',
+    description: 'GPU-orientierte Szenenrekonstruktion mit Gaussian Splatting.',
+    output: '3DGS PLY · checkpoints · Szenen-Daten',
+    note: 'Für die Verarbeitung auf CUDA-fähigen GPUs ausgelegt.',
     icon: Sparkles,
   },
   {
     id: 'telesculptor',
     name: 'TeleSculptor',
-    eyebrow: 'Experimental / legacy comparison',
-    description: 'Comparison engine retained for experimental reconstruction workflows.',
-    output: 'Experimental comparison outputs',
-    note: 'Manual comparison surface; backend does not accept automated jobs yet.',
+    eyebrow: 'Experimenteller / älterer Vergleich',
+    description: 'Vergleichs-Engine für experimentelle Rekonstruktionsabläufe.',
+    output: 'Experimentelle Vergleichsausgaben',
+    note: 'Manueller Vergleich; das Backend nimmt dafür noch keine automatisierten Aufträge an.',
     icon: FlaskConical,
     experimental: true,
   },
@@ -76,9 +77,9 @@ const PROFILES: Array<{
   description: string
   icon: typeof Gauge
 }> = [
-  { id: 'preview', name: 'Preview', description: 'Fast validation pass with reduced processing cost.', icon: Gauge },
-  { id: 'standard', name: 'Standard', description: 'Balanced default for routine survey processing.', icon: Layers3 },
-  { id: 'high', name: 'High', description: 'Maximum-detail profile with higher runtime and resource use.', icon: Box },
+  { id: 'preview', name: 'Vorschau', description: 'Schneller Prüflauf mit reduziertem Rechenaufwand.', icon: Gauge },
+  { id: 'standard', name: 'Standard', description: 'Ausgewogener Standard für reguläre Vermessungsverarbeitung.', icon: Layers3 },
+  { id: 'high', name: 'Hoch', description: 'Profil mit maximalem Detailgrad, höherer Laufzeit und Ressourcenbedarf.', icon: Box },
 ]
 
 function apiMessage(error: unknown) {
@@ -86,15 +87,15 @@ function apiMessage(error: unknown) {
     const detail = (error.detail as { detail?: unknown }).detail
     if (typeof detail === 'string') return detail
   }
-  return error instanceof Error ? error.message : 'Request failed.'
+  return error instanceof Error ? error.message : 'Anfrage fehlgeschlagen.'
 }
 
 function serviceLabel(services: ServicesResponse | undefined, engine: ProcessingEngine) {
   const state = services?.[engine]
-  if (!state) return 'Status unknown'
-  if (state.status === 'experimental') return 'Experimental'
-  if (state.status === 'optional') return 'Optional service'
-  return state.status
+  if (!state) return 'Status unbekannt'
+  if (state.status === 'experimental') return 'Experimentell'
+  if (state.status === 'optional') return 'Optionaler Dienst'
+  return statusText(state.status)
 }
 
 export function ProcessingPage() {
@@ -156,7 +157,7 @@ export function ProcessingPage() {
     return (
       <div className="panel loading-state" role="status">
         <LoaderCircle className="spin" size={24} />
-        <span>Loading processing services…</span>
+        <span>Verarbeitungsdienste werden geladen …</span>
       </div>
     )
   }
@@ -166,23 +167,23 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Processing target</p>
-            <h2>Select dataset and engine</h2>
-            <p>The frontend only submits jobs. All processing remains in backend workers.</p>
+            <p className="eyebrow">Verarbeitungsziel</p>
+            <h2>Datensatz und Engine auswählen</h2>
+            <p>Das Frontend erstellt nur Aufträge. Die gesamte Verarbeitung erfolgt in Backend-Workern.</p>
           </div>
           <button className="button" type="button" onClick={() => void load()}>
             <RefreshCw size={16} />
-            Refresh services
+            Dienste aktualisieren
           </button>
         </div>
 
         <label className="field processing-dataset-select">
           <span>Dataset</span>
           <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
-            {!datasets.length && <option value="">No datasets available</option>}
+            {!datasets.length && <option value="">Keine Datensätze verfügbar</option>}
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
-                {dataset.name} · {dataset.image_count ?? 0} images · {dataset.geotagged_percent ?? 0}% GPS
+                {dataset.name} · {dataset.image_count ?? 0} Bilder · {dataset.geotagged_percent ?? 0}% GPS
               </option>
             ))}
           </select>
@@ -190,16 +191,16 @@ export function ProcessingPage() {
 
         {selectedDataset && (
           <div className="processing-dataset-summary">
-            <span><strong>{selectedDataset.image_count ?? 0}</strong> images</span>
-            <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> geotagged</span>
-            <span><strong>{selectedDataset.scan_status}</strong> scan</span>
+            <span><strong>{selectedDataset.image_count ?? 0}</strong> Bilder</span>
+            <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> georeferenziert</span>
+            <span><strong>{statusText(selectedDataset.scan_status)}</strong> Scan</span>
             <span>
               <strong>
-                {selectedDataset.processing_readiness == null
-                  ? 'Not reported'
-                  : String(selectedDataset.processing_readiness)}
+                {selectedDataset.processing_Bereitschaft == null
+                  ? 'Nicht angegeben'
+                  : String(selectedDataset.processing_Bereitschaft)}
               </strong>
-              readiness
+              Bereitschaft
             </span>
           </div>
         )}
@@ -208,8 +209,8 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Processing engine</p>
-            <h3>Backend execution path</h3>
+            <p className="eyebrow">Verarbeitungs-Engine</p>
+            <h3>Backend-Ausführungspfad</h3>
           </div>
         </div>
         <div className="engine-grid">
@@ -244,8 +245,8 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Processing profile</p>
-            <h3>Quality / resource preset</h3>
+            <p className="eyebrow">Verarbeitungsprofil</p>
+            <h3>Qualitäts-/Ressourcenprofil</h3>
           </div>
         </div>
         <div className="profile-grid">
@@ -274,23 +275,23 @@ export function ProcessingPage() {
 
       <section className="panel job-submit-panel">
         <div>
-          <p className="eyebrow">Job request</p>
+          <p className="eyebrow">Auftragsanforderung</p>
           <h3>{selectedEngine.name} · {PROFILES.find((item) => item.id === profile)?.name}</h3>
           {engine === 'telesculptor' ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
-              TeleSculptor is exposed for experimental comparison only. The backend currently rejects automated TeleSculptor jobs.
+              TeleSculptor dient derzeit nur dem experimentellen Vergleich. Das Backend lehnt automatisierte TeleSculptor-Aufträge aktuell ab.
             </p>
           ) : (
             <p className="muted-copy">
               <ServerCog size={16} />
-              POST /api/v1/jobs will create the backend job. No processing runs in the browser.
+              POST /api/v1/jobs erstellt den Backend-Auftrag. Im Browser findet keine Verarbeitung statt.
             </p>
           )}
         </div>
         <button className="button button--primary" type="button" disabled={!canSubmit} onClick={() => void submit()}>
           {submitting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-          {submitting ? 'Creating job…' : 'Create processing job'}
+          {submitting ? 'Auftrag wird erstellt …' : 'Verarbeitungsauftrag erstellen'}
         </button>
       </section>
 
@@ -298,8 +299,8 @@ export function ProcessingPage() {
         <div className="inline-message inline-message--success" role="status">
           <CheckCircle2 size={18} />
           <div>
-            <strong>Job created</strong>
-            <span>{createdJob.id} · {createdJob.engine} · {createdJob.profile} · {createdJob.status}</span>
+            <strong>Auftrag erstellt</strong>
+            <span>{createdJob.id} · {createdJob.engine} · {profileText(createdJob.profile)} · {statusText(createdJob.status)}</span>
           </div>
         </div>
       )}
@@ -314,7 +315,7 @@ export function ProcessingPage() {
       {!datasets.length && !error && (
         <div className="inline-message">
           <Cpu size={18} />
-          <span>No dataset is available. Import imagery before creating a processing job.</span>
+          <span>Kein Datensatz verfügbar. Vor dem Erstellen eines Verarbeitungsauftrags zuerst Bilddaten importieren.</span>
         </div>
       )}
 
