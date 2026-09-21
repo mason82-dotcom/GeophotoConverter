@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createJob, getServices, listDatasets } from '../api/client'
 import { ApiError, type Dataset, type Job, type ProcessingEngine, type ProcessingProfile, type ServicesResponse } from '../api/types'
+import { JobMonitor } from '../components/JobMonitor'
 
 interface EngineDefinition {
   id: ProcessingEngine
@@ -316,6 +317,8 @@ export function ProcessingPage() {
           <span>No dataset is available. Import imagery before creating a processing job.</span>
         </div>
       )}
+
+      <JobMonitor focusJobId={createdJob?.id} />
     </div>
   )
 }

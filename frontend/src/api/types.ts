@@ -131,6 +131,12 @@ export interface Job {
   updated_at: string
 }
 
+export interface JobLogs {
+  job_id: string
+  lines: string[]
+  available: boolean
+}
+
 export interface ServiceState {
   status: string
   profile?: string

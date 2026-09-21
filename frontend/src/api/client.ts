@@ -3,6 +3,7 @@ import type {
   DatasetDetail,
   DatasetScanResponse,
   Job,
+  JobLogs,
   MapCatalog,
   ProcessingEngine,
   ProcessingProfile,
@@ -61,6 +62,31 @@ export async function listMapPacks(): Promise<MapCatalog> {
 
 export async function getServices(): Promise<ServicesResponse> {
   return readJson<ServicesResponse>(await fetch(`${API_BASE}/services`))
+}
+
+export async function listJobs(): Promise<Job[]> {
+  return readJson<Job[]>(await fetch(`${API_BASE}/jobs`))
+}
+
+export async function getJob(jobId: string): Promise<Job> {
+  return readJson<Job>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`),
+  )
+}
+
+export async function getJobLogs(jobId: string, tail = 200): Promise<JobLogs> {
+  const safeTail = Math.max(1, Math.min(5000, Math.trunc(tail)))
+  return readJson<JobLogs>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/logs?tail=${safeTail}`),
+  )
+}
+
+export async function cancelJob(jobId: string): Promise<Job> {
+  return readJson<Job>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/cancel`, {
+      method: 'POST',
+    }),
+  )
 }
 
 export async function createJob(
