@@ -35,10 +35,19 @@ Start the core stack:
 docker compose up -d --build web api redis
 ```
 
-Open:
+Open on the host itself:
 
 - UI: `http://localhost:8080`
 - direct API/diagnostics: `http://localhost:8088/api/v1/health`
+
+All published application ports bind to `0.0.0.0` by default. From another device in the same trusted home network, replace `localhost` with the IPv4 address of the GeoPhotoConverter host, for example:
+
+- UI: `http://192.168.178.45:8080`
+- API: `http://192.168.178.45:8088/api/v1/health`
+- DroneDB profile: `http://192.168.178.45:5000`
+- Open WebUI profile: `http://192.168.178.45:3001`
+
+The exact host address can be found on Windows with `ipconfig`. Do not forward these ports from the router to the public Internet; the current stack is designed for a trusted LAN and does not add an authentication layer in front of every service.
 
 Stop the stack with:
 
