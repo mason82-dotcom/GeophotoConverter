@@ -4,16 +4,10 @@ import { AppShell, type NavKey } from './components/AppShell'
 import { DatasetsPage } from './pages/DatasetsPage'
 import { ImportPage } from './pages/ImportPage'
 import { ProcessingPage } from './pages/ProcessingPage'
+import { ResultsPage } from './pages/ResultsPage'
+import { DroneDBPage } from './pages/DroneDBPage'
 
-const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'>, { title: string; description: string }> = {
-  results: {
-    title: 'Results',
-    description: 'Inspect generated orthophotos, surfaces, point clouds, meshes, and logs.',
-  },
-  dronedb: {
-    title: 'DroneDB',
-    description: 'Publish completed datasets and artifacts to the configured DroneDB service.',
-  },
+const pageCopy: Record<Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>, { title: string; description: string }> = {
   assistant: {
     title: 'Assistant',
     description: 'Open the optional AI assistant surface without leaving the operator workflow.',
@@ -77,7 +71,7 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   )
 }
 
-function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'> }) {
+function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'> }) {
   const copy = pageCopy[active]
   return (
     <section className="panel empty-state">
@@ -99,8 +93,10 @@ export default function App() {
       {active === 'datasets' && <DatasetsPage />}
       {active === 'map' && <DatasetsPage mapFocused />}
       {active === 'processing' && <ProcessingPage />}
-      {!['overview', 'import', 'datasets', 'map', 'processing'].includes(active) && (
-        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing'>} />
+      {active === 'results' && <ResultsPage />}
+      {active === 'dronedb' && <DroneDBPage />}
+      {!['overview', 'import', 'datasets', 'map', 'processing', 'results', 'dronedb'].includes(active) && (
+        <PlaceholderPage active={active as Exclude<NavKey, 'overview' | 'import' | 'datasets' | 'map' | 'processing' | 'results' | 'dronedb'>} />
       )}
     </AppShell>
   )
