@@ -1,50 +1,54 @@
-# Processing engines
+# Verarbeitungs-Engines
 
 ## OpenDroneMap / ODM
 
-Container base: `opendronemap/odm:3.6.2`.
+Container-Basis: `opendronemap/odm:3.6.2`.
 
-Profiles:
-- `preview`: fast orthophoto, lowest point-cloud quality
-- `standard`: DSM/DTM, medium point-cloud quality
-- `high`: DSM/DTM, high point-cloud quality
+Profile:
+
+- `preview`: schnelles Orthofoto, niedrigste Punktwolkenqualität
+- `standard`: DSM/DTM, mittlere Punktwolkenqualität
+- `high`: DSM/DTM, hohe Punktwolkenqualität
 
 ## MicMac
 
-Pinned upstream release: `micmacIGN/micmac v1.2.0`.
+Festgelegte Upstream-Version: `micmacIGN/micmac v1.2.0`.
 
-The Linux release archive is verified during image build with SHA-256:
+Das Linux-Release-Archiv wird beim Image-Build mit SHA-256 geprüft:
 
 `84c1b48dd4f7b4e099a40d034d08afbebd4837ea61526ecae370304e8d5153c5`
 
-Profiles:
+Profile:
+
 - `preview`: Tapioca + Tapas RadialBasic + AperiCloud
 - `standard`: Tapioca + Tapas RadialStd + AperiCloud + C3DC QuickMac
 - `high`: Tapioca + Tapas RadialStd + AperiCloud + C3DC BigMac
 
-The first MicMac worker produces local-coordinate sparse/dense point clouds. GPS/RTK-based georeferencing and orthomosaic/DEM export are a separate integration phase so that orientation correctness can be validated independently.
+Der erste MicMac-Worker erzeugt dünne und dichte Punktwolken in lokalen Koordinaten. GPS-/RTK-basierte Georeferenzierung sowie Orthomosaik-/DEM-Export sind eine getrennte Integrationsphase, damit die Orientierung unabhängig geprüft werden kann.
 
-MicMac input in this worker currently accepts JPEG/JPEG/TIFF imagery. DNG/R-JPEG conversion will be handled by a normalization stage rather than hidden inside the reconstruction commands.
+Der MicMac-Worker akzeptiert derzeit JPEG-/TIFF-Bilddaten. DNG-/R-JPEG-Konvertierung wird in einer eigenen Normalisierungsstufe umgesetzt und nicht in den Rekonstruktionsbefehlen versteckt.
 
 ## gsplat
 
-GPU worker pinned to upstream commit:
+GPU-Worker auf folgenden Upstream-Commit festgelegt:
 
 `nerfstudio-project/gsplat@512d366b67073d77ca099ede742683c165dfc23b`
 
-Runtime foundation:
-- NVIDIA CUDA 12.8.1 + cuDNN development image
-- PyTorch 2.9.1 / torchvision 0.24.1 with CUDA 12.8 wheels
-- COLMAP CLI for camera pose / sparse reconstruction
-- gsplat CUDA extension JIT-compiled on first GPU use and stored in a persistent Docker volume
+Laufzeitbasis:
 
-Profiles:
-- `preview`: COLMAP sequential matching, max image size 1600, gsplat factor 4, 3000 training steps
-- `standard`: exhaustive matching, max image size 2400, gsplat factor 2, 7000 steps
-- `high`: exhaustive matching, max image size 3200, gsplat factor 2, 15000 steps
+- NVIDIA CUDA 12.8.1 + cuDNN-Development-Image
+- PyTorch 2.9.1 / torchvision 0.24.1 mit CUDA-12.8-Wheels
+- COLMAP-CLI für Kameraposen und dünne Rekonstruktion
+- gsplat-CUDA-Erweiterung wird bei der ersten GPU-Nutzung per JIT kompiliert und in einem persistenten Docker-Volume gespeichert
 
-All profiles use packed rasterization to reduce GPU memory pressure. The worker requires NVIDIA Container Toolkit and a CUDA-capable NVIDIA GPU. Image normalization currently accepts JPEG/PNG/TIFF; DNG and R-JPEG conversion will be added as a dedicated preprocessing stage.
+Profile:
+
+- `preview`: sequenzielles COLMAP-Matching, maximale Bildgröße 1600, gsplat-Faktor 4, 3000 Trainingsschritte
+- `standard`: vollständiges Matching, maximale Bildgröße 2400, gsplat-Faktor 2, 7000 Schritte
+- `high`: vollständiges Matching, maximale Bildgröße 3200, gsplat-Faktor 2, 15000 Schritte
+
+Alle Profile verwenden gepackte Rasterisierung zur Reduzierung des GPU-Speicherbedarfs. Der Worker benötigt NVIDIA Container Toolkit und eine CUDA-fähige NVIDIA-GPU. Die Bildnormalisierung akzeptiert derzeit JPEG/PNG/TIFF; DNG und R-JPEG werden später über eine eigene Vorverarbeitungsstufe ergänzt.
 
 ## TeleSculptor
 
-Experimental/manual comparison engine only. It is not part of the default automated worker queue.
+Nur als experimentelle/manuelle Vergleichs-Engine vorgesehen. TeleSculptor ist nicht Bestandteil der standardmäßigen automatisierten Worker-Warteschlange.
