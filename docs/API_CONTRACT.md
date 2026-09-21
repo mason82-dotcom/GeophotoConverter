@@ -37,6 +37,15 @@ Returns dataset QA including geotag coverage, platform/media classification, cam
 ### GET /datasets/{dataset_id}/geojson
 Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
 
+### GET /datasets/{dataset_id}/files/{file_id}/preview?size=1024
+Returns a cached browser-displayable WebP preview for one dataset image.
+
+- `size`: optional longest-edge limit, 128–2048 px
+- JPEG/TIFF are decoded directly
+- DNG previews are rendered through LibRaw before WebP encoding
+- response includes cache headers and ETag
+- `GET /datasets/{dataset_id}` exposes `preview_url` on each file record so clients do not need to construct this path themselves
+
 ## Jobs
 
 ### GET /jobs
@@ -53,12 +62,13 @@ Create a processing job.
   "options": {}
 }
 ```
-Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
+Allowed engines: `odm`, `micmac`, `gsplat`, `thermal`, `telesculptor`.
 Allowed profiles: `preview`, `standard`, `high`.
 
 Allowed workflows:
 - `rgb` — normal RGB/WIDE photogrammetry
 - `multispectral` — ODM-only M3M processing with complete RGB + G + R + RE + NIR capture groups
+- `thermal` — DJI M3T/M4T WIDE + radiometric thermal processing via the optional thermal worker
 
 Example M3M job:
 ```json
