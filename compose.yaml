@@ -1,6 +1,16 @@
 name: geophoto-converter
 
 services:
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${GEOPHOTO_WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
   api:
     build:
       context: ./backend
@@ -12,6 +22,12 @@ services:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
     ports:
       - "${GEOPHOTO_HTTP_PORT:-8088}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     depends_on:
       redis:
         condition: service_healthy
