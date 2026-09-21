@@ -23,7 +23,7 @@ def read_metadata(path: Path) -> dict[str, Any]:
     )
     payload = json.loads(proc.stdout)
     if not payload:
-        raise ValueError("ExifTool returned no metadata")
+        raise ValueError("ExifTool hat keine Metadaten zurückgegeben")
     raw = payload[0]
 
     latitude = _first(raw, "GPS:GPSLatitude", "EXIF:GPSLatitude", "Composite:GPSLatitude")
