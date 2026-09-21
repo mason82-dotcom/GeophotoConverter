@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     engine TEXT NOT NULL,
     profile TEXT NOT NULL,
     workflow TEXT NOT NULL DEFAULT 'rgb',
+    options_json TEXT NOT NULL DEFAULT '{}',
     status TEXT NOT NULL,
     progress REAL NOT NULL DEFAULT 0,
     phase TEXT,
@@ -76,6 +77,10 @@ class Store:
                 conn.execute(
                     "ALTER TABLE jobs ADD COLUMN workflow TEXT NOT NULL DEFAULT 'rgb'"
                 )
+            if "options_json" not in job_columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}'"
+                )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
                 "ON files(dataset_id, sha256)"
@@ -99,7 +104,7 @@ class Store:
         if row is None:
             return None
         data = dict(row)
-        for key in ("metadata_json", "artifacts_json"):
+        for key in ("metadata_json", "artifacts_json", "options_json"):
             if data.get(key):
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
             else:
@@ -237,6 +242,7 @@ class Store:
         engine: str,
         profile: str,
         workflow: str = "rgb",
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         job_id = self.new_id()
         now = self.now()
@@ -244,9 +250,10 @@ class Store:
             conn.execute(
                 """
                 INSERT INTO jobs(
-                    id,dataset_id,engine,profile,workflow,status,created_at,updated_at
+                    id,dataset_id,engine,profile,workflow,options_json,
+                    status,created_at,updated_at
                 )
-                VALUES(?,?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     job_id,
@@ -254,6 +261,7 @@ class Store:
                     engine,
                     profile,
                     workflow,
+                    json.dumps(options or {}),
                     "queued",
                     now,
                     now,

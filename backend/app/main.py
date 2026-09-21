@@ -24,6 +24,7 @@ from .config import (
 )
 from .metadata import read_metadata
 from .maps import router as maps_router
+from .job_options import normalize_job_options
 from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .qa import dataset_qa
@@ -48,6 +49,7 @@ class JobCreate(BaseModel):
     engine: str
     profile: str = "standard"
     workflow: str = "rgb"
+    options: dict[str, object] = Field(default_factory=dict)
 
 
 def _dataset_or_404(dataset_id: str) -> dict:
@@ -455,6 +457,11 @@ def create_job(body: JobCreate) -> dict:
                     "engine_inputs": qa["engine_inputs"],
                 },
             )
+    try:
+        job_options = normalize_job_options(engine, workflow, body.options)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if engine == "telesculptor":
         raise HTTPException(
             status_code=409,
@@ -463,7 +470,13 @@ def create_job(body: JobCreate) -> dict:
     if not redis_ping():
         raise HTTPException(status_code=503, detail="Job queue is unavailable")
 
-    job = store.create_job(body.dataset_id, engine, profile, workflow)
+    job = store.create_job(
+        body.dataset_id,
+        engine,
+        profile,
+        workflow,
+        job_options,
+    )
     enqueue(
         engine,
         {
@@ -472,6 +485,7 @@ def create_job(body: JobCreate) -> dict:
             "engine": engine,
             "profile": profile,
             "workflow": workflow,
+            "options": job_options,
         },
     )
     return job

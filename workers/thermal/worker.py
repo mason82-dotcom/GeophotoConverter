@@ -244,6 +244,20 @@ def _collect_artifacts(result_dir: Path) -> list[dict[str, Any]]:
 def handle(payload: dict) -> None:
     job_id = payload["job_id"]
     dataset_id = payload["dataset_id"]
+    options = payload.get("options") or {}
+    measurement_overrides = {
+        key: options[key]
+        for key in (
+            "distance_m",
+            "humidity_pct",
+            "emissivity",
+            "reflection_c",
+            "ambient_temp_c",
+        )
+        if key in options
+    }
+    hotspot_delta_c = float(options.get("hotspot_delta_c", 10.0))
+    hotspot_min_pixels = int(options.get("hotspot_min_pixels", 4))
     job_root = DATA_ROOT / "jobs" / job_id
     job_root.mkdir(parents=True, exist_ok=True)
     result_dir = job_root / "thermal" / "results"
@@ -286,8 +300,9 @@ def handle(payload: dict) -> None:
         handoff_path,
         result_dir,
         decoder,
-        hotspot_delta_c=10.0,
-        hotspot_min_pixels=4,
+        measurement_overrides=measurement_overrides or None,
+        hotspot_delta_c=hotspot_delta_c,
+        hotspot_min_pixels=hotspot_min_pixels,
     )
 
     artifacts = _collect_artifacts(result_dir)

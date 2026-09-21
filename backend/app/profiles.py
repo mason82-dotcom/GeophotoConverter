@@ -156,6 +156,48 @@ def processing_catalog() -> dict[str, Any]:
                         "temperature_space": "sensor_pixel",
                         "wide_thermal_coregistered": False,
                         "georeferenced_temperature_raster": False,
+                        "options": {
+                            "emissivity": {
+                                "type": "number",
+                                "minimum_exclusive": 0.0,
+                                "maximum": 1.0,
+                                "default": None,
+                                "note": "Optional DIRP measurement override.",
+                            },
+                            "distance_m": {
+                                "type": "number",
+                                "minimum_exclusive": 0.0,
+                                "default": None,
+                                "note": "Optional DIRP measurement override.",
+                            },
+                            "humidity_pct": {
+                                "type": "number",
+                                "minimum": 0.0,
+                                "maximum": 100.0,
+                                "default": None,
+                                "note": "Optional DIRP measurement override.",
+                            },
+                            "reflection_c": {
+                                "type": "number",
+                                "default": None,
+                                "note": "Optional reflected temperature override.",
+                            },
+                            "ambient_temp_c": {
+                                "type": "number",
+                                "default": None,
+                                "note": "Optional ambient temperature override.",
+                            },
+                            "hotspot_delta_c": {
+                                "type": "number",
+                                "minimum_exclusive": 0.0,
+                                "default": 10.0,
+                            },
+                            "hotspot_min_pixels": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 4,
+                            },
+                        },
                         "outputs": [
                             "thermal_temperature_tiff",
                             "thermal_preview",

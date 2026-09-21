@@ -49,7 +49,8 @@ Create a processing job.
   "dataset_id":"...",
   "engine":"odm",
   "profile":"preview",
-  "workflow":"rgb"
+  "workflow":"rgb",
+  "options": {}
 }
 ```
 Allowed engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
@@ -143,8 +144,35 @@ Thermal results explicitly report that temperature rasters remain in sensor-pixe
   "dataset_id": "...",
   "engine": "thermal",
   "profile": "standard",
-  "workflow": "thermal"
+  "workflow": "thermal",
+  "options": {
+    "emissivity": 0.95,
+    "distance_m": 10.0,
+    "humidity_pct": 65.0,
+    "reflection_c": 20.0,
+    "ambient_temp_c": 20.0,
+    "hotspot_delta_c": 10.0,
+    "hotspot_min_pixels": 4
+  }
 }
 ```
 
 The optional thermal worker requires a locally supplied DJI Thermal SDK. No DJI SDK binaries are included in this repository.
+
+
+### Job options
+
+Job options are validated and stored with the job for reproducibility. Arbitrary engine CLI arguments are never accepted.
+
+For the current thermal workflow the supported options are:
+- `emissivity`: optional, > 0 and <= 1
+- `distance_m`: optional, > 0
+- `humidity_pct`: optional, 0–100
+- `reflection_c`: optional finite Celsius value
+- `ambient_temp_c`: optional finite Celsius value
+- `hotspot_delta_c`: positive Celsius delta, default 10
+- `hotspot_min_pixels`: integer >= 1, default 4
+
+Measurement overrides are additionally validated against the ranges reported by DJI DIRP for the specific R-JPEG. If DIRP cannot read/set explicitly requested overrides, thermal processing fails closed instead of claiming the override was applied.
+
+Non-thermal engines currently reject non-empty `options` objects until their own typed option schemas are added.
