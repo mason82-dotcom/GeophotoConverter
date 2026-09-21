@@ -19,9 +19,7 @@ import { createDataset, scanDataset, uploadDatasetFile } from '../api/client'
 
 type QueueStatus = 'queued' | 'uploading' | 'uploaded' | 'error' | 'cancelled'
 
-interface FileWithPath extends File {
-  webkitRelativePath?: string
-}
+type FileWithPath = File
 
 interface QueueItem {
   id: string
