@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getHealth, getServices, listMapPacks, type HealthResponse } from '../api/client'
 import type { MapCatalog, ServicesResponse } from '../api/types'
+import { statusText } from '../i18n'
 
 type Density = 'comfortable' | 'compact'
 
@@ -26,7 +27,7 @@ function readAutoRefresh() {
 }
 
 function formatBytes(bytes?: number | null) {
-  if (!bytes) return 'Not installed'
+  if (!bytes) return 'Nicht installiert'
   const gib = bytes / 1024 / 1024 / 1024
   if (gib >= 1) return `${gib.toFixed(2)} GiB`
   return `${(bytes / 1024 / 1024).toFixed(0)} MiB`
@@ -54,7 +55,7 @@ export function SettingsPage() {
       setServices(serviceState)
       setMaps(mapState)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Settings state could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'Einstellungsstatus konnte nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -80,7 +81,7 @@ export function SettingsPage() {
     return (
       <div className="panel loading-state" role="status">
         <LoaderCircle className="spin" size={24} />
-        <span>Loading workstation settings…</span>
+        <span>Arbeitsplatz-Einstellungen werden geladen …</span>
       </div>
     )
   }
@@ -91,8 +92,8 @@ export function SettingsPage() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">System</p>
-            <h2>Runtime status</h2>
-            <p>Read-only status from the relative GeoPhoto API.</p>
+            <h2>Laufzeitstatus</h2>
+            <p>Schreibgeschützter Status der relativen GeoPhoto-API.</p>
           </div>
           <button className="button" type="button" onClick={() => void load()}>
             <RefreshCw size={16} />
@@ -104,21 +105,21 @@ export function SettingsPage() {
           <article>
             <Server size={19} />
             <span>API</span>
-            <strong>{health?.status ?? 'Unknown'}</strong>
+            <strong>{health?.status ?? 'Unbekannt'}</strong>
           </article>
           <article>
             <Database size={19} />
             <span>Redis</span>
-            <strong>{health?.redis ?? 'Unknown'}</strong>
+            <strong>{health?.redis ?? 'Unbekannt'}</strong>
           </article>
           <article>
             <Gauge size={19} />
-            <span>API version</span>
+            <span>API-Version</span>
             <strong>{health?.version ?? '—'}</strong>
           </article>
           <article>
             <MapPinned size={19} />
-            <span>Offline maps</span>
+            <span>Offline-Karten</span>
             <strong>{installedMaps.length}/{maps?.packs.length ?? 0}</strong>
           </article>
         </div>
@@ -127,14 +128,14 @@ export function SettingsPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Frontend preferences</p>
-            <h3>Operator interface</h3>
+            <p className="eyebrow">Frontend-Einstellungen</p>
+            <h3>Bedienoberfläche</h3>
           </div>
         </div>
 
         <div className="settings-form">
           <fieldset>
-            <legend>Interface density</legend>
+            <legend>Darstellungsdichte</legend>
             <label className="radio-setting">
               <input
                 type="radio"
@@ -143,7 +144,7 @@ export function SettingsPage() {
                 checked={density === 'comfortable'}
                 onChange={() => setDensity('comfortable')}
               />
-              <span><strong>Comfortable</strong><small>Standard spacing and touch targets.</small></span>
+              <span><strong>Komfortabel</strong><small>Standardabstände und Bedienelementgrößen.</small></span>
             </label>
             <label className="radio-setting">
               <input
@@ -153,14 +154,14 @@ export function SettingsPage() {
                 checked={density === 'compact'}
                 onChange={() => setDensity('compact')}
               />
-              <span><strong>Compact</strong><small>Higher information density for desktop workstations.</small></span>
+              <span><strong>Kompakt</strong><small>Höhere Informationsdichte für Desktop-Arbeitsplätze.</small></span>
             </label>
           </fieldset>
 
           <label className="toggle-setting">
             <span>
-              <strong>Automatic job refresh preference</strong>
-              <small>Stored locally for frontend polling behavior. No backend setting is changed.</small>
+              <strong>Automatische Auftragsaktualisierung</strong>
+              <small>Wird lokal für die Frontend-Aktualisierung gespeichert. Backend-Einstellungen werden nicht verändert.</small>
             </span>
             <input
               type="checkbox"
@@ -174,8 +175,8 @@ export function SettingsPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Connected services</p>
-            <h3>Backend capabilities</h3>
+            <p className="eyebrow">Verbundene Dienste</p>
+            <h3>Backend-Fähigkeiten</h3>
           </div>
         </div>
         <div className="service-table" role="list">
@@ -186,10 +187,10 @@ export function SettingsPage() {
               </div>
               <div>
                 <strong>{name.replaceAll('_', ' ')}</strong>
-                <span>{state.note ?? state.profile ?? 'Backend service'}</span>
+                <span>{state.note ?? state.profile ?? 'Backend-Dienst'}</span>
               </div>
               <span className={`status-chip ${state.status === 'unavailable' ? 'status-chip--error' : 'status-chip--neutral'}`}>
-                {state.status}
+                {statusText(state.status)}
               </span>
             </div>
           ))}
@@ -199,8 +200,8 @@ export function SettingsPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Offline basemaps</p>
-            <h3>Regional map packs</h3>
+            <p className="eyebrow">Offline-Basiskarten</p>
+            <h3>Regionale Kartenpakete</h3>
           </div>
         </div>
         <div className="map-pack-list">
@@ -212,7 +213,7 @@ export function SettingsPage() {
               </div>
               <span className={`status-chip ${pack.installed ? 'status-chip--uploaded' : 'status-chip--neutral'}`}>
                 {pack.installed && <CheckCircle2 size={13} />}
-                {pack.installed ? 'Installed' : 'Not installed'}
+                {pack.installed ? 'Installiert' : 'Nicht installiert'}
               </span>
             </article>
           ))}
