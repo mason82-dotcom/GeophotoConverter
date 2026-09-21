@@ -15,13 +15,14 @@ import { getDataset, listDatasets, listMapPacks } from '../api/client'
 import type { Dataset, DatasetDetail, MapPack, UploadedFileRecord } from '../api/types'
 import { CaptureMap } from '../components/CaptureMap'
 import { FlightlineQualityStrip } from '../components/FlightlineQualityStrip'
+import { statusText } from '../i18n'
 
 interface DatasetsPageProps {
   mapFocused?: boolean
 }
 
 function summarizeCounts(values: Record<string, number> | undefined) {
-  if (!values) return 'Not reported'
+  if (!values) return 'Nicht angegeben'
   const entries = Object.entries(values)
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
@@ -30,11 +31,11 @@ function summarizeCounts(values: Record<string, number> | undefined) {
 
 function readinessLabel(dataset: DatasetDetail) {
   const readiness = dataset.qa?.readiness
-  if (!readiness) return 'Not reported'
+  if (!readiness) return 'Nicht angegeben'
   return [
-    `ODM ${readiness.odm.ready ? 'ready' : 'blocked'}`,
-    `MicMac ${readiness.micmac.ready ? 'ready' : 'blocked'}`,
-    `gsplat ${readiness.gsplat.ready ? 'ready' : 'blocked'}`,
+    `ODM ${readiness.odm.ready ? 'bereit' : 'blockiert'}`,
+    `MicMac ${readiness.micmac.ready ? 'bereit' : 'blockiert'}`,
+    `gsplat ${readiness.gsplat.ready ? 'bereit' : 'blockiert'}`,
   ].join(' · ')
 }
 
@@ -47,32 +48,35 @@ function MetadataInspector({ file }: { file?: UploadedFileRecord }) {
     return (
       <div className="inspector-empty">
         <ImageOff size={26} />
-        <span>Select a capture point or flightline segment.</span>
+        <span>Aufnahmepunkt oder Flugliniensegment auswählen.</span>
       </div>
     )
   }
 
   const metadata = file.metadata
   const rows = [
-    ['Path', file.relative_path],
-    ['Capture time', metadata?.capture_time ?? '—'],
-    ['Camera', [metadata?.camera?.make, metadata?.camera?.model].filter(Boolean).join(' ') || '—'],
-    ['Platform', file.classification?.platform ?? '—'],
-    ['Media kind', file.classification?.media_kind ?? '—'],
-    ['Lens', metadata?.camera?.lens ?? '—'],
-    ['Latitude', formatCoordinate(metadata?.gps?.latitude)],
-    ['Longitude', formatCoordinate(metadata?.gps?.longitude)],
-    ['Altitude', typeof metadata?.gps?.altitude === 'number' ? `${metadata.gps.altitude.toFixed(1)} m` : '—'],
-    ['RTK flag', metadata?.dji?.rtk_flag == null ? '—' : String(metadata.dji.rtk_flag)],
-    ['Gimbal pitch', typeof metadata?.dji?.gimbal_pitch === 'number' ? `${metadata.dji.gimbal_pitch.toFixed(1)}°` : '—'],
-    ['Flight yaw', typeof metadata?.dji?.flight_yaw === 'number' ? `${metadata.dji.flight_yaw.toFixed(1)}°` : '—'],
+    ['Pfad', file.relative_path],
+    ['Aufnahmezeit', metadata?.capture_time ?? '—'],
+    ['Kamera', [metadata?.camera?.make, metadata?.camera?.model].filter(Boolean).join(' ') || '—'],
+    ['Plattform', file.classification?.platform ?? '—'],
+    ['Medientyp', file.classification?.media_kind ?? '—'],
+    ['Objektiv', metadata?.camera?.lens ?? '—'],
+    ['Breitengrad', formatCoordinate(metadata?.gps?.latitude)],
+    ['Längengrad', formatCoordinate(metadata?.gps?.longitude)],
+    ['Höhe', typeof metadata?.gps?.altitude === 'number' ? `${metadata.gps.altitude.toFixed(1)} m` : '—'],
+    ['RTK-Status', metadata?.dji?.rtk_flag == null ? '—' : String(metadata.dji.rtk_flag)],
+    ['Gimbal-Neigung', typeof metadata?.dji?.gimbal_pitch === 'number' ? `${metadata.dji.gimbal_pitch.toFixed(1)}°` : '—'],
+    ['Flug-Gierwinkel', typeof metadata?.dji?.flight_yaw === 'number' ? `${metadata.dji.flight_yaw.toFixed(1)}°` : '—'],
   ]
 
   return (
     <div className="metadata-inspector">
       <div className="inspector-preview">
-        <Camera size={30} strokeWidth={1.5} />
-        <span>Image preview API not available</span>
+        <img
+          src={file.preview_url ?? `/api/v1/datasets/${encodeURIComponent(file.dataset_id)}/files/${encodeURIComponent(file.id)}/preview`}
+          alt={`Vorschau ${file.relative_path}`}
+          loading="lazy"
+        />
       </div>
       <dl>
         {rows.map(([label, value]) => (
@@ -115,7 +119,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
           : next.files.find((file) => file.metadata?.gps?.latitude != null)?.id ?? next.files[0]?.id,
       )
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Dataset could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'Datensatz konnte nicht geladen werden.')
       setDetail(undefined)
     } finally {
       setDetailLoading(false)
@@ -141,7 +145,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
       if (target) await loadDetail(target)
       else setDetail(undefined)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Datasets could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'Datensätze konnten nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -172,7 +176,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
     return (
       <div className="panel loading-state" role="status">
         <LoaderCircle className="spin" size={24} />
-        <span>Loading datasets…</span>
+        <span>Datensätze werden geladen …</span>
       </div>
     )
   }
@@ -181,7 +185,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
     return (
       <div className="panel error-state">
         <AlertTriangle size={26} />
-        <h2>Dataset API unavailable</h2>
+        <h2>Datensatz-API nicht verfügbar</h2>
         <p>{error}</p>
         <button className="button" type="button" onClick={() => void loadAll()}>
           <RefreshCw size={16} /> Retry
@@ -193,24 +197,24 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
   if (!datasets.length) {
     return (
       <div className="panel empty-state">
-        <p className="eyebrow">Datasets</p>
-        <h2>No datasets yet</h2>
-        <p>Import and scan aerial imagery before opening the QA workspace.</p>
+        <p className="eyebrow">Datensätze</p>
+        <h2>Noch keine Datensätze</h2>
+        <p>Vor der Qualitätsprüfung zuerst Luftbilder importieren und scannen.</p>
       </div>
     )
   }
 
   return (
     <div className="dataset-layout">
-      <aside className="dataset-browser panel" aria-label="Dataset browser">
+      <aside className="dataset-browser panel" aria-label="Datensatzübersicht">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Library</p>
-            <h3>Datasets</h3>
+            <p className="eyebrow">Bibliothek</p>
+            <h3>Datensätze</h3>
           </div>
-          <button className="mini-button" type="button" onClick={() => void loadAll()} title="Refresh datasets">
+          <button className="mini-button" type="button" onClick={() => void loadAll()} title="Datensätze aktualisieren">
             <RefreshCw size={15} />
-            <span className="visually-hidden">Refresh datasets</span>
+            <span className="visually-hidden">Datensätze aktualisieren</span>
           </button>
         </div>
         <div className="dataset-list">
@@ -223,7 +227,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
             >
               <div>
                 <strong>{dataset.name}</strong>
-                <span>{dataset.image_count ?? 0} images · {dataset.geotagged_percent ?? 0}% GPS</span>
+                <span>{dataset.image_count ?? 0} Bilder · {dataset.geotagged_percent ?? 0}% GPS</span>
               </div>
               <ChevronRight size={16} />
             </button>
@@ -233,45 +237,45 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
 
       <div className="dataset-workspace">
         {detailLoading && !detail ? (
-          <div className="panel loading-state"><LoaderCircle className="spin" size={22} /> Loading dataset…</div>
+          <div className="panel loading-state"><LoaderCircle className="spin" size={22} /> Datensatz wird geladen …</div>
         ) : detail ? (
           <>
             <section className="panel dataset-header">
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">{mapFocused ? 'Map workspace' : 'Dataset quality'}</p>
+                  <p className="eyebrow">{mapFocused ? 'Kartenarbeitsbereich' : 'Datensatzqualität'}</p>
                   <h2>{detail.name}</h2>
-                  <p>{detail.description || 'No dataset description.'}</p>
+                  <p>{detail.description || 'Keine Datensatzbeschreibung.'}</p>
                 </div>
                 <span className={`status-chip ${detail.scan_status === 'completed' ? 'status-chip--uploaded' : 'status-chip--neutral'}`}>
-                  {detail.scan_status}
+                  {statusText(detail.scan_status)}
                 </span>
               </div>
 
               <div className="quality-grid">
                 <article>
                   <ImagesIcon />
-                  <span>Images</span>
+                  <span>Bilder</span>
                   <strong>{detail.image_count ?? detail.files.length}</strong>
                 </article>
                 <article>
                   <MapPinned size={18} />
-                  <span>Geotagged</span>
+                  <span>Georeferenziert</span>
                   <strong>{qa?.geotagged_percent ?? detail.geotagged_percent ?? 0}%</strong>
                 </article>
                 <article>
                   <Camera size={18} />
-                  <span>Camera</span>
+                  <span>Kamera</span>
                   <strong>{summarizeCounts(qa?.camera_models)}</strong>
                 </article>
                 <article>
                   <Satellite size={18} />
-                  <span>Platform</span>
+                  <span>Plattform</span>
                   <strong>{summarizeCounts(qa?.platforms)}</strong>
                 </article>
                 <article>
                   <Mountain size={18} />
-                  <span>Altitude</span>
+                  <span>Höhe</span>
                   <strong>
                     {qa?.altitude.gps_m.min != null && qa.altitude.gps_m.max != null
                       ? `${qa.altitude.gps_m.min.toFixed(0)}–${qa.altitude.gps_m.max.toFixed(0)} m`
@@ -280,47 +284,47 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
                 </article>
                 <article>
                   <AlertTriangle size={18} />
-                  <span>QA warnings</span>
+                  <span>QA-Warnungen</span>
                   <strong>{warnings}</strong>
                 </article>
                 <article>
                   <CheckCircle2 size={18} />
-                  <span>Readiness</span>
+                  <span>Bereitschaft</span>
                   <strong>{readinessLabel(detail)}</strong>
                 </article>
                 <article>
                   <AlertTriangle size={18} />
-                  <span>Failed scans</span>
+                  <span>Fehlgeschlagene Scans</span>
                   <strong>{failedScans}</strong>
                 </article>
               </div>
 
               {qa && (
-                <div className="qa-engine-row" aria-label="Processing readiness by engine">
+                <div className="qa-engine-row" aria-label="Verarbeitungsbereitschaft nach Engine">
                   {(['odm', 'micmac', 'gsplat'] as const).map((engine) => {
                     const state = qa.readiness[engine]
                     return (
                       <div className={`qa-engine-card ${state.ready ? 'qa-engine-card--ready' : 'qa-engine-card--blocked'}`} key={engine}>
                         <strong>{engine.toUpperCase()}</strong>
-                        <span>{state.ready ? 'Ready' : state.reason ?? 'Blocked'}</span>
-                        <small>{state.eligible_images} eligible RGB/WIDE images</small>
+                        <span>{state.ready ? 'Bereit' : state.reason ?? 'Blockiert'}</span>
+                        <small>{state.eligible_images} geeignete RGB/WIDE-Bilder</small>
                       </div>
                     )
                   })}
                   <div className={`qa-engine-card ${qa.readiness.odm_multispectral.ready ? 'qa-engine-card--ready' : 'qa-engine-card--blocked'}`}>
                     <strong>ODM M3M</strong>
-                    <span>{qa.readiness.odm_multispectral.ready ? 'Ready' : qa.readiness.odm_multispectral.reason ?? 'Blocked'}</span>
-                    <small>{qa.readiness.odm_multispectral.complete_groups ?? 0} complete capture groups</small>
+                    <span>{qa.readiness.odm_multispectral.ready ? 'Bereit' : qa.readiness.odm_multispectral.reason ?? 'Blockiert'}</span>
+                    <small>{qa.readiness.odm_multispectral.complete_groups ?? 0} vollständige Aufnahmegruppen</small>
                   </div>
                   <div className={`qa-engine-card ${qa.readiness.thermal.ready ? 'qa-engine-card--ready' : 'qa-engine-card--blocked'}`}>
                     <strong>Thermal</strong>
-                    <span>{qa.readiness.thermal.ready ? 'Ready' : qa.readiness.thermal.reason ?? 'Blocked'}</span>
-                    <small>{qa.readiness.thermal.complete_groups ?? 0} complete WIDE+THERMAL groups · {qa.readiness.thermal.platform ?? 'platform unknown'}</small>
+                    <span>{qa.readiness.thermal.ready ? 'Bereit' : qa.readiness.thermal.reason ?? 'Blockiert'}</span>
+                    <small>{qa.readiness.thermal.complete_groups ?? 0} vollständige WIDE+THERMAL-Gruppen · {qa.readiness.thermal.platform ?? 'Plattform unbekannt'}</small>
                   </div>
                   <div className="qa-engine-card">
-                    <strong>Inputs</strong>
+                    <strong>Eingaben</strong>
                     <span>RGB/WIDE {qa.engine_inputs.rgb_wide} · Thermal {qa.engine_inputs.thermal}</span>
-                    <small>Multispectral {qa.engine_inputs.multispectral} · complete groups {qa.engine_inputs.complete_multispectral_groups} · thermal groups {qa.engine_inputs.complete_thermal_groups}</small>
+                    <small>Multispectral {qa.engine_inputs.multispectral} · vollständige Gruppen {qa.engine_inputs.complete_multispectral_groups} · Thermal-Gruppen {qa.engine_inputs.complete_thermal_groups}</small>
                   </div>
                 </div>
               )}
@@ -329,8 +333,8 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
             <section className="panel">
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">Flightline quality strip</p>
-                  <h3>Capture sequence QA</h3>
+                  <p className="eyebrow">Fluglinien-Qualitätsleiste</p>
+                  <h3>Qualitätsprüfung der Aufnahmesequenz</h3>
                 </div>
               </div>
               <FlightlineQualityStrip
@@ -344,19 +348,19 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
               <div className="panel map-panel">
                 <div className="map-toolbar">
                   <div>
-                    <p className="eyebrow">Capture geometry</p>
-                    <h3>Image positions</h3>
+                    <p className="eyebrow">Aufnahmegeometrie</p>
+                    <h3>Bildpositionen</h3>
                   </div>
                   <label className="compact-select">
-                    <span>Offline map</span>
+                    <span>Offline-Karte</span>
                     <select
                       value={mapPackId ?? ''}
                       onChange={(event) => setMapPackId(event.target.value || undefined)}
                     >
-                      <option value="">No basemap</option>
+                      <option value="">Keine Basiskarte</option>
                       {mapPacks.map((pack) => (
                         <option key={pack.id} value={pack.id} disabled={!pack.installed}>
-                          {pack.name}{pack.installed ? '' : ' · not installed'}
+                          {pack.name}{pack.installed ? '' : ' · nicht installiert'}
                         </option>
                       ))}
                     </select>
@@ -373,8 +377,8 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
               <aside className="panel inspector-panel">
                 <div className="panel-heading">
                   <div>
-                    <p className="eyebrow">Capture inspector</p>
-                    <h3>Image & metadata</h3>
+                    <p className="eyebrow">Aufnahmeinspektor</p>
+                    <h3>Bild und Metadaten</h3>
                   </div>
                 </div>
                 <MetadataInspector file={selectedFile} />
