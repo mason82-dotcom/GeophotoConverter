@@ -35,8 +35,8 @@ from .storage import store
 
 app = FastAPI(
     title="GeoPhoto Converter API",
-    version="0.1.0",
-    description="Local aerial imagery ingestion and photogrammetry processing orchestration.",
+    version="1.0.0",
+    description="Lokale Aufnahme, Prüfung und Verarbeitung georeferenzierter Luftbilder.",
 )
 
 app.include_router(maps_router)
