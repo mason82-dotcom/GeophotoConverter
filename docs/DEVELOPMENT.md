@@ -1,36 +1,36 @@
-# Development workflow
+# Entwicklungsablauf
 
-## Recommended modes
+## Empfohlene Betriebsarten
 
-There are two supported development modes.
+Es werden zwei Entwicklungsarten unterstützt.
 
-### 1. Full Docker stack
+### 1. Vollständiger Docker-Stack
 
-Use this when working on integration, uploads, networking, map tiles, or worker orchestration:
+Diese Variante eignet sich für Integration, Uploads, Netzwerk, Kartenkacheln und Worker-Orchestrierung:
 
 ```powershell
 docker compose up -d --build web api redis
 ```
 
-The complete browser/API path is then:
+Der vollständige Browser-/API-Pfad lautet dann:
 
 ```text
 http://<host-ip>:8080 -> nginx -> /api/v1 -> api:8000
 ```
 
-This is the closest representation of the deployment topology.
+Das entspricht der späteren Bereitstellungstopologie am besten.
 
-### 2. Local frontend/backend with Redis in Docker
+### 2. Lokales Frontend/Backend mit Redis in Docker
 
-Use this for fast UI and API iteration.
+Für schnelle UI- und API-Entwicklung.
 
-Start Redis:
+Redis starten:
 
 ```powershell
 docker compose up -d redis
 ```
 
-Create and activate a Python virtual environment from the repository root:
+Virtuelle Python-Umgebung im Repository-Stammverzeichnis anlegen und aktivieren:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -38,14 +38,14 @@ py -3.12 -m venv .venv
 python -m pip install -r backend\requirements.txt
 ```
 
-Start the backend:
+Backend starten:
 
 ```powershell
 Set-Location backend
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8088
 ```
 
-In a second terminal, install and start the frontend:
+In einem zweiten Terminal das Frontend installieren und starten:
 
 ```powershell
 Set-Location frontend
@@ -54,23 +54,23 @@ $env:GEOPHOTO_DEV_API_TARGET = "http://127.0.0.1:8088"
 npm run dev
 ```
 
-Vite listens on all host interfaces and serves the UI on port `5173`; from another LAN device use `http://<host-ip>:5173`. It proxies `/api/*` to the backend on the development host. Application code continues to use only relative `/api/v1` calls.
+Vite lauscht auf allen Host-Schnittstellen und stellt die UI auf Port `5173` bereit. Von einem anderen LAN-Gerät wird `http://<host-ip>:5173` verwendet. Vite leitet `/api/*` an das Backend auf dem Entwicklungsrechner weiter. Der Anwendungscode verwendet weiterhin ausschließlich relative `/api/v1`-Aufrufe.
 
-## VS Code layout
+## VS-Code-Konfiguration
 
-Repository settings exclude generated and high-churn directories such as `data`, `node_modules`, `dist`, and Python caches from search/watch operations. This prevents large imagery datasets from degrading editor performance.
+Die Repository-Einstellungen schließen erzeugte und stark veränderliche Verzeichnisse wie `data`, `node_modules`, `dist` und Python-Caches von Suche und Dateiüberwachung aus. Dadurch beeinträchtigen große Bilddatensätze die Editor-Leistung nicht unnötig.
 
-The recommended extension set covers:
+Empfohlene Erweiterungen:
 
 - Python/Pylance/debugpy
 - Docker/Compose
 - GitHub Actions
 
-The frontend uses the workspace TypeScript installation under `frontend/node_modules` after `npm install`.
+Nach `npm install` verwendet das Frontend die TypeScript-Installation aus `frontend/node_modules`.
 
-## Validation
+## Prüfung
 
-Run the VS Code task `Check: Full stack` or execute the equivalent commands:
+Die VS-Code-Aufgabe `Prüfen: Gesamtsystem` ausführen oder die entsprechenden Befehle verwenden:
 
 ```powershell
 python -m compileall backend/app workers
@@ -80,36 +80,36 @@ Set-Location ..
 docker compose config --quiet
 ```
 
-## Service profiles
+## Dienstprofile
 
-The core development stack is `web + api + redis`.
+Der Kern-Entwicklungsstack besteht aus `web + api + redis`.
 
-Optional Compose profiles:
+Optionale Compose-Profile:
 
-- `odm` - OpenDroneMap worker
-- `micmac` - MicMac worker
-- `dronedb` - DroneDB Registry
-- `ai` - Open WebUI
+- `odm` – OpenDroneMap-Worker
+- `micmac` – MicMac-Worker
+- `gsplat` – GPU-Worker für Gaussian Splatting
+- `dronedb` – DroneDB Registry
+- `ai` – Open WebUI
 
-Only enable the profiles needed for the current task to keep local resource usage predictable.
+Nur die für die aktuelle Aufgabe benötigten Profile aktivieren, damit der lokale Ressourcenverbrauch kontrollierbar bleibt.
 
+## Zugriff im Heimnetz
 
-## Home-network access
+Von Docker veröffentlichte Anwendungsports verwenden standardmäßig `GEOPHOTO_BIND_ADDRESS=0.0.0.0`. Dadurch sind bei laufenden Profilen folgende Endpunkte von anderen Geräten im selben LAN erreichbar:
 
-Docker-published application ports use `GEOPHOTO_BIND_ADDRESS=0.0.0.0` by default. This makes the following endpoints reachable from other devices on the same LAN when their profiles are running:
+- `8080/tcp` – Hauptoberfläche von GeoPhotoConverter über nginx
+- `8088/tcp` – direkte FastAPI-Schnittstelle für Diagnose/Entwicklung
+- `5000/tcp` – DroneDB bei aktiviertem Profil `dronedb`
+- `3001/tcp` – Open WebUI bei aktiviertem Profil `ai`
+- `5173/tcp` – lokaler Vite-Entwicklungsserver
 
-- `8080/tcp` - main GeoPhotoConverter UI through nginx
-- `8088/tcp` - direct FastAPI endpoint for diagnostics/development
-- `5000/tcp` - DroneDB when the `dronedb` profile is enabled
-- `3001/tcp` - Open WebUI when the `ai` profile is enabled
-- `5173/tcp` - Vite development server when run locally
+Redis bleibt bewusst im privaten Compose-Netz und wird nicht ins LAN veröffentlicht. Verarbeitungs-Worker benötigen keine eingehenden LAN-Ports.
 
-Redis is intentionally kept on the private Compose network and is not published to the LAN. Processing workers do not require inbound LAN ports.
-
-On Windows, determine the host IPv4 address with:
+Unter Windows lässt sich die IPv4-Adresse des Hosts mit folgendem Befehl ermitteln:
 
 ```powershell
 ipconfig
 ```
 
-If Windows Defender Firewall blocks access, allow inbound TCP only on the ports you actually use and only for the **Private** network profile. Do not create router/NAT port forwards for these services unless a separate authentication and TLS design is added.
+Falls die Windows Defender Firewall den Zugriff blockiert, eingehendes TCP nur für tatsächlich benötigte Ports und ausschließlich für das **private** Netzwerkprofil freigeben. Keine Router-/NAT-Portweiterleitungen einrichten, solange keine separate Authentifizierungs- und TLS-Lösung ergänzt wurde.
