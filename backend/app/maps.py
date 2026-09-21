@@ -22,13 +22,13 @@ def _pack(region_id: str) -> dict[str, Any]:
     for pack in _catalog().get("packs", []):
         if pack["id"] == region_id:
             return pack
-    raise HTTPException(status_code=404, detail="Unknown offline map pack")
+    raise HTTPException(status_code=404, detail="Unbekanntes Offline-Kartenpaket")
 
 
 def _map_path(pack: dict[str, Any]) -> Path:
     path = (MAPS_ROOT / pack["filename"]).resolve()
     if MAPS_ROOT.resolve() not in path.parents:
-        raise HTTPException(status_code=500, detail="Invalid map pack path")
+        raise HTTPException(status_code=500, detail="Ungültiger Pfad zum Kartenpaket")
     return path
 
 
@@ -86,7 +86,7 @@ def tilejson(region_id: str, request: Request) -> dict[str, Any]:
     pack = _pack(region_id)
     path = _map_path(pack)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Offline map pack is not installed")
+        raise HTTPException(status_code=404, detail="Offline-Kartenpaket ist nicht installiert")
 
     meta = _metadata(path)
     base = str(request.base_url).rstrip("/")
@@ -117,9 +117,9 @@ def vector_tile(region_id: str, z: int, x: int, y: int) -> Response:
     pack = _pack(region_id)
     path = _map_path(pack)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Offline map pack is not installed")
+        raise HTTPException(status_code=404, detail="Offline-Kartenpaket ist nicht installiert")
     if z < 0 or z > 30 or x < 0 or y < 0:
-        raise HTTPException(status_code=404, detail="Tile not found")
+        raise HTTPException(status_code=404, detail="Kachel nicht gefunden")
 
     # MBTiles stores rows using TMS coordinates; MapLibre requests XYZ.
     tms_y = (1 << z) - 1 - y
@@ -134,7 +134,7 @@ def vector_tile(region_id: str, z: int, x: int, y: int) -> Response:
         ).fetchone()
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Tile not found")
+        raise HTTPException(status_code=404, detail="Kachel nicht gefunden")
 
     payload = bytes(row[0])
     headers = {"Cache-Control": "public, max-age=86400"}
