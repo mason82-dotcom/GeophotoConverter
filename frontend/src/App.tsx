@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { Activity, ArrowRight, Database, Images, ServerCog } from 'lucide-react'
 import { AppShell, type NavKey } from './components/AppShell'
+import { ImportPage } from './pages/ImportPage'
 
-const pageCopy: Record<Exclude<NavKey, 'overview'>, { title: string; description: string }> = {
-  import: {
-    title: 'Import aerial imagery',
-    description: 'Create a dataset from local files or a folder while preserving relative paths.',
-  },
+const pageCopy: Record<Exclude<NavKey, 'overview' | 'import'>, { title: string; description: string }> = {
   datasets: {
     title: 'Datasets',
     description: 'Review imagery metadata, GPS coverage, warnings, and processing readiness.',
@@ -105,7 +102,7 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
   )
 }
 
-function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview'> }) {
+function PlaceholderPage({ active }: { active: Exclude<NavKey, 'overview' | 'import'> }) {
   const copy = pageCopy[active]
   return (
     <section className="panel empty-state">
@@ -122,7 +119,9 @@ export default function App() {
 
   return (
     <AppShell active={active} onNavigate={setActive}>
-      {active === 'overview' ? <Overview onNavigate={setActive} /> : <PlaceholderPage active={active} />}
+      {active === 'overview' && <Overview onNavigate={setActive} />}
+      {active === 'import' && <ImportPage />}
+      {active !== 'overview' && active !== 'import' && <PlaceholderPage active={active} />}
     </AppShell>
   )
 }
