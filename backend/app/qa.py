@@ -84,6 +84,12 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     total = len(files)
     geotagged = total - missing_gps
+    mapping_inputs = media_counts.get("RGB", 0) + media_counts.get("WIDE", 0)
+    thermal_inputs = media_counts.get("THERMAL", 0)
+    multispectral_inputs = sum(
+        media_counts.get(kind, 0)
+        for kind in ("MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR")
+    )
     warnings: list[dict[str, Any]] = []
     if missing_gps:
         warnings.append(
@@ -121,16 +127,19 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
     readiness = {
         "odm": {
-            "ready": total >= 2,
-            "reason": None if total >= 2 else "At least two supported images are required.",
+            "ready": mapping_inputs >= 2,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 2 else "At least two RGB/WIDE images are required.",
         },
         "micmac": {
-            "ready": total >= 3,
-            "reason": None if total >= 3 else "At least three images are required.",
+            "ready": mapping_inputs >= 3,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
         },
         "gsplat": {
-            "ready": total >= 3,
-            "reason": None if total >= 3 else "At least three images are required.",
+            "ready": mapping_inputs >= 3,
+            "eligible_images": mapping_inputs,
+            "reason": None if mapping_inputs >= 3 else "At least three RGB/WIDE images are required.",
         },
     }
 
@@ -151,6 +160,11 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "count": len(times),
         },
         "warnings": warnings,
+        "engine_inputs": {
+            "rgb_wide": mapping_inputs,
+            "thermal": thermal_inputs,
+            "multispectral": multispectral_inputs,
+        },
         "readiness": readiness,
         "classifications": {
             path: classification.as_dict()

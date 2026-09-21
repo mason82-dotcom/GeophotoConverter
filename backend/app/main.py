@@ -401,6 +401,19 @@ def create_job(body: JobCreate) -> dict:
         raise HTTPException(status_code=422, detail=f"Unknown engine: {engine}")
     if profile not in PROFILE_NAMES:
         raise HTTPException(status_code=422, detail=f"Unknown profile: {profile}")
+    if engine in {"odm", "micmac", "gsplat"}:
+        qa = dataset_qa(store.list_files(body.dataset_id))
+        engine_readiness = qa["readiness"][engine]
+        if not engine_readiness["ready"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": engine_readiness["reason"],
+                    "engine": engine,
+                    "eligible_images": engine_readiness["eligible_images"],
+                    "engine_inputs": qa["engine_inputs"],
+                },
+            )
     if engine == "telesculptor":
         raise HTTPException(
             status_code=409,

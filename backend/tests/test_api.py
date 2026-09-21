@@ -159,3 +159,62 @@ def test_dataset_qa_classifies_multispectral_and_platform(client):
         for item in detail.json()["files"]
     }
     assert classifications["M3M/DJI_0001_MS_NIR.TIF"]["platform"] == "M3M"
+
+
+def test_job_readiness_ignores_thermal_images(client):
+    dataset = _dataset(client)
+    for index in range(3):
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (f"DJI_000{index}_T.JPG", f"thermal-{index}".encode(), "image/jpeg"),
+                )
+            ],
+            data={
+                "relative_paths": json.dumps(
+                    [f"M3T/DJI_000{index}_T.JPG"]
+                )
+            },
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    assert qa.json()["engine_inputs"]["thermal"] == 3
+    assert qa.json()["engine_inputs"]["rgb_wide"] == 0
+    assert qa.json()["readiness"]["odm"]["ready"] is False
+
+    job = client.post(
+        "/api/v1/jobs",
+        json={
+            "dataset_id": dataset["id"],
+            "engine": "odm",
+            "profile": "preview",
+        },
+    )
+    assert job.status_code == 409
+    assert job.json()["detail"]["eligible_images"] == 0
+
+
+def test_job_readiness_counts_dng_rgb_inputs(client):
+    dataset = _dataset(client)
+    for index in range(3):
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (f"DJI_100{index}_D.DNG", f"dng-{index}".encode(), "image/dng"),
+                )
+            ],
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["engine_inputs"]["rgb_wide"] == 3
+    assert body["readiness"]["micmac"]["ready"] is True
+    assert body["readiness"]["gsplat"]["ready"] is True
