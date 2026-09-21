@@ -1,6 +1,6 @@
 import {
   Box,
-  Herunterladen,
+  Download,
   File,
   FileArchive,
   FileImage,
@@ -8,7 +8,7 @@ import {
   Layers3,
   LoaderCircle,
   Mountain,
-  AktualisierenCw,
+  RefreshCw,
   ScanLine,
   ScrollText,
   Sparkles,
@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getJob, getJobLogs, listDatasets, listJobs } from '../api/client'
-import type { Artefakt, Dataset, Job, JobLogs } from '../api/types'
+import type { Artifact, Dataset, Job, JobLogs } from '../api/types'
+import { profileText } from '../i18n'
 
 interface ResultJob {
   job: Job
@@ -36,7 +37,7 @@ function formatBytes(bytes?: number) {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[index]}`
 }
 
-function artifactLabel(artifact: Artefakt) {
+function artifactLabel(artifact: Artifact) {
   const type = artifact.type.toLowerCase()
   const name = artifact.name.toLowerCase()
   if (type.includes('orthophoto')) return { label: 'Orthophoto', icon: FileImage }
@@ -52,7 +53,7 @@ function artifactLabel(artifact: Artefakt) {
   return { label: artifact.type || 'Artefakt', icon: File }
 }
 
-export function ErgebnissePage() {
+export function ResultsPage() {
   const [items, setItems] = useState<ResultJob[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
@@ -72,9 +73,9 @@ export function ErgebnissePage() {
         }),
       )
       setItems(
-        detailErgebnisse
-          .filter((result): result is PromiseFulfilledResult<ResultJob> => result.status === 'fulfilled')
-          .map((result) => result.value),
+        detailErgebnisse.flatMap((result) =>
+          result.status === 'fulfilled' ? [result.value] : [],
+        ),
       )
       setDatasets(datasetList)
     } catch (requestError) {
@@ -169,7 +170,7 @@ export function ErgebnissePage() {
                         </div>
                         {artifact.download_url ? (
                           <a className="button artifact-download" href={artifact.download_url} download>
-                            <Herunterladen size={15} />
+                            <Download size={15} />
                             Herunterladen
                           </a>
                         ) : (

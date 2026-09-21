@@ -4,7 +4,7 @@ import {
   ExternalLink,
   LoaderCircle,
   PackageCheck,
-  AktualisierenCw,
+  RefreshCw,
   ServerOff,
   TriangleAlert,
 } from 'lucide-react'

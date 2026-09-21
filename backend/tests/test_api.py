@@ -186,7 +186,7 @@ def test_dataset_detail_exposes_qa_summary_fields(client):
     body = detail.json()
     assert body["platform"] == "M3E"
     assert body["duplicate_count"] == 0
-    assert body["processing_readiness"] == "Partially ready"
+    assert body["processing_readiness"] == "Not ready"
 
 
 def test_dataset_file_preview_returns_browser_jpeg(client):

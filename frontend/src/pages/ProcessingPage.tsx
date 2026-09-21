@@ -196,9 +196,9 @@ export function ProcessingPage() {
             <span><strong>{statusText(selectedDataset.scan_status)}</strong> Scan</span>
             <span>
               <strong>
-                {selectedDataset.processing_Bereitschaft == null
+                {selectedDataset.processing_readiness == null
                   ? 'Nicht angegeben'
-                  : String(selectedDataset.processing_Bereitschaft)}
+                  : readinessText(selectedDataset.processing_readiness)}
               </strong>
               Bereitschaft
             </span>

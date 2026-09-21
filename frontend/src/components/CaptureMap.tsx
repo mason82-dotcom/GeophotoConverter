@@ -1,4 +1,5 @@
-import maplibregl, { type GeoJSONSource, type StyleSpecification } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+import type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
 import { useEffect, useMemo, useRef } from 'react'
 import type { UploadedFileRecord } from '../api/types'
 
