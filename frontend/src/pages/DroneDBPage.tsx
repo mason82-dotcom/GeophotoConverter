@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getServices, listDatasets, listJobs } from '../api/client'
 import type { Dataset, Job, ServicesResponse } from '../api/types'
+import { profileText, statusText, workflowText } from '../i18n'
 
 export function DroneDBPage() {
   const [services, setServices] = useState<ServicesResponse>()
@@ -37,7 +38,7 @@ export function DroneDBPage() {
         current && completed.some((job) => job.id === current) ? current : completed[0]?.id ?? '',
       )
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'DroneDB state could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'DroneDB-Status konnte nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -55,7 +56,7 @@ export function DroneDBPage() {
   const dronedb = services?.dronedb
 
   if (loading) {
-    return <div className="panel loading-state"><LoaderCircle className="spin" size={24} /> Loading DroneDB state…</div>
+    return <div className="panel loading-state"><LoaderCircle className="spin" size={24} /> DroneDB-Status wird geladen …</div>
   }
 
   return (
@@ -63,11 +64,11 @@ export function DroneDBPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Result publishing</p>
+            <p className="eyebrow">Ergebnisveröffentlichung</p>
             <h2>DroneDB</h2>
-            <p>Publish processed datasets and selected result artifacts to the optional DroneDB service.</p>
+            <p>Verarbeitete Datensätze und ausgewählte Ergebnisartefakte für den optionalen DroneDB-Dienst vorbereiten.</p>
           </div>
-          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Refresh</button>
+          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Aktualisieren</button>
         </div>
 
         <div className="service-overview-card">
@@ -75,13 +76,13 @@ export function DroneDBPage() {
             {dronedb ? <Database size={27} /> : <ServerOff size={27} />}
           </div>
           <div>
-            <span className="eyebrow">Service state</span>
-            <strong>{dronedb?.status ?? 'Unavailable'}</strong>
-            <p>{dronedb?.profile ? `Docker profile: ${dronedb.profile}` : 'No DroneDB service state was returned.'}</p>
+            <span className="eyebrow">Dienststatus</span>
+            <strong>{dronedb ? statusText(dronedb.status) : 'Nicht verfügbar'}</strong>
+            <p>{dronedb?.profile ? `Docker-Profil: ${dronedb.profile}` : 'Es wurde kein DroneDB-Dienststatus zurückgegeben.'}</p>
           </div>
           <span className={`status-chip ${dronedb ? 'status-chip--uploaded' : 'status-chip--error'}`}>
             {dronedb ? <CheckCircle2 size={13} /> : <TriangleAlert size={13} />}
-            {dronedb ? 'Configured' : 'Not reported'}
+            {dronedb ? 'Konfiguriert' : 'Nicht angegeben'}
           </span>
         </div>
       </section>
@@ -89,18 +90,18 @@ export function DroneDBPage() {
       <section className="panel publish-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Publish to DroneDB</p>
-            <h3>Select completed result set</h3>
+            <p className="eyebrow">In DroneDB veröffentlichen</p>
+            <h3>Abgeschlossenes Ergebnis auswählen</h3>
           </div>
         </div>
 
         <label className="field">
-          <span>Completed processing job</span>
+          <span>Abgeschlossener Verarbeitungsauftrag</span>
           <select value={selectedJobId} onChange={(event) => setSelectedJobId(event.target.value)}>
-            {!jobs.length && <option value="">No completed jobs with artifacts</option>}
+            {!jobs.length && <option value="">Keine abgeschlossenen Aufträge mit Artefakten</option>}
             {jobs.map((job) => {
               const name = datasets.find((dataset) => dataset.id === job.dataset_id)?.name ?? job.dataset_id.slice(0, 8)
-              return <option key={job.id} value={job.id}>{name} · {job.engine} · {job.workflow ?? 'rgb'} · {job.profile}</option>
+              return <option key={job.id} value={job.id}>{name} · {job.engine} · {workflowText(job.workflow ?? 'rgb')} · {profileText(job.profile)}</option>
             })}
           </select>
         </label>
@@ -108,7 +109,7 @@ export function DroneDBPage() {
         {selectedJob && (
           <div className="publish-summary">
             <article>
-              <span>Dataset</span>
+              <span>Datensatz</span>
               <strong>{datasetName ?? selectedJob.dataset_id.slice(0, 8)}</strong>
             </article>
             <article>
@@ -117,14 +118,14 @@ export function DroneDBPage() {
             </article>
             <article>
               <span>Workflow</span>
-              <strong>{selectedJob.workflow ?? 'rgb'}</strong>
+              <strong>{workflowText(selectedJob.workflow ?? 'rgb')}</strong>
             </article>
             <article>
-              <span>Profile</span>
-              <strong>{selectedJob.profile}</strong>
+              <span>Profil</span>
+              <strong>{profileText(selectedJob.profile)}</strong>
             </article>
             <article>
-              <span>Artifacts</span>
+              <span>Artefakte</span>
               <strong>{selectedJob.artifacts?.length ?? 0}</strong>
             </article>
           </div>
@@ -134,13 +135,13 @@ export function DroneDBPage() {
           <div>
             <PackageCheck size={20} />
             <div>
-              <strong>Publish endpoint pending</strong>
-              <span>The frontend will not simulate publication or construct a private DroneDB URL.</span>
+              <strong>Für V1.0 deaktiviert</strong>
+              <span>Die Veröffentlichung bleibt im V1.0-Frontend deaktiviert. Es wird keine Veröffentlichung simuliert und keine interne DroneDB-URL erzeugt.</span>
             </div>
           </div>
-          <button className="button button--primary" type="button" disabled title="Backend publish API is not available yet">
+          <button className="button button--primary" type="button" disabled title="Für V1.0 bewusst deaktiviert">
             <ExternalLink size={16} />
-            Publish to DroneDB
+            In DroneDB veröffentlichen
           </button>
         </div>
       </section>

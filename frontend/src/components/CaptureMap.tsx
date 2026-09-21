@@ -1,4 +1,4 @@
-import maplibregl, { type GeoJSONSource, type StyleSpecification } from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'\nimport type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
 import { useEffect, useMemo, useRef } from 'react'
 import type { UploadedFileRecord } from '../api/types'
 
@@ -256,13 +256,13 @@ export function CaptureMap({ files, mapPackId, selectedId, onSelect }: CaptureMa
 
   return (
     <div className="map-frame">
-      <div ref={containerRef} className="capture-map" aria-label="Dataset capture map" />
+      <div ref={containerRef} className="capture-map" aria-label="Karte der Bildaufnahmepositionen" />
       {!positionedFiles.length && (
-        <div className="map-overlay-message">No geotagged capture points in this dataset.</div>
+        <div className="map-overlay-message">Keine georeferenzierten Aufnahmepunkte in diesem Datensatz.</div>
       )}
       {!mapPackId && (
         <div className="map-pack-warning">
-          Offline basemap not installed. Capture geometry remains available.
+          Keine Offline-Basiskarte installiert. Die Aufnahmegeometrie bleibt verfügbar.
         </div>
       )}
     </div>

@@ -37,13 +37,14 @@ import {
   type ServicesResponse,
 } from '../api/types'
 import { JobMonitor } from '../components/JobMonitor'
+import { profileText, statusText, workflowText } from '../i18n'
 
 const ENGINE_UI: Record<ProcessingEngine, { eyebrow: string; icon: typeof Map }> = {
-  odm: { eyebrow: 'Photogrammetry / mapping', icon: Map },
-  micmac: { eyebrow: 'Alternative photogrammetry', icon: ScanLine },
+  odm: { eyebrow: 'Photogrammetrie / Mapping', icon: Map },
+  micmac: { eyebrow: 'Alternative Photogrammetrie', icon: ScanLine },
   gsplat: { eyebrow: 'Gaussian Splatting / 3DGS', icon: Sparkles },
-  thermal: { eyebrow: 'Radiometric thermal', icon: Thermometer },
-  telesculptor: { eyebrow: 'Experimental / legacy comparison', icon: FlaskConical },
+  thermal: { eyebrow: 'Radiometrisches Thermal', icon: Thermometer },
+  telesculptor: { eyebrow: 'Experimentell / Legacy-Vergleich', icon: FlaskConical },
 }
 
 const PROFILE_ICONS = {
@@ -52,19 +53,15 @@ const PROFILE_ICONS = {
   high: Box,
 } satisfies Record<ProcessingProfile, typeof Gauge>
 
-function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
 function optionLabel(value: string) {
   const labels: Record<string, string> = {
-    emissivity: 'Emissivity',
-    distance_m: 'Distance (m)',
-    humidity_pct: 'Humidity (%)',
-    reflection_c: 'Reflected temperature (°C)',
-    ambient_temp_c: 'Ambient temperature (°C)',
-    hotspot_delta_c: 'Hotspot delta (°C)',
-    hotspot_min_pixels: 'Hotspot minimum pixels',
+    emissivity: 'Emissionsgrad',
+    distance_m: 'Entfernung (m)',
+    humidity_pct: 'Luftfeuchtigkeit (%)',
+    reflection_c: 'Reflexionstemperatur (°C)',
+    ambient_temp_c: 'Umgebungstemperatur (°C)',
+    hotspot_delta_c: 'Hotspot-Differenz (°C)',
+    hotspot_min_pixels: 'Hotspot-Mindestpixel',
   }
   return labels[value] ?? value.replaceAll('_', ' ')
 }
@@ -78,15 +75,15 @@ function apiMessage(error: unknown) {
       if (typeof message === 'string') return message
     }
   }
-  return error instanceof Error ? error.message : 'Request failed.'
+  return error instanceof Error ? error.message : 'Anfrage fehlgeschlagen.'
 }
 
 function serviceLabel(services: ServicesResponse | undefined, engine: ProcessingEngine) {
   const state = services?.[engine]
-  if (!state) return 'Status unknown'
-  if (state.status === 'experimental') return 'Experimental'
-  if (state.status === 'optional') return 'Optional service'
-  return state.status
+  if (!state) return 'Status unbekannt'
+  if (state.status === 'experimental') return 'Experimentell'
+  if (state.status === 'optional') return 'Optionaler Dienst'
+  return statusText(state.status)
 }
 
 function readinessFor(
@@ -109,12 +106,12 @@ function workflowRequirement(
   qa: DatasetQa | undefined,
 ) {
   const readiness = readinessFor(qa, engine, workflow)
-  if (!readiness) return 'Readiness not reported'
+  if (!readiness) return 'Bereitschaft nicht angegeben'
   if (workflow === 'multispectral') {
     return `${readiness.complete_groups ?? 0} complete groups · ${readiness.eligible_images} images`
   }
   if (workflow === 'thermal') {
-    return `${readiness.complete_groups ?? 0} complete WIDE+THERMAL groups · ${readiness.platform ?? 'platform unconfirmed'}`
+    return `${readiness.complete_groups ?? 0} complete WIDE+THERMAL groups · ${readiness.platform ?? 'Plattform nicht bestätigt'}`
   }
   return `${readiness.eligible_images} eligible RGB/WIDE images`
 }
@@ -122,13 +119,13 @@ function workflowRequirement(
 function optionError(raw: string | undefined, definition: ProcessingOptionDefinition) {
   if (raw == null || raw.trim() === '') return undefined
   const value = Number(raw)
-  if (!Number.isFinite(value)) return 'Enter a finite number.'
-  if (definition.type === 'integer' && !Number.isInteger(value)) return 'Enter a whole number.'
-  if (definition.minimum != null && value < definition.minimum) return `Minimum is ${definition.minimum}.`
+  if (!Number.isFinite(value)) return 'Eine gültige Zahl eingeben.'
+  if (definition.type === 'integer' && !Number.isInteger(value)) return 'Eine ganze Zahl eingeben.'
+  if (definition.minimum != null && value < definition.minimum) return `Minimum: ${definition.minimum}.`
   if (definition.minimum_exclusive != null && value <= definition.minimum_exclusive) {
-    return `Must be greater than ${definition.minimum_exclusive}.`
+    return `Muss größer sein als ${definition.minimum_exclusive}.`
   }
-  if (definition.maximum != null && value > definition.maximum) return `Maximum is ${definition.maximum}.`
+  if (definition.maximum != null && value > definition.maximum) return `Maximum: ${definition.maximum}.`
   return undefined
 }
 
@@ -284,7 +281,7 @@ export function ProcessingPage() {
     return (
       <div className="panel loading-state" role="status">
         <LoaderCircle className="spin" size={24} />
-        <span>Loading processing catalog and services…</span>
+        <span>Verarbeitungskatalog und Dienste werden geladen …</span>
       </div>
     )
   }
@@ -293,10 +290,10 @@ export function ProcessingPage() {
     return (
       <div className="panel error-state">
         <TriangleAlert size={26} />
-        <h2>Processing catalog unavailable</h2>
-        <p>{error ?? 'The backend did not return the processing capability catalog.'}</p>
+        <h2>Verarbeitungskatalog nicht verfügbar</h2>
+        <p>{error ?? 'Das Backend hat keinen Verarbeitungskatalog geliefert.'}</p>
         <button className="button" type="button" onClick={() => void load()}>
-          <RefreshCw size={16} /> Retry
+          <RefreshCw size={16} /> Erneut versuchen
         </button>
       </div>
     )
@@ -307,23 +304,23 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Processing target</p>
-            <h2>Select dataset and engine</h2>
-            <p>Engine capabilities, workflows, profiles and typed options are loaded from the backend catalog.</p>
+            <p className="eyebrow">Verarbeitungsziel</p>
+            <h2>Datensatz und Engine auswählen</h2>
+            <p>Engine-Fähigkeiten, Workflows, Profile und typisierte Optionen werden aus dem Backend-Katalog geladen.</p>
           </div>
           <button className="button" type="button" onClick={() => void load()}>
             <RefreshCw size={16} />
-            Refresh catalog
+            Katalog aktualisieren
           </button>
         </div>
 
         <label className="field processing-dataset-select">
-          <span>Dataset</span>
+          <span>Datensatz</span>
           <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>
-            {!datasets.length && <option value="">No datasets available</option>}
+            {!datasets.length && <option value="">Keine Datensätze verfügbar</option>}
             {datasets.map((dataset) => (
               <option key={dataset.id} value={dataset.id}>
-                {dataset.name} · {dataset.image_count ?? 0} images · {dataset.geotagged_percent ?? 0}% GPS
+                {dataset.name} · {dataset.image_count ?? 0} Bilder · {dataset.geotagged_percent ?? 0}% GPS
               </option>
             ))}
           </select>
@@ -331,12 +328,12 @@ export function ProcessingPage() {
 
         {selectedDataset && (
           <div className="processing-dataset-summary">
-            <span><strong>{selectedDataset.image_count ?? 0}</strong> images</span>
-            <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> geotagged</span>
-            <span><strong>{selectedDataset.scan_status}</strong> scan</span>
+            <span><strong>{selectedDataset.image_count ?? 0}</strong> Bilder</span>
+            <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> georeferenziert</span>
+            <span><strong>{statusText(selectedDataset.scan_status)}</strong> Scan</span>
             <span>
-              <strong>{qaLoading ? 'Checking…' : engineReadiness?.ready ? 'Ready' : 'Blocked'}</strong>
-              {selectedEngine?.title ?? engine} readiness
+              <strong>{qaLoading ? 'Wird geprüft …' : engineReadiness?.ready ? 'Bereit' : 'Blockiert'}</strong>
+              {selectedEngine?.title ?? engine} Bereitschaft
             </span>
           </div>
         )}
@@ -345,8 +342,8 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Processing engine</p>
-            <h3>Backend execution path</h3>
+            <p className="eyebrow">Verarbeitungs-Engine</p>
+            <h3>Backend-Ausführungspfad</h3>
           </div>
         </div>
         <div className="engine-grid">
@@ -371,15 +368,15 @@ export function ProcessingPage() {
                 </div>
                 <p className="eyebrow">{ui.eyebrow}</p>
                 <h3>{item.title}</h3>
-                <p>{item.description ?? item.workflows[0]?.description ?? item.workflows[0]?.title ?? 'Backend processing engine.'}</p>
+                <p>{item.description ?? item.workflows[0]?.description ?? item.workflows[0]?.title ?? 'Backend-Verarbeitungs-Engine.'}</p>
                 <div className="engine-output">
-                  {outputs.length ? outputs.slice(0, 5).join(' · ') : 'No automated outputs declared'}
+                  {outputs.length ? outputs.slice(0, 5).join(' · ') : 'Keine automatisierten Ausgaben angegeben'}
                 </div>
                 <div className="engine-capabilities">
-                  {item.requires_gpu && <span>GPU required</span>}
-                  {item.requires_dji_tsdk && <span>DJI Thermal SDK required</span>}
-                  {item.experimental && <span>Experimental</span>}
-                  {!item.automated && <span>Manual only</span>}
+                  {item.requires_gpu && <span>GPU erforderlich</span>}
+                  {item.requires_dji_tsdk && <span>DJI Thermal SDK erforderlich</span>}
+                  {item.experimental && <span>Experimentell</span>}
+                  {!item.automated && <span>Nur manuell</span>}
                 </div>
               </button>
             )
@@ -390,8 +387,8 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Processing workflow</p>
-            <h3>Dataset interpretation</h3>
+            <p className="eyebrow">Verarbeitungs-Workflow</p>
+            <h3>Interpretation des Datensatzes</h3>
           </div>
         </div>
         {selectedEngine?.workflows.length ? (
@@ -406,7 +403,7 @@ export function ProcessingPage() {
               >
                 <div>
                   <strong>{item.title}</strong>
-                  <span>{item.description ?? 'Backend-defined processing workflow.'}</span>
+                  <span>{item.description ?? 'Vom Backend definierter Verarbeitungs-Workflow.'}</span>
                 </div>
                 <small>{workflowRequirement(engine, item.key, qa)}</small>
               </button>
@@ -415,7 +412,7 @@ export function ProcessingPage() {
         ) : (
           <div className="compact-empty">
             <FlaskConical size={22} />
-            <span>This engine is not exposed as an automated backend workflow.</span>
+            <span>Diese Engine ist nicht als automatisierter Backend-Workflow verfügbar.</span>
           </div>
         )}
       </section>
@@ -423,18 +420,18 @@ export function ProcessingPage() {
       {engine === 'thermal' && selectedWorkflow && (
         <section className="panel thermal-boundary-panel">
           <div>
-            <p className="eyebrow">Thermal output semantics</p>
-            <h3>M3T / M4T radiometric processing</h3>
+            <p className="eyebrow">Thermal-Ausgabesemantik</p>
+            <h3>M3T / M4T radiometrische Verarbeitung</h3>
           </div>
           <div className="thermal-boundary-grid">
-            <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Local DJI Thermal SDK required' : 'Not required'}</span>
-            <span><strong>Temperature space</strong>{selectedWorkflow.temperature_space ?? 'Not reported'}</span>
-            <span><strong>WIDE ↔ THERMAL</strong>{selectedWorkflow.wide_thermal_coregistered ? 'Coregistered' : 'Not coregistered'}</span>
-            <span><strong>Georeferenced temperature raster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Available' : 'Not available'}</span>
+            <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Lokales DJI Thermal SDK erforderlich' : 'Nicht erforderlich'}</span>
+            <span><strong>Temperature space</strong>{selectedWorkflow.temperature_space ?? 'Nicht angegeben'}</span>
+            <span><strong>WIDE ↔ THERMAL</strong>{selectedWorkflow.wide_thermal_coregistered ? 'Koregistriert' : 'Nicht koregistriert'}</span>
+            <span><strong>Georeferenced temperature raster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
           </div>
           <p className="warning-copy">
             <TriangleAlert size={16} />
-            Temperature rasters remain in sensor-pixel space. Do not present them as a georeferenced thermal orthomosaic.
+            Temperaturraster bleiben im Sensor-Pixelraum. Sie dürfen nicht als georeferenziertes Thermal-Orthomosaik dargestellt werden.
           </p>
         </section>
       )}
@@ -443,8 +440,8 @@ export function ProcessingPage() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Typed job options</p>
-              <h3>Radiometric and hotspot parameters</h3>
+              <p className="eyebrow">Typisierte Auftragsoptionen</p>
+              <h3>Radiometrische und Hotspot-Parameter</h3>
             </div>
           </div>
           <div className="job-options-grid">
@@ -461,13 +458,13 @@ export function ProcessingPage() {
                   aria-invalid={Boolean(optionErrors[key])}
                 />
                 <small className={optionErrors[key] ? 'field-error' : ''}>
-                  {optionErrors[key] ?? definition.note ?? (definition.default != null ? `Backend default: ${definition.default}` : 'Optional override')}
+                  {optionErrors[key] ?? definition.note ?? (definition.default != null ? `Backend-Standard: ${definition.default}` : 'Optionale Überschreibung')}
                 </small>
               </label>
             ))}
           </div>
           <p className="helper-text">
-            Only options declared by the backend catalog are sent. Explicit measurement overrides are validated again by the backend and DJI DIRP.
+            Es werden nur im Backend-Katalog deklarierte Optionen gesendet. Explizite Messwert-Überschreibungen werden zusätzlich vom Backend und DJI DIRP validiert.
           </p>
         </section>
       )}
@@ -475,8 +472,8 @@ export function ProcessingPage() {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Processing profile</p>
-            <h3>Backend-defined quality / resource preset</h3>
+            <p className="eyebrow">Verarbeitungsprofil</p>
+            <h3>Vom Backend definiertes Qualitäts-/Ressourcenprofil</h3>
           </div>
         </div>
         <div className="profile-grid">
@@ -495,8 +492,8 @@ export function ProcessingPage() {
               >
                 <Icon size={18} />
                 <div>
-                  <strong>{titleCase(item)}</strong>
-                  <span>{definition?.purpose ?? 'Not available for the selected workflow.'}</span>
+                  <strong>{profileText(item)}</strong>
+                  <span>{definition?.purpose ?? 'Für den gewählten Workflow nicht verfügbar.'}</span>
                 </div>
                 {selected && <CheckCircle2 size={17} className="profile-check" />}
               </button>
@@ -507,28 +504,28 @@ export function ProcessingPage() {
 
       <section className="panel job-submit-panel">
         <div>
-          <p className="eyebrow">Job request</p>
-          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manual'} · {titleCase(profile)}</h3>
+          <p className="eyebrow">Auftragsanforderung</p>
+          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manuell'} · {profileText(profile)}</h3>
           {!selectedEngine?.automated ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
-              {selectedEngine?.description ?? 'This engine is not available through the automated job queue.'}
+              {selectedEngine?.description ?? 'Diese Engine ist nicht über die automatisierte Job-Warteschlange verfügbar.'}
             </p>
           ) : engineReadiness && !engineReadiness.ready ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
-              {engineReadiness.reason ?? 'This dataset is not ready for the selected workflow.'}
+              {engineReadiness.reason ?? 'Dieser Datensatz ist für den gewählten Workflow nicht bereit.'}
             </p>
           ) : (
             <p className="muted-copy">
               <ServerCog size={16} />
-              POST /api/v1/jobs creates the backend job. No processing runs in the browser.
+              POST /api/v1/jobs erstellt den Backend-Auftrag. Im Browser läuft keine Verarbeitung.
             </p>
           )}
         </div>
         <button className="button button--primary" type="button" disabled={!canSubmit} onClick={() => void submit()}>
           {submitting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-          {submitting ? 'Creating job…' : 'Create processing job'}
+          {submitting ? 'Auftrag wird erstellt …' : 'Verarbeitungsauftrag erstellen'}
         </button>
       </section>
 
@@ -536,8 +533,8 @@ export function ProcessingPage() {
         <div className="inline-message inline-message--success" role="status">
           <CheckCircle2 size={18} />
           <div>
-            <strong>Job created</strong>
-            <span>{createdJob.id} · {createdJob.engine} · {createdJob.workflow ?? workflow} · {createdJob.profile} · {createdJob.status}</span>
+            <strong>Auftrag erstellt</strong>
+            <span>{createdJob.id} · {createdJob.engine} · {workflowText(createdJob.workflow ?? workflow)} · {profileText(createdJob.profile)} · {statusText(createdJob.status)}</span>
           </div>
         </div>
       )}
@@ -552,7 +549,7 @@ export function ProcessingPage() {
       {!datasets.length && !error && (
         <div className="inline-message">
           <Cpu size={18} />
-          <span>No dataset is available. Import imagery before creating a processing job.</span>
+          <span>Kein Datensatz verfügbar. Vor dem Erstellen eines Verarbeitungsauftrags zuerst Bilddaten importieren.</span>
         </div>
       )}
 

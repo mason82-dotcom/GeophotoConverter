@@ -20,17 +20,17 @@ export function FlightlineQualityStrip({
   onSelect,
 }: FlightlineQualityStripProps) {
   if (!files.length) {
-    return <div className="flightline-empty">No imagery available for flightline QA.</div>
+    return <div className="flightline-empty">Keine Bilddaten für die Fluglinien-QA verfügbar.</div>
   }
 
   return (
     <div className="flightline-wrap">
       <div className="flightline-legend" aria-hidden="true">
-        <span><i className="flight-dot flight-dot--ok" /> GPS ready</span>
-        <span><i className="flight-dot flight-dot--warning" /> Missing GPS</span>
-        <span><i className="flight-dot flight-dot--error" /> Scan error</span>
+        <span><i className="flight-dot flight-dot--ok" /> GPS bereit</span>
+        <span><i className="flight-dot flight-dot--warning" /> GPS fehlt</span>
+        <span><i className="flight-dot flight-dot--error" /> Scan-Fehler</span>
       </div>
-      <div className="flightline-strip" role="list" aria-label="Flightline image quality sequence">
+      <div className="flightline-strip" role="list" aria-label="Bildqualitätssequenz der Fluglinie">
         {files.map((file, index) => {
           const state = quality(file)
           return (
@@ -40,7 +40,7 @@ export function FlightlineQualityStrip({
               role="listitem"
               className={`flight-segment flight-segment--${state} ${selectedId === file.id ? 'flight-segment--selected' : ''}`}
               onClick={() => onSelect(file.id)}
-              aria-label={`Image ${index + 1}: ${file.relative_path}; ${state === 'ok' ? 'GPS ready' : state === 'warning' ? 'missing GPS' : 'scan error'}`}
+              aria-label={`Bild ${index + 1}: ${file.relative_path}; ${state === 'ok' ? 'GPS bereit' : state === 'warning' ? 'GPS fehlt' : 'Scan-Fehler'}`}
               title={file.relative_path}
             >
               <span>{String(index + 1).padStart(3, '0')}</span>

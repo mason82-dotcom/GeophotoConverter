@@ -74,6 +74,7 @@ export interface UploadedFileRecord {
   scan_error?: string | null
   classification?: MediaClassification | null
   sha256?: string | null
+  preview_url?: string | null
   created_at: string
 }
 

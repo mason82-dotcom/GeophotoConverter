@@ -25,7 +25,7 @@ async function readJson<T>(response: Response): Promise<T> {
     } catch {
       detail = await response.text()
     }
-    throw new ApiError(`Request failed with status ${response.status}`, response.status, detail)
+    throw new ApiError(`Anfrage fehlgeschlagen (Status ${response.status})`, response.status, detail)
   }
   return response.json() as Promise<T>
 }
@@ -163,11 +163,11 @@ export function uploadDatasetFile(
         resolve(request.response as UploadResponse)
         return
       }
-      reject(new ApiError(`Upload failed with status ${request.status}`, request.status, request.response))
+      reject(new ApiError(`Upload fehlgeschlagen (Status ${request.status})`, request.status, request.response))
     })
 
     request.addEventListener('error', () => {
-      reject(new ApiError('Upload failed because the API could not be reached.', 0))
+      reject(new ApiError('Upload fehlgeschlagen, weil die API nicht erreichbar ist.', 0))
     })
 
     request.addEventListener('abort', () => {

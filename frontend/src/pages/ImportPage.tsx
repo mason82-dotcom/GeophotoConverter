@@ -19,9 +19,7 @@ import { createDataset, scanDataset, uploadDatasetFile } from '../api/client'
 
 type QueueStatus = 'queued' | 'uploading' | 'uploaded' | 'error' | 'cancelled'
 
-interface FileWithPath extends File {
-  webkitRelativePath?: string
-}
+type FileWithPath = File
 
 interface QueueItem {
   id: string
@@ -57,11 +55,11 @@ function formatBytes(bytes: number) {
 
 function statusLabel(status: QueueStatus) {
   return {
-    queued: 'Queued',
-    uploading: 'Uploading',
-    uploaded: 'Uploaded',
-    error: 'Error',
-    cancelled: 'Cancelled',
+    queued: 'Wartend',
+    uploading: 'Wird hochgeladen',
+    uploaded: 'Hochgeladen',
+    error: 'Fehler',
+    cancelled: 'Abgebrochen',
   }[status]
 }
 
@@ -109,7 +107,7 @@ export function ImportPage() {
           relativePath,
           status: isSupported(file) ? 'queued' : 'error',
           progress: 0,
-          error: isSupported(file) ? undefined : `Unsupported .${fileExtension(file) || 'unknown'} file`,
+          error: isSupported(file) ? undefined : `Nicht unterstützte .${fileExtension(file) || 'unbekannt'}-Datei`,
         })
       }
       return next
@@ -171,7 +169,7 @@ export function ImportPage() {
         updateItem(item.id, {
           status: 'error',
           progress: 0,
-          error: error instanceof Error ? error.message : 'Upload failed',
+          error: error instanceof Error ? error.message : 'Upload fehlgeschlagen',
         })
       }
     } finally {
@@ -190,7 +188,7 @@ export function ImportPage() {
         await uploadOne(item, targetDatasetId)
       }
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Dataset could not be created.')
+      setGlobalError(error instanceof Error ? error.message : 'Datensatz konnte nicht erstellt werden.')
     } finally {
       setIsStarting(false)
     }
@@ -202,7 +200,7 @@ export function ImportPage() {
       const targetDatasetId = await ensureDataset()
       await uploadOne(item, targetDatasetId)
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Retry failed.')
+      setGlobalError(error instanceof Error ? error.message : 'Erneuter Versuch fehlgeschlagen.')
     }
   }
 
@@ -215,7 +213,7 @@ export function ImportPage() {
       setScanState('done')
     } catch (error) {
       setScanState('error')
-      setGlobalError(error instanceof Error ? error.message : 'Dataset scan failed.')
+      setGlobalError(error instanceof Error ? error.message : 'Datensatz-Scan fehlgeschlagen.')
     }
   }
 
@@ -224,31 +222,31 @@ export function ImportPage() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Dataset import</p>
-            <h2>Local aerial imagery</h2>
-            <p>Preserve folder-relative paths where supported, then upload directly to the GeoPhoto API.</p>
+            <p className="eyebrow">Datensatz-Import</p>
+            <h2>Lokale Luftbilddaten</h2>
+            <p>Ordnerrelative Pfade werden nach Möglichkeit beibehalten; anschließend werden die Dateien direkt an die GeoPhoto-API übertragen.</p>
           </div>
-          {datasetId && <span className="mono-badge">Dataset {datasetId.slice(0, 8)}</span>}
+          {datasetId && <span className="mono-badge">Datensatz {datasetId.slice(0, 8)}</span>}
         </div>
 
         <div className="form-grid">
           <label className="field">
-            <span>Dataset name</span>
+            <span>Datensatzname</span>
             <input
               value={datasetName}
               maxLength={160}
               onChange={(event) => setDatasetName(event.target.value)}
-              placeholder="Survey 2026-09-21"
+              placeholder="Befliegung 2026-09-21"
               disabled={Boolean(datasetId)}
             />
           </label>
           <label className="field field--wide">
-            <span>Description <em>optional</em></span>
+            <span>Beschreibung <em>optional</em></span>
             <input
               value={description}
               maxLength={2000}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Site, mission, operator notes…"
+              placeholder="Gebiet, Mission, Bedienerhinweise …"
               disabled={Boolean(datasetId)}
             />
           </label>
@@ -268,17 +266,17 @@ export function ImportPage() {
         >
           <UploadCloud size={34} strokeWidth={1.5} aria-hidden="true" />
           <div>
-            <strong>Drop image files here</strong>
-            <p>JPG, JPEG, TIFF, TIF, DNG and R-JPEG. Folder structure is retained when the browser exposes relative paths.</p>
+            <strong>Bilddateien hier ablegen</strong>
+            <p>JPG, JPEG, TIFF, TIF, DNG und R-JPEG. Die Ordnerstruktur bleibt erhalten, wenn der Browser relative Pfade bereitstellt.</p>
           </div>
           <div className="button-row">
             <button className="button" type="button" onClick={() => fileInputRef.current?.click()}>
               <FileImage size={17} />
-              Select files
+              Dateien auswählen
             </button>
             <button className="button" type="button" onClick={() => folderInputRef.current?.click()}>
               <FolderOpen size={17} />
-              Select folder
+              Ordner auswählen
             </button>
           </div>
           <input
@@ -314,11 +312,11 @@ export function ImportPage() {
       <section className="panel queue-panel">
         <div className="section-heading section-heading--compact">
           <div>
-            <p className="eyebrow">Upload queue</p>
-            <h3>{items.length ? `${items.length} files · ${formatBytes(totalBytes)}` : 'No files selected'}</h3>
+            <p className="eyebrow">Upload-Warteschlange</p>
+            <h3>{items.length ? `${items.length} Dateien · ${formatBytes(totalBytes)}` : 'Keine Dateien ausgewählt'}</h3>
           </div>
           {items.length > 0 && (
-            <div className="queue-summary" aria-label="Overall upload progress">
+            <div className="queue-summary" aria-label="Gesamter Upload-Fortschritt">
               <span>{weightedProgress}%</span>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: `${weightedProgress}%` }} />
@@ -330,19 +328,19 @@ export function ImportPage() {
         {items.length === 0 ? (
           <div className="compact-empty">
             <FileImage size={24} />
-            <span>Select files or a folder to prepare the dataset.</span>
+            <span>Dateien oder einen Ordner auswählen, um den Datensatz vorzubereiten.</span>
           </div>
         ) : (
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>File</th>
-                  <th>Relative path</th>
-                  <th>Size</th>
+                  <th>Datei</th>
+                  <th>Relativer Pfad</th>
+                  <th>Größe</th>
                   <th>Status</th>
-                  <th>Progress</th>
-                  <th><span className="visually-hidden">Actions</span></th>
+                  <th>Fortschritt</th>
+                  <th><span className="visually-hidden">Aktionen</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -377,20 +375,20 @@ export function ImportPage() {
                     <td>
                       <div className="row-actions">
                         {(item.status === 'error' || item.status === 'cancelled') && isSupported(item.file) && (
-                          <button className="mini-button" type="button" onClick={() => void retry(item)} title="Retry upload">
+                          <button className="mini-button" type="button" onClick={() => void retry(item)} title="Upload erneut versuchen">
                             <RefreshCw size={15} />
-                            <span className="visually-hidden">Retry {item.file.name}</span>
+                            <span className="visually-hidden">Erneut versuchen: {item.file.name}</span>
                           </button>
                         )}
                         {item.status === 'uploading' ? (
-                          <button className="mini-button" type="button" onClick={() => cancelItem(item.id)} title="Cancel upload">
+                          <button className="mini-button" type="button" onClick={() => cancelItem(item.id)} title="Upload abbrechen">
                             <XCircle size={15} />
-                            <span className="visually-hidden">Cancel {item.file.name}</span>
+                            <span className="visually-hidden">Abbrechen: {item.file.name}</span>
                           </button>
                         ) : item.status !== 'uploaded' ? (
-                          <button className="mini-button" type="button" onClick={() => removeItem(item.id)} title="Remove file">
+                          <button className="mini-button" type="button" onClick={() => removeItem(item.id)} title="Datei entfernen">
                             <XCircle size={15} />
-                            <span className="visually-hidden">Remove {item.file.name}</span>
+                            <span className="visually-hidden">Entfernen: {item.file.name}</span>
                           </button>
                         ) : null}
                       </div>
@@ -403,7 +401,7 @@ export function ImportPage() {
         )}
 
         <div className="queue-footer">
-          <span className="helper-text">{successful} uploaded · {items.length - successful} remaining</span>
+          <span className="helper-text">{successful} hochgeladen · {items.length - successful} verbleibend</span>
           <div className="button-row">
             {datasetId && successful > 0 && (
               <button
@@ -413,12 +411,12 @@ export function ImportPage() {
                 onClick={() => void runScan()}
               >
                 {scanState === 'scanning' ? <LoaderCircle className="spin" size={17} /> : <RefreshCw size={17} />}
-                {scanState === 'done' ? 'Scan complete' : scanState === 'scanning' ? 'Scanning…' : 'Scan metadata'}
+                {scanState === 'done' ? 'Scan abgeschlossen' : scanState === 'scanning' ? 'Wird gescannt …' : 'Metadaten scannen'}
               </button>
             )}
             <button className="button button--primary" type="button" disabled={!canUpload} onClick={() => void startUpload()}>
               {isStarting ? <LoaderCircle className="spin" size={17} /> : <UploadCloud size={17} />}
-              Upload queue
+              Upload starten
             </button>
           </div>
         </div>

@@ -32,15 +32,15 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: Gauge },
+  { id: 'overview', label: 'Übersicht', icon: Gauge },
   { id: 'import', label: 'Import', icon: UploadCloud },
-  { id: 'datasets', label: 'Datasets', icon: Images },
-  { id: 'map', label: 'Map', icon: Map },
-  { id: 'processing', label: 'Processing', icon: PlaySquare },
-  { id: 'results', label: 'Results', icon: Boxes },
+  { id: 'datasets', label: 'Datensätze', icon: Images },
+  { id: 'map', label: 'Karte', icon: Map },
+  { id: 'processing', label: 'Verarbeitung', icon: PlaySquare },
+  { id: 'results', label: 'Ergebnisse', icon: Boxes },
   { id: 'dronedb', label: 'DroneDB', icon: Database },
-  { id: 'assistant', label: 'Assistant', icon: Bot },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'assistant', label: 'Assistent', icon: Bot },
+  { id: 'settings', label: 'Einstellungen', icon: Settings },
 ]
 
 interface AppShellProps {
@@ -60,11 +60,9 @@ export function AppShell({ active, onNavigate, children }: AppShellProps) {
 
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
+      <a className="skip-link" href="#main-content">Zum Inhalt springen</a>
 
-      <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`} aria-label="Hauptnavigation">
         <div className="brand-row">
           <div className="brand-mark" aria-hidden="true">
             <Orbit size={23} strokeWidth={1.8} />
@@ -73,12 +71,7 @@ export function AppShell({ active, onNavigate, children }: AppShellProps) {
             <div className="brand-title">GeoPhoto</div>
             <div className="brand-subtitle">Converter</div>
           </div>
-          <button
-            className="icon-button sidebar-close"
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close navigation"
-          >
+          <button className="icon-button sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label="Navigation schließen">
             <X size={20} />
           </button>
         </div>
@@ -88,13 +81,7 @@ export function AppShell({ active, onNavigate, children }: AppShellProps) {
             const Icon = item.icon
             const selected = item.id === active
             return (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item ${selected ? 'nav-item--active' : ''}`}
-                aria-current={selected ? 'page' : undefined}
-                onClick={() => navigate(item.id)}
-              >
+              <button key={item.id} type="button" className={`nav-item ${selected ? 'nav-item--active' : ''}`} aria-current={selected ? 'page' : undefined} onClick={() => navigate(item.id)}>
                 <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>{item.label}</span>
               </button>
@@ -104,42 +91,28 @@ export function AppShell({ active, onNavigate, children }: AppShellProps) {
 
         <div className="sidebar-footer">
           <span className="status-dot status-dot--neutral" aria-hidden="true" />
-          <span>Local workstation</span>
+          <span>Lokale Arbeitsstation</span>
         </div>
       </aside>
 
-      {sidebarOpen && (
-        <button
-          className="sidebar-scrim"
-          type="button"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Close navigation"
-        />
-      )}
+      {sidebarOpen && <button className="sidebar-scrim" type="button" onClick={() => setSidebarOpen(false)} aria-label="Navigation schließen" />}
 
       <div className="workspace">
         <header className="topbar">
-          <button
-            className="icon-button menu-button"
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open navigation"
-          >
+          <button className="icon-button menu-button" type="button" onClick={() => setSidebarOpen(true)} aria-label="Navigation öffnen">
             <Menu size={20} />
           </button>
           <div>
             <div className="eyebrow">GeoPhoto Converter</div>
-            <h1 className="page-title">{activeItem?.label ?? 'Overview'}</h1>
+            <h1 className="page-title">{activeItem?.label ?? 'Übersicht'}</h1>
           </div>
-          <div className="topbar-status" aria-label="Application mode">
+          <div className="topbar-status" aria-label="Anwendungsmodus">
             <span className="status-dot status-dot--ok" aria-hidden="true" />
-            <span>Operator UI</span>
+            <span>Bedienoberfläche</span>
           </div>
         </header>
 
-        <main id="main-content" className="content" tabIndex={-1}>
-          {children}
-        </main>
+        <main id="main-content" className="content" tabIndex={-1}>{children}</main>
       </div>
     </div>
   )
