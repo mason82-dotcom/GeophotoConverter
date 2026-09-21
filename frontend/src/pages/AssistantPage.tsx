@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { getServices } from '../api/client'
 import type { ServiceState } from '../api/types'
+import { statusText } from '../i18n'
 
 function statusClass(service?: ServiceState) {
   if (!service) return 'status-chip--error'
@@ -31,7 +32,7 @@ export function AssistantPage() {
       const services = await getServices()
       setService(services.open_webui)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Assistant service state could not be loaded.')
+      setError(requestError instanceof Error ? requestError.message : 'Assistenten-Dienststatus konnte nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -45,7 +46,7 @@ export function AssistantPage() {
     return (
       <div className="panel loading-state" role="status">
         <LoaderCircle className="spin" size={24} />
-        <span>Checking AI assistant service…</span>
+        <span>KI-Assistentendienst wird geprüft …</span>
       </div>
     )
   }
@@ -55,16 +56,15 @@ export function AssistantPage() {
       <section className="panel assistant-hero">
         <div className="assistant-hero-icon"><BrainCircuit size={31} /></div>
         <div>
-          <p className="eyebrow">Optional service</p>
-          <h2>AI Assistant</h2>
+          <p className="eyebrow">Optionaler Dienst</p>
+          <h2>KI-Assistent</h2>
           <p>
-            Open WebUI is an auxiliary analysis surface. GeoPhoto Converter remains the primary operator interface for datasets,
-            maps, processing and results.
+            Open WebUI ist eine optionale Analyseoberfläche. GeoPhoto Converter bleibt die primäre Bedienoberfläche für Datensätze, Karten, Verarbeitung und Ergebnisse.
           </p>
         </div>
         <button className="button" type="button" onClick={() => void load()}>
           <RefreshCw size={16} />
-          Refresh status
+          Status aktualisieren
         </button>
       </section>
 
@@ -74,32 +74,31 @@ export function AssistantPage() {
             <div className="assistant-service-icon"><Bot size={23} /></div>
             <div>
               <p className="eyebrow">Open WebUI</p>
-              <h3>Service status</h3>
+              <h3>Dienststatus</h3>
             </div>
           </div>
           <span className={`status-chip ${statusClass(service)}`}>
             {service ? <CheckCircle2 size={13} /> : <ServerOff size={13} />}
-            {service?.status ?? 'Not reported'}
+            {statusText(service?.status)}
           </span>
           <dl className="service-details">
-            <div><dt>Docker profile</dt><dd>{service?.profile ?? '—'}</dd></div>
-            <div><dt>Role</dt><dd>Optional AI assistant</dd></div>
-            <div><dt>Main UI</dt><dd>No — GeoPhoto Converter remains primary</dd></div>
+            <div><dt>Docker-Profil</dt><dd>{service?.profile ?? '—'}</dd></div>
+            <div><dt>Rolle</dt><dd>Optionaler KI-Assistent</dd></div>
+            <div><dt>Hauptoberfläche</dt><dd>Nein — GeoPhoto Converter bleibt primär</dd></div>
           </dl>
         </article>
 
         <article className="panel assistant-policy-card">
           <ShieldCheck size={25} />
           <div>
-            <p className="eyebrow">Integration boundary</p>
-            <h3>Frontend does not invent a launch URL</h3>
+            <p className="eyebrow">Integrationsgrenze</p>
+            <h3>Frontend erzeugt keine Start-URL</h3>
             <p>
-              The current API reports Open WebUI service state but does not expose a browser launch URL. This page therefore
-              does not hardcode a hostname, port or iframe target.
+              Die V1.0-Oberfläche zeigt den Dienststatus, startet Open WebUI aber bewusst nicht automatisch. Hostname, Port oder iframe-Ziel werden nicht hartcodiert.
             </p>
           </div>
-          <button className="button button--primary" type="button" disabled title="Backend launch URL is not part of the API contract">
-            Open Assistant
+          <button className="button button--primary" type="button" disabled title="In V1.0 bewusst deaktiviert">
+            Assistent öffnen
           </button>
         </article>
       </section>
