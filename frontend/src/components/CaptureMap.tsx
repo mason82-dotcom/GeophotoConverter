@@ -134,7 +134,7 @@ function baseStyle(mapPackId?: string): StyleSpecification {
 
 export function CaptureMap({ files, mapPackId, selectedId, onSelect }: CaptureMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map>()
+  const mapRef = useRef<maplibregl.Map | null>(null)
   const lastFitKeyRef = useRef('')
 
   const positionedFiles = useMemo(
@@ -180,7 +180,7 @@ export function CaptureMap({ files, mapPackId, selectedId, onSelect }: CaptureMa
     lastFitKeyRef.current = ''
     return () => {
       map.remove()
-      mapRef.current = undefined
+      mapRef.current = null
     }
   }, [mapPackId, onSelect])
 
@@ -237,7 +237,7 @@ export function CaptureMap({ files, mapPackId, selectedId, onSelect }: CaptureMa
           bounds.extend([
             file.metadata!.gps!.longitude as number,
             file.metadata!.gps!.latitude as number,
-          ])
+          ] as [number, number])
         })
         if (!bounds.isEmpty()) {
           map.fitBounds(bounds, {
