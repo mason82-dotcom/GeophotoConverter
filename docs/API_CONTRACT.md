@@ -20,7 +20,7 @@ Body:
 ```
 
 ### GET /datasets/{dataset_id}
-Dataset details including image count, geotag coverage and processing readiness.
+Dataset details including image count, geotag coverage and processing readiness. The response also exposes backend-authoritative `platform`, `duplicate_count`, and `processing_readiness` summary fields alongside the full `qa` object.
 
 ### POST /datasets/{dataset_id}/files
 Multipart upload. Field name: `files`.
@@ -36,6 +36,9 @@ Returns dataset QA including geotag coverage, platform/media classification, cam
 
 ### GET /datasets/{dataset_id}/geojson
 Returns geotagged image capture positions as a GeoJSON FeatureCollection for MapLibre.
+
+### GET /datasets/{dataset_id}/files/{file_id}/preview?size=960
+Returns a browser-displayable JPEG preview with EXIF orientation applied. `size` is the maximum preview dimension (128–2048 px). Formats unsupported by Pillow return HTTP 415 instead of exposing filesystem paths.
 
 ## Jobs
 

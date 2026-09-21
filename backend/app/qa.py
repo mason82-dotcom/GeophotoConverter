@@ -48,6 +48,9 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     times: list[datetime] = []
     missing_gps = 0
     metadata_errors = 0
+    checksums: Counter[str] = Counter(
+        str(item["sha256"]) for item in files if item.get("sha256")
+    )
 
     for item in files:
         classification = reconciled[item["relative_path"]]
@@ -133,12 +136,26 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "reason": None if total >= 3 else "At least three images are required.",
         },
     }
+    ready_count = sum(1 for state in readiness.values() if state["ready"])
+    processing_readiness = (
+        "Ready" if ready_count == len(readiness)
+        else "Partially ready" if ready_count
+        else "Not ready"
+    )
+    known_platforms = {
+        name: count for name, count in platform_counts.items() if name != "UNKNOWN"
+    }
+    platform = max(known_platforms, key=known_platforms.get) if known_platforms else None
+    duplicate_count = sum(count - 1 for count in checksums.values() if count > 1)
 
     return {
         "image_count": total,
         "geotagged_count": geotagged,
         "geotagged_percent": round(geotagged * 100 / total, 1) if total else 0.0,
         "platforms": dict(platform_counts),
+        "platform": platform,
+        "duplicate_count": duplicate_count,
+        "processing_readiness": processing_readiness,
         "media_kinds": dict(media_counts),
         "camera_models": dict(cameras),
         "altitude": {

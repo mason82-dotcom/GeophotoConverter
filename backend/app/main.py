@@ -5,10 +5,12 @@ import json
 import os
 import uuid
 from collections import deque
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
+from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from .config import (
@@ -141,6 +143,9 @@ def get_dataset(dataset_id: str) -> dict:
 
     dataset["files"] = files
     dataset["geotagged_percent"] = round(tagged * 100 / total, 1) if total else 0.0
+    dataset["platform"] = qa.get("platform")
+    dataset["duplicate_count"] = qa.get("duplicate_count", 0)
+    dataset["processing_readiness"] = qa.get("processing_readiness")
     dataset["qa"] = qa
     return dataset
 
@@ -188,6 +193,48 @@ def dataset_geojson(dataset_id: str) -> dict:
         "type": "FeatureCollection",
         "features": features,
     }
+
+
+@app.get("/api/v1/datasets/{dataset_id}/files/{file_id}/preview")
+def preview_dataset_file(
+    dataset_id: str,
+    file_id: str,
+    size: int = Query(default=960, ge=128, le=2048),
+) -> Response:
+    _dataset_or_404(dataset_id)
+    item = store.get_file(dataset_id, file_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Dataset file not found")
+
+    source = Path(item["stored_path"]).resolve()
+    image_root = (DATASETS_ROOT / dataset_id / "images").resolve()
+    if source != image_root and image_root not in source.parents:
+        raise HTTPException(status_code=403, detail="Invalid dataset file path")
+    if not source.is_file():
+        raise HTTPException(status_code=404, detail="Dataset file is missing")
+
+    try:
+        with Image.open(source) as opened:
+            opened.draft("RGB", (size, size))
+            image = ImageOps.exif_transpose(opened)
+            image.thumbnail((size, size))
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            buffer = BytesIO()
+            image.save(buffer, format="JPEG", quality=86, optimize=True)
+    except UnidentifiedImageError as exc:
+        raise HTTPException(
+            status_code=415,
+            detail="Preview generation is not supported for this image format",
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=422, detail="Image preview could not be generated") from exc
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @app.post("/api/v1/datasets/{dataset_id}/files")

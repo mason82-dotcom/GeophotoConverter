@@ -187,6 +187,14 @@ class Store:
             ).fetchone()
         return self.row(row)
 
+    def get_file(self, dataset_id: str, file_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM files WHERE dataset_id=? AND id=?",
+                (dataset_id, file_id),
+            ).fetchone()
+        return self.row(row)
+
     def get_file_by_relative_path(
         self,
         dataset_id: str,

@@ -59,6 +59,34 @@ function formatCoordinate(value?: number | null) {
   return typeof value === 'number' ? value.toFixed(7) : '—'
 }
 
+function CapturePreview({ file }: { file: UploadedFileRecord }) {
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [file.id])
+
+  if (failed) {
+    return (
+      <div className="inspector-preview">
+        <ImageOff size={26} />
+        <span>Preview unavailable for this image format.</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="inspector-preview inspector-preview--image">
+      <img
+        src={`/api/v1/datasets/${encodeURIComponent(file.dataset_id)}/files/${encodeURIComponent(file.id)}/preview?size=960`}
+        alt={`Preview of ${file.relative_path}`}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  )
+}
+
 function MetadataInspector({ file }: { file?: UploadedFileRecord }) {
   if (!file) {
     return (
@@ -85,10 +113,7 @@ function MetadataInspector({ file }: { file?: UploadedFileRecord }) {
 
   return (
     <div className="metadata-inspector">
-      <div className="inspector-preview">
-        <Camera size={30} strokeWidth={1.5} />
-        <span>Image preview API not available</span>
-      </div>
+      <CapturePreview file={file} />
       <dl>
         {rows.map(([label, value]) => (
           <div key={label}>

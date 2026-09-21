@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from pathlib import Path
+
+from PIL import Image
 
 from app.config import DATA_ROOT
 from app.storage import store
@@ -159,3 +162,50 @@ def test_dataset_qa_classifies_multispectral_and_platform(client):
         for item in detail.json()["files"]
     }
     assert classifications["M3M/DJI_0001_MS_NIR.TIF"]["platform"] == "M3M"
+
+
+def test_dataset_detail_exposes_qa_summary_fields(client):
+    dataset = _dataset(client)
+    response = client.post(
+        f"/api/v1/datasets/{dataset['id']}/files",
+        files=[("files", ("DJI_0100.JPG", b"rgb", "image/jpeg"))],
+    )
+    file_id = response.json()["accepted"][0]["id"]
+    store.update_file_scan(
+        file_id,
+        {
+            "camera": {"make": "DJI", "model": "Mavic 3 Enterprise"},
+            "gps": {"latitude": 49.0, "longitude": 8.0, "altitude": 110.0},
+            "dji": {"product_name": "Mavic 3 Enterprise"},
+        },
+        None,
+    )
+
+    detail = client.get(f"/api/v1/datasets/{dataset['id']}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["platform"] == "M3E"
+    assert body["duplicate_count"] == 0
+    assert body["processing_readiness"] == "Partially ready"
+
+
+def test_dataset_file_preview_returns_browser_jpeg(client):
+    dataset = _dataset(client)
+    source = io.BytesIO()
+    Image.new("RGB", (64, 32), (40, 80, 120)).save(source, format="JPEG")
+
+    upload = client.post(
+        f"/api/v1/datasets/{dataset['id']}/files",
+        files=[("files", ("DJI_0200.JPG", source.getvalue(), "image/jpeg"))],
+    )
+    file_id = upload.json()["accepted"][0]["id"]
+
+    preview = client.get(
+        f"/api/v1/datasets/{dataset['id']}/files/{file_id}/preview",
+        params={"size": 128},
+    )
+    assert preview.status_code == 200
+    assert preview.headers["content-type"].startswith("image/jpeg")
+    rendered = Image.open(io.BytesIO(preview.content))
+    assert rendered.width <= 128
+    assert rendered.height <= 128
