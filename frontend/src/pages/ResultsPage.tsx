@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getJob, getJobLogs, listDatasets, listJobs } from '../api/client'
-import type { Artefakt, Dataset, Job, JobLogs } from '../api/types'
+import type { Artifact, Dataset, Job, JobLogs } from '../api/types'
 import { profileText, workflowText } from '../i18n'
 
 interface ResultJob {
@@ -39,7 +39,7 @@ function formatBytes(bytes?: number) {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[index]}`
 }
 
-function artifactLabel(artifact: Artefakt) {
+function artifactLabel(artifact: Artifact) {
   const type = artifact.type.toLowerCase()
   const name = artifact.name.toLowerCase()
   if (type === 'thermal_temperature_tiff') return { label: 'Temperatur-TIFF', icon: Flame }
