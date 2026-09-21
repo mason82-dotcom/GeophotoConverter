@@ -108,12 +108,12 @@ function workflowRequirement(
   const readiness = readinessFor(qa, engine, workflow)
   if (!readiness) return 'Bereitschaft nicht angegeben'
   if (workflow === 'multispectral') {
-    return `${readiness.complete_groups ?? 0} complete groups · ${readiness.eligible_images} images`
+    return `${readiness.complete_groups ?? 0} vollständige Gruppen · ${readiness.eligible_images} Bilder`
   }
   if (workflow === 'thermal') {
     return `${readiness.complete_groups ?? 0} complete WIDE+THERMAL groups · ${readiness.platform ?? 'Plattform nicht bestätigt'}`
   }
-  return `${readiness.eligible_images} eligible RGB/WIDE images`
+  return `${readiness.eligible_images} geeignete RGB/WIDE-Bilder`
 }
 
 function optionError(raw: string | undefined, definition: ProcessingOptionDefinition) {
@@ -425,9 +425,9 @@ export function ProcessingPage() {
           </div>
           <div className="thermal-boundary-grid">
             <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Lokales DJI Thermal SDK erforderlich' : 'Nicht erforderlich'}</span>
-            <span><strong>Temperature space</strong>{selectedWorkflow.temperature_space ?? 'Nicht angegeben'}</span>
+            <span><strong>Temperaturraum</strong>{selectedWorkflow.temperature_space ?? 'Nicht angegeben'}</span>
             <span><strong>WIDE ↔ THERMAL</strong>{selectedWorkflow.wide_thermal_coregistered ? 'Koregistriert' : 'Nicht koregistriert'}</span>
-            <span><strong>Georeferenced temperature raster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
+            <span><strong>Georeferenziertes Temperaturraster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
           </div>
           <p className="warning-copy">
             <TriangleAlert size={16} />
