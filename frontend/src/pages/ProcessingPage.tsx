@@ -85,7 +85,7 @@ function apiMessage(error: unknown) {
 function serviceLabel(services: ServicesResponse | undefined, engine: ProcessingEngine) {
   const state = services?.[engine]
   if (!state) return 'Status unbekannt'
-  if (state.status === 'experimental') return 'Experimental'
+  if (state.status === 'experimental') return 'Experimentell'
   if (state.status === 'optional') return 'Optionaler Dienst'
   return statusText(state.status)
 }
@@ -112,7 +112,7 @@ function workflowRequirement(
   const readiness = readinessFor(qa, engine, workflow)
   if (!readiness) return 'Bereitschaft nicht gemeldet'
   if (workflow === 'multispectral') {
-    return `${readiness.complete_groups ?? 0} vollständige Gruppen · ${readiness.eligible_images} images`
+    return `${readiness.complete_groups ?? 0} vollständige Gruppen · ${readiness.eligible_images} Bilder`
   }
   if (workflow === 'thermal') {
     return `${readiness.complete_groups ?? 0} vollständige WIDE+THERMAL-Gruppen · ${readiness.platform ?? 'Plattform unbestätigt'}`
@@ -297,7 +297,7 @@ export function ProcessingPage() {
         <h2>Verarbeitungskatalog nicht verfügbar</h2>
         <p>{error ?? 'Das Backend hat keinen Verarbeitungskatalog geliefert.'}</p>
         <button className="button" type="button" onClick={() => void load()}>
-          <RefreshCw size={16} /> Retry
+          <RefreshCw size={16} /> Erneut versuchen
         </button>
       </div>
     )
@@ -336,8 +336,8 @@ export function ProcessingPage() {
             <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> georeferenziert</span>
             <span><strong>{selectedDataset.scan_status}</strong> scan</span>
             <span>
-              <strong>{qaLoading ? 'Wird geprüft …' : engineReadiness?.ready ? 'Ready' : 'Blocked'}</strong>
-              {selectedEngine?.title ?? engine} readiness
+              <strong>{qaLoading ? 'Wird geprüft …' : engineReadiness?.ready ? 'Bereit' : 'Blockiert'}</strong>
+              {selectedEngine?.title ?? engine} Bereitschaft
             </span>
           </div>
         )}
@@ -429,9 +429,9 @@ export function ProcessingPage() {
           </div>
           <div className="thermal-boundary-grid">
             <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Local DJI Thermal SDK erforderlich' : 'Nicht erforderlich'}</span>
-            <span><strong>Temperature space</strong>{selectedWorkflow.temperature_space ?? 'Nicht gemeldet'}</span>
+            <span><strong>Temperaturraum</strong>{selectedWorkflow.temperature_space ?? 'Nicht gemeldet'}</span>
             <span><strong>WIDE ↔ THERMAL</strong>{selectedWorkflow.wide_thermal_coregistered ? 'Koregistriert' : 'Nicht koregistriert'}</span>
-            <span><strong>Georeferenced temperature raster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
+            <span><strong>Georeferenziertes Temperaturraster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
           </div>
           <p className="warning-copy">
             <TriangleAlert size={16} />
@@ -497,7 +497,7 @@ export function ProcessingPage() {
                 <Icon size={18} />
                 <div>
                   <strong>{profileText(item)}</strong>
-                  <span>{definition?.purpose ?? 'Nicht verfügbar for the selected workflow.'}</span>
+                  <span>{definition?.purpose ?? 'Für den gewählten Workflow nicht verfügbar.'}</span>
                 </div>
                 {selected && <CheckCircle2 size={17} className="profile-check" />}
               </button>
@@ -509,7 +509,7 @@ export function ProcessingPage() {
       <section className="panel job-submit-panel">
         <div>
           <p className="eyebrow">Auftragsanforderung</p>
-          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manual'} · {titleCase(profile)}</h3>
+          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manuell'} · {titleCase(profile)}</h3>
           {!selectedEngine?.automated ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
