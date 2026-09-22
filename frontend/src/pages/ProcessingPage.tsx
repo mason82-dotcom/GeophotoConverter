@@ -379,7 +379,7 @@ export function ProcessingPage() {
                 <div className="engine-capabilities">
                   {item.requires_gpu && <span>GPU erforderlich</span>}
                   {item.requires_dji_tsdk && <span>DJI Thermal SDK erforderlich</span>}
-                  {item.experimental && <span>Experimental</span>}
+                  {item.experimental && <span>Experimentell</span>}
                   {!item.automated && <span>Nur manuell</span>}
                 </div>
               </button>
