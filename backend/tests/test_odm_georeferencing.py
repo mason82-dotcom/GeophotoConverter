@@ -313,3 +313,34 @@ def test_odm_result_evidence_does_not_claim_crs_when_inspector_missing(
     assert orthophoto["inspection_status"] == "unavailable"
     assert orthophoto["georeferencing_verified"] is False
     assert evidence["summary"]["raster_outputs_with_verified_georeferencing"] == 0
+
+
+
+def test_odm_geo_arguments_only_enable_mapping_override(tmp_path: Path) -> None:
+    manifest = {
+        "georeferencing": {
+            "mode": "geo_override",
+            "path": "geo.txt",
+        }
+    }
+
+    assert odm_evidence.odm_geo_arguments(
+        tmp_path,
+        "mapping",
+        manifest,
+    ) == ["--geo", str(tmp_path / "geo.txt")]
+    assert odm_evidence.odm_geo_arguments(
+        tmp_path,
+        "multispectral",
+        manifest,
+    ) == []
+    assert odm_evidence.odm_geo_arguments(
+        tmp_path,
+        "mapping",
+        {
+            "georeferencing": {
+                "mode": "embedded_metadata_fallback",
+                "path": None,
+            }
+        },
+    ) == []
