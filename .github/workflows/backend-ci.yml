@@ -51,3 +51,6 @@ jobs:
 
       - name: Run backend tests
         run: pytest -q backend/tests
+
+      - name: Build thermal worker image
+        run: docker build -f workers/thermal/Dockerfile -t geophoto-thermal-ci .
