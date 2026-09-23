@@ -188,7 +188,7 @@ export function DatasetsPage({ mapFocused = false }: DatasetsPageProps) {
         <h2>Datensatz-API nicht verfügbar</h2>
         <p>{error}</p>
         <button className="button" type="button" onClick={() => void loadAll()}>
-          <RefreshCw size={16} /> Retry
+          <RefreshCw size={16} /> Erneut versuchen
         </button>
       </div>
     )

@@ -328,7 +328,7 @@ export function ImportPage() {
         {items.length === 0 ? (
           <div className="compact-empty">
             <FileImage size={24} />
-            <span>Dateien auswählen or a folder to prepare the dataset.</span>
+            <span>Dateien oder einen Ordner auswählen, um den Datensatz vorzubereiten.</span>
           </div>
         ) : (
           <div className="table-scroll">
@@ -377,7 +377,7 @@ export function ImportPage() {
                         {(item.status === 'error' || item.status === 'cancelled') && isSupported(item.file) && (
                           <button className="mini-button" type="button" onClick={() => void retry(item)} title="Upload erneut versuchen">
                             <RefreshCw size={15} />
-                            <span className="visually-hidden">Retry {item.file.name}</span>
+                            <span className="visually-hidden">Erneut versuchen: {item.file.name}</span>
                           </button>
                         )}
                         {item.status === 'uploading' ? (
@@ -388,7 +388,7 @@ export function ImportPage() {
                         ) : item.status !== 'uploaded' ? (
                           <button className="mini-button" type="button" onClick={() => removeItem(item.id)} title="Datei entfernen">
                             <XCircle size={15} />
-                            <span className="visually-hidden">Remove {item.file.name}</span>
+                            <span className="visually-hidden">Entfernen: {item.file.name}</span>
                           </button>
                         ) : null}
                       </div>

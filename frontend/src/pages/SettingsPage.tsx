@@ -97,7 +97,7 @@ export function SettingsPage() {
           </div>
           <button className="button" type="button" onClick={() => void load()}>
             <RefreshCw size={16} />
-            Refresh
+            Aktualisieren
           </button>
         </div>
 

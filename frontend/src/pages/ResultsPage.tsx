@@ -118,7 +118,7 @@ export function ResultsPage() {
         <TriangleAlert size={26} />
         <h2>Ergebnisse nicht verfügbar</h2>
         <p>{error}</p>
-        <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Retry</button>
+        <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Erneut versuchen</button>
       </div>
     )
   }
@@ -132,7 +132,7 @@ export function ResultsPage() {
             <h2>Ergebnisartefakte</h2>
             <p>Abgeschlossene Backend-Aufträge und deren herunterladbare, vom Backend gemeldete Ausgaben.</p>
           </div>
-          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Refresh</button>
+          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Aktualisieren</button>
         </div>
         <div className="result-filters" aria-label="Ergebnistyp-Filter">
           <button className={`filter-chip ${filter === 'all' ? 'filter-chip--active' : ''}`} type="button" onClick={() => setFilter('all')}>Alle</button>
@@ -181,7 +181,7 @@ export function ResultsPage() {
                         {artifact.download_url ? (
                           <a className="button artifact-download" href={artifact.download_url} download>
                             <Download size={15} />
-                            Download
+                            Herunterladen
                           </a>
                         ) : (
                           <span className="status-chip status-chip--neutral">Keine URL</span>
@@ -196,7 +196,7 @@ export function ResultsPage() {
                       <div className="artifact-card-body">
                         <span className="artifact-kind">Protokolle</span>
                         <strong>Letzte Worker-Protokollzeilen</strong>
-                        <small>{logs?.lines.length ?? 0} lines loaded</small>
+                        <small>{logs?.lines.length ?? 0} Zeilen geladen</small>
                       </div>
                       <details className="result-log-details">
                         <summary>Anzeigen</summary>
