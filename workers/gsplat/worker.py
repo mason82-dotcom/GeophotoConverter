@@ -1,19 +1,107 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 from common.images import prepare_photogrammetry_images
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "gsplat"
+COLMAP_CUDA = os.getenv("GEOPHOTO_COLMAP_CUDA", "1").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+COLMAP_GPU_INDEX = os.getenv("GEOPHOTO_CUDA_DEVICE", "0").strip() or "0"
+COLMAP_VERSION = os.getenv("GEOPHOTO_COLMAP_VERSION", "4.2.0").strip() or "4.2.0"
 
 PROFILES = {
     "preview": {"max_image_size": "1600", "matcher": "sequential_matcher"},
     "standard": {"max_image_size": "2400", "matcher": "exhaustive_matcher"},
     "high": {"max_image_size": "3200", "matcher": "exhaustive_matcher"},
 }
+
+
+def _colmap_feature_command(
+    database: Path,
+    image_dir: Path,
+    max_image_size: str,
+) -> list[str]:
+    command = [
+        "colmap",
+        "feature_extractor",
+        "--database_path",
+        str(database),
+        "--image_path",
+        str(image_dir),
+        "--ImageReader.single_camera",
+        "1",
+        "--FeatureExtraction.type",
+        "SIFT",
+        "--FeatureExtraction.use_gpu",
+        "1" if COLMAP_CUDA else "0",
+        "--FeatureExtraction.max_image_size",
+        max_image_size,
+    ]
+    if COLMAP_CUDA:
+        command.extend(["--FeatureExtraction.gpu_index", COLMAP_GPU_INDEX])
+    return command
+
+
+def _colmap_match_command(database: Path, matcher: str) -> list[str]:
+    command = [
+        "colmap",
+        matcher,
+        "--database_path",
+        str(database),
+        "--FeatureMatching.use_gpu",
+        "1" if COLMAP_CUDA else "0",
+    ]
+    if COLMAP_CUDA:
+        command.extend(["--FeatureMatching.gpu_index", COLMAP_GPU_INDEX])
+    return command
+
+
+def _verify_colmap_runtime(log_path: Path) -> None:
+    version = subprocess.run(
+        ["colmap", "version"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    output = (version.stdout or "") + "\n" + (version.stderr or "")
+    if version.returncode != 0 or f"COLMAP {COLMAP_VERSION}" not in output:
+        raise RuntimeError(
+            f"Erwartetes COLMAP {COLMAP_VERSION} ist im gsplat-Container nicht verfügbar."
+        )
+
+    cuda_state = "deaktiviert"
+    if COLMAP_CUDA:
+        if "with CUDA" not in output:
+            raise RuntimeError(
+                "COLMAP-CUDA ist aktiviert, aber das ausgeführte COLMAP wurde "
+                "nicht mit CUDA-Unterstützung gebaut."
+            )
+        gpu = subprocess.run(
+            ["nvidia-smi", "-L"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if gpu.returncode != 0 or not (gpu.stdout or "").strip():
+            raise RuntimeError(
+                "COLMAP-CUDA ist aktiviert, aber im Container ist keine NVIDIA-GPU sichtbar."
+            )
+        cuda_state = f"aktiv auf GPU {COLMAP_GPU_INDEX}: {(gpu.stdout or '').strip()}"
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8", errors="replace") as log:
+        log.write(
+            f"GeoPhoto COLMAP Runtime: {COLMAP_VERSION}; CUDA-SIFT {cuda_state}.\n"
+        )
 
 
 def _run(job_id: str, cwd: Path, log_path: Path, command: list[str]) -> bool:
@@ -75,44 +163,83 @@ def handle(payload: dict) -> None:
     sparse_dir.mkdir(parents=True, exist_ok=True)
     result_dir.mkdir(parents=True, exist_ok=True)
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="gsplat/COLMAP-Projekt wird vorbereitet.")
+    update_job(
+        job_id,
+        status="running",
+        progress=1,
+        phase="staging",
+        message="gsplat/COLMAP-Projekt wird vorbereitet.",
+    )
     manifest = prepare_photogrammetry_images(dataset_id, scene_dir / "images")
     image_count = manifest["prepared_count"]
     if image_count < 3:
-        raise ValueError("gsplat benötigt nach der Normalisierung mindestens drei RGB/WIDE-Bilder.")
+        raise ValueError(
+            "gsplat benötigt nach der Normalisierung mindestens drei RGB/WIDE-Bilder."
+        )
+
+    _verify_colmap_runtime(log_path)
 
     update_job(
-        job_id, progress=8, phase="colmap_features",
+        job_id,
+        progress=8,
+        phase="colmap_features",
         message=(
-            f"COLMAP extrahiert Merkmale aus {image_count} RGB/WIDE-Bildern "
+            f"COLMAP {COLMAP_VERSION} extrahiert Merkmale aus "
+            f"{image_count} RGB/WIDE-Bildern mit "
+            f"{'CUDA' if COLMAP_CUDA else 'CPU'} "
             f"({manifest['skipped_count']} Nicht-Mapping-Bilder übersprungen)."
         ),
     )
-    if not _run(job_id, scene_dir, log_path, [
-        "colmap", "feature_extractor",
-        "--database_path", str(database),
-        "--image_path", str(scene_dir / "images"),
-        "--ImageReader.single_camera", "1",
-        "--SiftExtraction.use_gpu", "0",
-        "--SiftExtraction.max_image_size", profile["max_image_size"],
-    ]):
+    if not _run(
+        job_id,
+        scene_dir,
+        log_path,
+        _colmap_feature_command(
+            database,
+            scene_dir / "images",
+            profile["max_image_size"],
+        ),
+    ):
         return
 
-    update_job(job_id, progress=23, phase="colmap_matching", message=f"COLMAP {profile['matcher']} gleicht Bildmerkmale ab.")
-    if not _run(job_id, scene_dir, log_path, [
-        "colmap", profile["matcher"],
-        "--database_path", str(database),
-        "--SiftMatching.use_gpu", "0",
-    ]):
+    update_job(
+        job_id,
+        progress=23,
+        phase="colmap_matching",
+        message=(
+            f"COLMAP {profile['matcher']} gleicht Bildmerkmale "
+            f"mit {'CUDA' if COLMAP_CUDA else 'CPU'} ab."
+        ),
+    )
+    if not _run(
+        job_id,
+        scene_dir,
+        log_path,
+        _colmap_match_command(database, profile["matcher"]),
+    ):
         return
 
-    update_job(job_id, progress=42, phase="colmap_mapping", message="COLMAP rekonstruiert Kameraposen und die dünne Punktwolke.")
-    if not _run(job_id, scene_dir, log_path, [
-        "colmap", "mapper",
-        "--database_path", str(database),
-        "--image_path", str(scene_dir / "images"),
-        "--output_path", str(sparse_dir),
-    ]):
+    update_job(
+        job_id,
+        progress=42,
+        phase="colmap_mapping",
+        message="COLMAP rekonstruiert Kameraposen und die dünne Punktwolke.",
+    )
+    if not _run(
+        job_id,
+        scene_dir,
+        log_path,
+        [
+            "colmap",
+            "mapper",
+            "--database_path",
+            str(database),
+            "--image_path",
+            str(scene_dir / "images"),
+            "--output_path",
+            str(sparse_dir),
+        ],
+    ):
         return
 
     model_dir = sparse_dir / "0"
@@ -123,14 +250,23 @@ def handle(payload: dict) -> None:
         if candidates[0].name != "0":
             candidates[0].rename(model_dir)
 
-    update_job(job_id, progress=65, phase="gsplat_training", message=f"gsplat trainiert Profil '{profile_name}' mit CUDA.")
+    update_job(
+        job_id,
+        progress=65,
+        phase="gsplat_training",
+        message=f"gsplat trainiert Profil '{profile_name}' mit CUDA.",
+    )
     code = run_process(
         job_id,
         [
-            "python3", "/worker/train.py",
-            "--data-dir", str(scene_dir),
-            "--result-dir", str(result_dir),
-            "--profile", profile_name,
+            "python3",
+            "/worker/train.py",
+            "--data-dir",
+            str(scene_dir),
+            "--result-dir",
+            str(result_dir),
+            "--profile",
+            profile_name,
         ],
         cwd=Path("/worker"),
         log_path=log_path,
@@ -143,7 +279,10 @@ def handle(payload: dict) -> None:
 
     artifacts = _collect_artifacts(result_dir, job_id)
     update_job(
-        job_id, status="completed", progress=100, phase="completed",
+        job_id,
+        status="completed",
+        progress=100,
+        phase="completed",
         message=f"gsplat abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
