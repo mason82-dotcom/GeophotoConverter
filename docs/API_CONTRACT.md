@@ -447,6 +447,9 @@ Liefert Punktwolken-Metadaten:
 - Mittelpunkt
 - räumliche Ausdehnung
 - Quelldateigröße
+- bei LAS/LAZ zusätzlich LAS-Version und Punktformat
+- bei LAS/LAZ zusätzlich Scale/Offset
+- bei vorhandenem LAS/LAZ-CRS zusätzlich Name, EPSG bzw. Authority/Code sowie projected/geographic
 
 ### GET /jobs/{job_id}/pointclouds/{artifact_index}/preview?max_points=100000
 
