@@ -24,7 +24,7 @@ Damit ist DNG-Normalisierung bereits implementiert und keine spätere Planung me
 Container-Basis:
 
 - CPU: `opendronemap/odm:3.6.2`
-- NVIDIA CUDA: `opendronemap/odm:3.6.2-gpu`
+- NVIDIA CUDA: `opendronemap/odm:3.6.2-gpu` (CUDA 12.9.1, Image-Digest gepinnt)
 
 Das optionale Compose-Profil `odm-gpu` reicht die NVIDIA-GPU mit `gpus: all`
 an den Worker durch und erzwingt für ODM den SIFT-Feature-Typ. Damit kann ODM
