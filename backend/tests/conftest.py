@@ -23,6 +23,7 @@ from app.storage import store
 def clean_state():
     with store.connect() as conn:
         conn.execute("DELETE FROM jobs")
+        conn.execute("DELETE FROM gcp_projects")
         conn.execute("DELETE FROM files")
         conn.execute("DELETE FROM datasets")
 

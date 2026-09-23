@@ -26,6 +26,7 @@ from .metadata import read_metadata
 from .maps import router as maps_router
 from .job_options import normalize_job_options
 from .dronedb import router as dronedb_router
+from .gcp import router as gcp_router
 from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
@@ -45,6 +46,7 @@ app.include_router(maps_router)
 app.include_router(previews_router)
 app.include_router(dronedb_router)
 app.include_router(pointcloud_router)
+app.include_router(gcp_router)
 
 
 class DatasetCreate(BaseModel):

@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at TEXT NOT NULL,
     FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS gcp_projects (
+    dataset_id TEXT PRIMARY KEY,
+    project_crs TEXT NOT NULL,
+    points_json TEXT NOT NULL,
+    validation_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
+);
 """
 
 
@@ -116,6 +126,8 @@ class Store:
             "artifacts_json",
             "options_json",
             "publication_json",
+            "points_json",
+            "validation_json",
         ):
             if data.get(key):
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
@@ -295,6 +307,69 @@ class Store:
                 "UPDATE datasets SET scan_status=?, updated_at=? WHERE id=?",
                 (status, now, dataset_id),
             )
+
+    def get_gcp_project(self, dataset_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM gcp_projects WHERE dataset_id=?",
+                (dataset_id,),
+            ).fetchone()
+        return self.row(row)
+
+    def upsert_gcp_project(
+        self,
+        dataset_id: str,
+        project_crs: str,
+        points: list[dict[str, Any]],
+        validation: dict[str, Any],
+    ) -> dict[str, Any]:
+        now = self.now()
+        with self._lock, self.connect() as conn:
+            current = conn.execute(
+                "SELECT created_at FROM gcp_projects WHERE dataset_id=?",
+                (dataset_id,),
+            ).fetchone()
+            created_at = current["created_at"] if current else now
+            conn.execute(
+                """
+                INSERT INTO gcp_projects(
+                    dataset_id,project_crs,points_json,validation_json,
+                    created_at,updated_at
+                )
+                VALUES(?,?,?,?,?,?)
+                ON CONFLICT(dataset_id) DO UPDATE SET
+                    project_crs=excluded.project_crs,
+                    points_json=excluded.points_json,
+                    validation_json=excluded.validation_json,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    dataset_id,
+                    project_crs,
+                    json.dumps(points),
+                    json.dumps(validation),
+                    created_at,
+                    now,
+                ),
+            )
+            conn.execute(
+                "UPDATE datasets SET updated_at=? WHERE id=?",
+                (now, dataset_id),
+            )
+        return self.get_gcp_project(dataset_id)
+
+    def delete_gcp_project(self, dataset_id: str) -> bool:
+        with self._lock, self.connect() as conn:
+            cursor = conn.execute(
+                "DELETE FROM gcp_projects WHERE dataset_id=?",
+                (dataset_id,),
+            )
+            if cursor.rowcount:
+                conn.execute(
+                    "UPDATE datasets SET updated_at=? WHERE id=?",
+                    (self.now(), dataset_id),
+                )
+        return bool(cursor.rowcount)
 
     def create_job(
         self,
