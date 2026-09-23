@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -10,6 +11,21 @@ from common.images import (
 from common.runtime import DATA_ROOT, consume, run_process, update_job
 
 ENGINE = "odm"
+CUDA_ENABLED = os.getenv("GEOPHOTO_ODM_CUDA", "0").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
+
+def _profile_options(workflow: str, profile: str) -> list[str] | None:
+    source = MULTISPECTRAL_PROFILES if workflow == "multispectral" else PROFILES
+    base = source.get(profile)
+    if base is None:
+        return None
+    options = list(base)
+    if CUDA_ENABLED:
+        options.extend(["--feature-type", "sift"])
+    return options
+
 
 PROFILES = {
     "preview": [
@@ -108,10 +124,7 @@ def handle(payload: dict) -> None:
     dataset_id = payload["dataset_id"]
     profile = payload.get("profile", "standard")
     workflow = payload.get("workflow", "rgb")
-    if workflow == "multispectral":
-        options = MULTISPECTRAL_PROFILES.get(profile)
-    else:
-        options = PROFILES.get(profile)
+    options = _profile_options(workflow, profile)
     if options is None:
         raise ValueError(
             f"Unsupported ODM profile/workflow combination: {profile}/{workflow}"
@@ -159,7 +172,8 @@ def handle(payload: dict) -> None:
         phase="processing",
         message=(
             f"ODM verarbeitet {image_count} {input_label} Bilder mit "
-            f"profile '{profile}' ({manifest['skipped_count']} Bilder übersprungen)."
+            f"Profil '{profile}' über {'NVIDIA CUDA' if CUDA_ENABLED else 'CPU'} "
+            f"({manifest['skipped_count']} Bilder übersprungen)."
         ),
     )
 
