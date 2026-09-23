@@ -37,7 +37,13 @@ Damit ist DNG-Normalisierung bereits implementiert und keine spätere Planung me
 
 Container-Basis:
 
-`opendronemap/odm:3.6.2`
+- CPU: `opendronemap/odm:3.6.2`
+- optional NVIDIA CUDA: `opendronemap/odm:3.6.2-gpu` (Image-Digest gepinnt)
+
+Das Compose-Profil `odm-gpu` nutzt dieselbe Mapping-/Multispektral-Logik wie
+der CPU-Worker, ergänzt jedoch `--feature-type sift`, damit ODM seine
+CUDA-SIFT-Merkmalsextraktion verwenden kann. `odm` und `odm-gpu`
+konsumieren dieselbe Redis-Queue und sollen nicht gleichzeitig laufen.
 
 ### Workflow `mapping`
 
@@ -148,6 +154,7 @@ Laufzeitbasis:
 - COLMAP für Kamera-Posen und sparse Rekonstruktion
 - NVIDIA Container Toolkit erforderlich
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
+- der Worker-Heartbeat kann NVIDIA-Gerätename, Treiberversion, VRAM und CUDA-Version melden
 
 Mindestanforderung: drei geeignete RGB/WIDE-Bilder.
 
