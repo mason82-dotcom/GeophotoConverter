@@ -268,3 +268,35 @@ def test_incomplete_xyz_stat_record_is_warning():
         and issue["dimension"] == "Y"
         for issue in result["issues"]
     )
+
+
+def test_lowercase_ply_dimensions_are_canonicalized():
+    summary = parse_pdal_summary(
+        {
+            "reader": "readers.ply",
+            "summary": {
+                "bounds": {
+                    "minx": 0, "miny": 0, "minz": 0,
+                    "maxx": 2, "maxy": 2, "maxz": 3,
+                },
+                "dimensions": "x, y, z",
+                "num_points": 4,
+            },
+        }
+    )
+    stats = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "x", "minimum": 0, "maximum": 2},
+                    {"name": "y", "minimum": 0, "maximum": 2},
+                    {"name": "z", "minimum": 0, "maximum": 3},
+                ]
+            }
+        }
+    )
+
+    assert summary["dimensions"] == ["X", "Y", "Z"]
+    assert stats["status"] == "ready"
+    assert stats["z_range"] == 3.0
+    assert set(stats["dimensions"]) == {"X", "Y", "Z"}
