@@ -47,7 +47,7 @@ COPY workers/gsplat/requirements.txt /tmp/gsplat-requirements.txt
 RUN pip install --no-cache-dir -r /tmp/gsplat-requirements.txt
 
 RUN cd /opt/gsplat \
-    && BUILD_NO_CUDA=1 BUILD_EXPERIMENTAL=0 pip install --no-cache-dir -e .
+    && BUILD_NO_CUDA=1 BUILD_EXPERIMENTAL=0 pip install --no-cache-dir --no-build-isolation --no-deps -e .
 
 COPY workers/common /worker/common
 COPY workers/gsplat/worker.py /worker/worker.py
