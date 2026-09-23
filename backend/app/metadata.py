@@ -237,6 +237,8 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             "gimbal_pitch": _dji_first(raw, "GimbalPitchDegree"),
             "gimbal_roll": _dji_first(raw, "GimbalRollDegree"),
             "cam_reverse": _dji_first(raw, "CamReverse"),
+            "gimbal_reverse": _dji_first(raw, "GimbalReverse"),
+            "capture_uuid": _dji_first(raw, "CaptureUUID"),
             "rtk_flag": rtk_flag,
             "rtk_status": _rtk_status(rtk_flag),
             "rtk_fixed": _rtk_status(rtk_flag) == "fixed" if rtk_flag is not None else None,
