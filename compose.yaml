@@ -84,7 +84,7 @@ services:
       GEOPHOTO_ACCELERATOR: nvidia-cuda
       GEOPHOTO_CUDA_REQUIRED: "1"
       GEOPHOTO_CUDA_PROBE: "1"
-      GEOPHOTO_CUDA_VERSION: "ODM 3.6.2 GPU image"
+      GEOPHOTO_CUDA_VERSION: "12.9.1"
     volumes:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
     depends_on:
