@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import sqlite3
 import subprocess
@@ -13,32 +12,6 @@ from .runtime import DB_PATH
 PHOTOGRAMMETRY_KINDS = {"RGB", "WIDE"}
 _DIRECT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 _M3M_REQUIRED_KINDS = {"RGB", "MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR"}
-_M3M_FILENAME_BANDS = {
-    "G": "MS_GREEN",
-    "R": "MS_RED",
-    "RE": "MS_RED_EDGE",
-    "NIR": "MS_NIR",
-}
-_DJI_BAND_NAMES = {
-    "GREEN": "MS_GREEN",
-    "RED": "MS_RED",
-    "REDEDGE": "MS_RED_EDGE",
-    "RED EDGE": "MS_RED_EDGE",
-    "NIR": "MS_NIR",
-}
-_PLATFORM_TOKENS = (
-    ("MAVIC 3 MULTISPECTRAL", "M3M"),
-    ("MAVIC 3 THERMAL", "M3T"),
-    ("MAVIC 3 ENTERPRISE", "M3E"),
-    ("MATRICE 4 THERMAL", "M4T"),
-    ("MATRICE 4T", "M4T"),
-    ("MATRICE 4E", "M4E"),
-    ("M3M", "M3M"),
-    ("M3T", "M3T"),
-    ("M3E", "M3E"),
-    ("M4T", "M4T"),
-    ("M4E", "M4E"),
-)
 
 
 def media_kind(relative_path: str) -> str:
@@ -223,125 +196,25 @@ def _record_metadata(record: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _metadata_platform(metadata: dict[str, Any]) -> str:
-    camera = metadata.get("camera") or {}
-    dji = metadata.get("dji") or {}
-    haystack = " | ".join(
-        str(value).upper()
-        for value in (
-            camera.get("model"),
-            camera.get("make"),
-            dji.get("product_name"),
-            dji.get("aircraft_type"),
-            dji.get("drone_model"),
-        )
-        if value
-    )
-    for token, platform in _PLATFORM_TOKENS:
-        if token in haystack:
-            return platform
-    return "UNKNOWN"
-
-
-def _path_platform(path: PurePosixPath) -> str:
-    for part in path.parts[:-1]:
-        value = part.upper()
-        if value in {"M3E", "M3T", "M3M", "M4T", "M4E"}:
-            return value
-    return "UNKNOWN"
-
-
-def _platform_hint(record: dict[str, Any]) -> str:
-    metadata_platform = _metadata_platform(_record_metadata(record))
-    if metadata_platform != "UNKNOWN":
-        return metadata_platform
-    return _path_platform(PurePosixPath(record["relative_path"]))
-
-
-def _capture_uuid(metadata: dict[str, Any]) -> str | None:
-    dji = metadata.get("dji") or {}
-    value = dji.get("capture_uuid")
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def _group_path(path: PurePosixPath, base: str) -> str:
-    parent = path.parent.as_posix()
-    return base if parent == "." else f"{parent}/{base}"
-
-
-def _metadata_band_kind(metadata: dict[str, Any]) -> str | None:
-    dji = metadata.get("dji") or {}
-    value = dji.get("band_name")
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip().upper().replace("_", " ")
-    return _DJI_BAND_NAMES.get(normalized)
-
-
 def _m3m_record_info(record: dict[str, Any]) -> dict[str, Any] | None:
+    from app.classifier import classify_media
+
     relative_path = record["relative_path"]
-    path = PurePosixPath(relative_path)
-    upper = path.name.upper()
-    metadata = _record_metadata(record)
-    platform = _metadata_platform(metadata)
-    if platform == "UNKNOWN":
-        platform = _path_platform(path)
-
-    filename_band = re.match(
-        r"^(?P<base>.+)_MS_(?P<band>G|R|RE|NIR)\.(?:TIF|TIFF)$",
-        upper,
+    classification = classify_media(
+        relative_path,
+        _record_metadata(record),
     )
-    metadata_band = _metadata_band_kind(metadata)
-    conflicts: list[str] = []
-
-    if metadata_band:
-        if platform not in {"UNKNOWN", "M3M"}:
-            conflicts.append("band_platform_conflict")
-        if filename_band:
-            filename_kind = _M3M_FILENAME_BANDS[filename_band.group("band")]
-            if filename_kind != metadata_band:
-                conflicts.append("band_metadata_filename_conflict")
-        media_kind_value = metadata_band
-        platform = "M3M"
-        base = filename_band.group("base") if filename_band else path.stem
-    elif filename_band:
-        media_kind_value = _M3M_FILENAME_BANDS[filename_band.group("band")]
-        platform = "M3M"
-        base = filename_band.group("base")
-    else:
-        if media_kind(relative_path) != "RGB" or platform != "M3M":
-            return None
-        rgb_match = re.match(
-            r"^(?P<base>.+)_D\.(?:JPG|JPEG|DNG)$",
-            upper,
-        )
-        generic = re.match(
-            r"^(?P<base>DJI_.+?)\.(?:JPG|JPEG|TIF|TIFF|DNG)$",
-            upper,
-        )
-        media_kind_value = "RGB"
-        base = (
-            rgb_match.group("base")
-            if rgb_match
-            else generic.group("base")
-            if generic
-            else path.stem
-        )
-
-    capture_uuid = _capture_uuid(metadata)
-    capture_group = (
-        f"dji:{capture_uuid}"
-        if capture_uuid
-        else _group_path(path, base)
-    )
+    if (
+        classification.platform != "M3M"
+        or classification.media_kind not in _M3M_REQUIRED_KINDS
+    ):
+        return None
     return {
         "relative_path": relative_path,
-        "media_kind": media_kind_value,
-        "platform": platform,
-        "capture_group": capture_group,
-        "conflicts": conflicts,
+        "media_kind": classification.media_kind,
+        "platform": classification.platform,
+        "capture_group": classification.capture_group,
+        "conflicts": list(classification.conflicts),
     }
 
 
