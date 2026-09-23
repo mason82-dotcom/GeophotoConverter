@@ -101,14 +101,29 @@ Der vorhandene Viewer bleibt für LAS/LAZ/PLY zuständig. PGM-POINTCLOUD ist die
 fachliche QA-/Processing-Schicht und dupliziert Sampling oder WebGL-Darstellung
 nicht.
 
-Folgephase:
+Phase 2A (#79):
 
-- eigener PDAL-Dienst/Worker mit gepinntem 2.10.2-Runtimevertrag
-- COPC
+- optionales Compose-Profil `pdal`
+- gekapselter Sidecar auf `condaforge/miniforge3:26.7.2-0` mit isolierter Conda-Umgebung `pdal` und exakt `pdal=2.10.2`
+- Container-Dateisystem read-only; `/data` wird read-only eingebunden
+- PROJ-Netzwerkzugriffe sind deaktiviert
+- `GET /health`
+- `POST /qa` akzeptiert ausschließlich relative Artefaktpfade unter `/data`
+- dynamische Stats-Dimensionen: X/Y/Z und optional Classification
+- API-Endpunkt `/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/qa`
+- Service-Zustand unter `/api/v1/services`
+- eigenes Container-Smoke-Gate mit realer PLY-Punktwolke
+
+Phase 2B:
+
+- COPC Read/Write
 - Reprojection
-- Ground/HAG
+- Ground/SMRF
+- HAG
 - Outlier-/Density-QA
 - ODM-/MicMac-/OpenMVS-Artefaktintegration
+
+Schreibende Filter werden bewusst nicht mit der read-only Phase-2A-QA vermischt.
 
 ## PGM-GEOMETRY — GSD, Footprint, Overlap
 

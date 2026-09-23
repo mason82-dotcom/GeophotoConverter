@@ -1,0 +1,94 @@
+name: PDAL Service
+
+on:
+  pull_request:
+    paths:
+      - "workers/pdal/**"
+      - "backend/app/photogrammetry_pointcloud.py"
+      - "backend/app/pointcloud.py"
+      - "backend/tests/test_pdal_service.py"
+      - "backend/tests/test_photogrammetry_pointcloud.py"
+      - "backend/tests/test_pointcloud.py"
+      - "compose.yaml"
+      - ".github/workflows/pdal-service.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdal-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate PDAL Compose profile
+        run: docker compose --profile pdal config >/dev/null
+
+      - name: Build PDAL service
+        run: docker build -f workers/pdal/Dockerfile -t geophoto-pdal:test .
+
+      - name: Create point cloud fixture
+        run: |
+          mkdir -p data/ci
+          cat > data/ci/fixture.ply <<'EOF'
+          ply
+          format ascii 1.0
+          element vertex 4
+          property float x
+          property float y
+          property float z
+          end_header
+          0 0 0
+          1 0 1
+          0 2 2
+          2 2 3
+          EOF
+
+      - name: Start PDAL service
+        run: |
+          docker run -d --rm             --name geophoto-pdal             -p 8090:8090             -v "$PWD/data:/data:ro"             geophoto-pdal:test
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8090/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs geophoto-pdal
+          exit 1
+
+      - name: Verify PDAL version
+        run: docker exec geophoto-pdal pdal --version | grep -q "2.10.2"
+
+      - name: Run real PLY QA
+        run: |
+          curl -fsS             -H 'Content-Type: application/json'             -d '{"relative_path":"ci/fixture.ply"}'             http://127.0.0.1:8090/qa             | tee /tmp/pdal-qa.json
+          python3 - <<'PY'
+          import json
+          payload = json.load(open("/tmp/pdal-qa.json", encoding="utf-8"))
+          assert payload["relative_path"] == "ci/fixture.ply"
+          assert payload["summary"]["summary"]["num_points"] == 4
+          dimensions = payload["summary"]["summary"]["dimensions"]
+          if isinstance(dimensions, str):
+              dimensions = [part.strip() for part in dimensions.split(",") if part.strip()]
+          assert {"x", "y", "z"} <= {str(name).lower() for name in dimensions}
+          statistics = payload["stats"]["stats"]["statistic"]
+          assert {"x", "y", "z"} <= {
+              str(item["name"]).lower()
+              for item in statistics
+              if isinstance(item, dict) and "name" in item
+          }
+          PY
+
+      - name: Show logs
+        if: always()
+        run: docker logs geophoto-pdal || true
+
+      - name: Stop PDAL service
+        if: always()
+        run: docker stop geophoto-pdal || true

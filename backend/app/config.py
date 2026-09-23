@@ -23,6 +23,11 @@ OPENWEBUI_INTERNAL_URL = os.getenv(
 ).rstrip("/")
 OPENWEBUI_PUBLIC_URL = os.getenv("OPENWEBUI_PUBLIC_URL", "").strip()
 OPENWEBUI_PUBLIC_PORT = int(os.getenv("OPENWEBUI_PUBLIC_PORT", "3001"))
+PDAL_SERVICE_URL = os.getenv("GEOPHOTO_PDAL_URL", "http://pdal-service:8090").rstrip("/")
+PDAL_TIMEOUT_SECONDS = max(
+    5,
+    int(os.getenv("GEOPHOTO_PDAL_TIMEOUT_SECONDS", "120")),
+)
 MAX_FILE_BYTES = int(os.getenv("GEOPHOTO_MAX_FILE_MB", "500")) * 1024 * 1024
 MAX_DATASET_BYTES = int(os.getenv("GEOPHOTO_MAX_DATASET_GB", "50")) * 1024 * 1024 * 1024
 
