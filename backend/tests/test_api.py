@@ -515,3 +515,54 @@ def test_mapping_qa_reports_gps_rtk_and_orientation_coverage(client):
     assert mapping["rtk_metadata_images"] == 1
     assert mapping["rtk_fixed_images"] == 1
     assert mapping["orientation_metadata_images"] == 1
+
+
+
+def test_m3m_selection_excludes_incomplete_capture_group(client):
+    dataset = _dataset(client)
+    suffixes = [
+        ("D.JPG", "image/jpeg"),
+        ("MS_G.TIF", "image/tiff"),
+        ("MS_R.TIF", "image/tiff"),
+        ("MS_RE.TIF", "image/tiff"),
+        ("MS_NIR.TIF", "image/tiff"),
+    ]
+
+    for capture in ("DJI_9101", "DJI_9102"):
+        for index, (suffix, media_type) in enumerate(suffixes):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[("files", (name, f"{capture}-{index}".encode(), media_type))],
+                data={"relative_paths": json.dumps([f"M3M/{name}"])},
+            )
+            assert response.status_code == 200
+
+    for index, suffix in enumerate(("D.JPG", "MS_G.TIF", "MS_NIR.TIF")):
+        name = f"DJI_9199_{suffix}"
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[("files", (name, f"incomplete-{index}".encode(), "image/jpeg"))],
+            data={"relative_paths": json.dumps([f"M3M/{name}"])},
+        )
+        assert response.status_code == 200
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    selection = qa.json()["multispectral"]["selection"]
+
+    assert selection["selected_file_count"] == 10
+    assert selection["selected_capture_groups"] == [
+        "M3M/DJI_9101",
+        "M3M/DJI_9102",
+    ]
+    assert len(selection["selected_relative_paths"]) == 10
+
+    excluded = {
+        item["relative_path"]: item
+        for item in selection["excluded"]
+    }
+    for suffix in ("D.JPG", "MS_G.TIF", "MS_NIR.TIF"):
+        path = f"M3M/DJI_9199_{suffix}"
+        assert excluded[path]["reason"] == "incomplete_capture_group"
+        assert excluded[path]["capture_group"] == "M3M/DJI_9199"
