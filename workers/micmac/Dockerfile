@@ -33,7 +33,7 @@ RUN curl -fL \
     && test -x /opt/micmac/bin/mm3d
 
 RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir redis==6.4.0
+    && /opt/venv/bin/pip install --no-cache-dir redis==7.4.1
 
 COPY workers/common /worker/common
 COPY workers/micmac/worker.py /worker/worker.py

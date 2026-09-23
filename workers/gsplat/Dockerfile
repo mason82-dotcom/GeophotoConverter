@@ -59,7 +59,7 @@ RUN pip install --no-cache-dir \
         pyyaml \
         matplotlib \
         splines \
-        redis==6.4.0
+        redis==7.4.1
 
 RUN cd /opt/gsplat \
     && BUILD_NO_CUDA=1 BUILD_EXPERIMENTAL=0 pip install --no-cache-dir -e .

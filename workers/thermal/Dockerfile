@@ -18,7 +18,7 @@ RUN python -m pip install --no-cache-dir \
     "numpy>=2.0,<3" \
     "Pillow>=11,<14" \
     "tifffile>=2025.5,<2027" \
-    redis==6.4.0
+    redis==7.4.1
 
 COPY workers/common /worker/common
 COPY workers/thermal/thermal_core /worker/thermal_core
