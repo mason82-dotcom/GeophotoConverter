@@ -49,7 +49,7 @@ In einem zweiten Terminal das Frontend installieren und starten:
 
 ```powershell
 Set-Location frontend
-npm install
+npm ci
 $env:GEOPHOTO_DEV_API_TARGET = "http://127.0.0.1:8088"
 npm run dev
 ```
@@ -66,7 +66,7 @@ Empfohlene Erweiterungen:
 - Docker/Compose
 - GitHub Actions
 
-Nach `npm install` verwendet das Frontend die TypeScript-Installation aus `frontend/node_modules`.
+Nach `npm ci` verwendet das Frontend die TypeScript-Installation aus `frontend/node_modules`.
 
 ## Prüfung
 
@@ -89,6 +89,7 @@ Optionale Compose-Profile:
 - `odm` – OpenDroneMap-Worker
 - `micmac` – MicMac-Worker
 - `gsplat` – GPU-Worker für Gaussian Splatting
+- `thermal` – DJI-Radiometrie-Worker für M3T/M4T; lokales DJI Thermal SDK erforderlich
 - `dronedb` – DroneDB Registry
 - `ai` – Open WebUI
 
@@ -113,3 +114,37 @@ ipconfig
 ```
 
 Falls die Windows Defender Firewall den Zugriff blockiert, eingehendes TCP nur für tatsächlich benötigte Ports und ausschließlich für das **private** Netzwerkprofil freigeben. Keine Router-/NAT-Portweiterleitungen einrichten, solange keine separate Authentifizierungs- und TLS-Lösung ergänzt wurde.
+
+
+## Thermal-Entwicklung
+
+Das DJI Thermal SDK wird nicht mit dem Repository ausgeliefert. Standardmäßig erwartet Compose es unter `./dji-tsdk`; ein anderer Host-Pfad kann in `.env` gesetzt werden:
+
+```text
+DJI_TSDK_HOST_PATH=C:\Pfad\zum\dji-tsdk
+DJI_TSDK_VERSION=
+```
+
+Der Worker wird mit folgendem Profil aktiviert:
+
+```powershell
+docker compose --profile thermal up -d
+```
+
+Die Thermal-Ausgabe bleibt gemäß Backend-Vertrag im Sensor-Pixelraum. Ein vorhandener GPS-Punkt macht das Temperaturbild nicht zu einem georeferenzierten Thermal-Orthomosaik.
+
+## Offline-Karten installieren
+
+Vom Repository-Stammverzeichnis:
+
+```powershell
+python scripts/maps/download_map_pack.py baden-wuerttemberg
+```
+
+oder für alle konfigurierten Regionen der Gruppe Süddeutschland:
+
+```powershell
+python scripts/maps/download_map_pack.py south-germany
+```
+
+Der Installer validiert die heruntergeladene MBTiles-Datenbank und legt sie standardmäßig unter `data/maps/` ab. Mit `--data-dir` kann ein abweichendes Datenverzeichnis angegeben werden.
