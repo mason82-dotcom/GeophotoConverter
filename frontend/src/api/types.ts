@@ -105,6 +105,18 @@ export interface DatasetQaWarning {
   count: number
 }
 
+export interface MappingQaCheck {
+  status: 'pass' | 'warning' | 'unknown'
+  [key: string]: unknown
+}
+
+export interface MappingQaReason {
+  code: string
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  check?: string
+}
+
 export interface DatasetQa {
   image_count: number
   geotagged_count: number
@@ -144,6 +156,8 @@ export interface DatasetQa {
     rtk_fixed_images: number
     orientation_metadata_images: number
     metadata_errors: number
+    checks: Record<string, MappingQaCheck>
+    reasons: MappingQaReason[]
     reason: string | null
   }
   thermal: {
