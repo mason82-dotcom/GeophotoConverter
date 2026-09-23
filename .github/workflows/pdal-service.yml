@@ -7,6 +7,7 @@ on:
       - "backend/app/photogrammetry_pointcloud.py"
       - "backend/app/pointcloud.py"
       - "backend/tests/test_pdal_service.py"
+      - "backend/tests/test_photogrammetry_pointcloud.py"
       - "backend/tests/test_pointcloud.py"
       - "compose.yaml"
       - ".github/workflows/pdal-service.yml"
@@ -73,7 +74,15 @@ jobs:
           assert payload["relative_path"] == "ci/fixture.ply"
           assert payload["summary"]["summary"]["num_points"] == 4
           dimensions = payload["summary"]["summary"]["dimensions"]
-          assert all(name in dimensions for name in ("X", "Y", "Z"))
+          if isinstance(dimensions, str):
+              dimensions = [part.strip() for part in dimensions.split(",") if part.strip()]
+          assert {"x", "y", "z"} <= {str(name).lower() for name in dimensions}
+          statistics = payload["stats"]["stats"]["statistic"]
+          assert {"x", "y", "z"} <= {
+              str(item["name"]).lower()
+              for item in statistics
+              if isinstance(item, dict) and "name" in item
+          }
           PY
 
       - name: Show logs
