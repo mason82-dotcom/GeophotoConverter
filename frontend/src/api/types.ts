@@ -11,6 +11,7 @@ export interface ImageMetadata {
   iso?: number | null
   f_number?: number | null
   focal_length?: number | null
+  focal_length_35mm?: number | null
   exposure_time?: number | null
 }
 
@@ -140,6 +141,37 @@ export interface MappingQaIssue {
   [key: string]: unknown
 }
 
+export interface MappingGeometryRange {
+  count: number
+  min: number | null
+  max: number | null
+  median: number | null
+}
+
+export interface MappingGeometrySummary {
+  status: 'available' | 'unavailable'
+  method: string
+  height_reference: string
+  confidence: string
+  eligible_images: number
+  available_images: number
+  unavailable_images: number
+  unavailable_reasons: Record<string, number>
+  gsd_cm_px: MappingGeometryRange
+  footprint_width_m: MappingGeometryRange
+  footprint_height_m: MappingGeometryRange
+  overlap: {
+    status: 'available' | 'unavailable'
+    pair_count: number
+    reasons: string[]
+    forward_percent: MappingGeometryRange
+    side_percent: MappingGeometryRange
+    pairs: Array<Record<string, unknown>>
+  }
+  captures: Array<Record<string, unknown>>
+  note: string
+}
+
 export interface DatasetQa {
   image_count: number
   geotagged_count: number
@@ -220,6 +252,7 @@ export interface DatasetQa {
       span_seconds: number | null
     }
     issues: MappingQaIssue[]
+    geometry?: MappingGeometrySummary
     reason: string | null
   }
   thermal: {
