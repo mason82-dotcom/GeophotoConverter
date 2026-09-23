@@ -11,7 +11,7 @@ import time
 import traceback
 import uuid
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Protocol
 
 from redis import Redis
 from redis.exceptions import ResponseError
@@ -44,13 +44,239 @@ def redis_client() -> Redis:
 def connect_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
-def get_job(job_id: str) -> dict | None:
-    with connect_db() as conn:
-        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-    return dict(row) if row else None
+def _json_object(raw: Any) -> dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(str(raw))
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+class JobBackend(Protocol):
+    namespace: str
+
+    def get(self, job_id: str) -> dict[str, Any] | None: ...
+
+    def update(
+        self,
+        job_id: str,
+        *,
+        status: str | None = None,
+        progress: float | None = None,
+        phase: str | None = None,
+        message: str | None = None,
+        artifacts: list[dict] | None = None,
+    ) -> None: ...
+
+    def recovery_rows(self, worker_key: str) -> list[sqlite3.Row]: ...
+
+    def payload(self, row: sqlite3.Row) -> dict[str, Any]: ...
+
+    def log_path(self, job_id: str) -> Path: ...
+
+    def stream_name(self, worker_key: str) -> str: ...
+
+    def legacy_queue_name(self, worker_key: str) -> str | None: ...
+
+    def worker_state_key(self, worker_key: str) -> str: ...
+
+    def reconcile_lock_key(self, worker_key: str, job_id: str) -> str: ...
+
+    def attempt_key(self, worker_key: str, message_id: str) -> str: ...
+
+
+class DatasetJobBackend:
+    namespace = "dataset"
+
+    def get(self, job_id: str) -> dict[str, Any] | None:
+        with connect_db() as conn:
+            row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        return dict(row) if row else None
+
+    def update(
+        self,
+        job_id: str,
+        *,
+        status: str | None = None,
+        progress: float | None = None,
+        phase: str | None = None,
+        message: str | None = None,
+        artifacts: list[dict] | None = None,
+    ) -> None:
+        current = self.get(job_id)
+        if not current:
+            return
+        next_progress = (
+            max(0.0, min(100.0, float(progress)))
+            if progress is not None
+            else current["progress"]
+        )
+        with connect_db() as conn:
+            conn.execute(
+                """
+                UPDATE jobs
+                SET status=?, progress=?, phase=?, message=?, artifacts_json=?,
+                    updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                WHERE id=?
+                """,
+                (
+                    status if status is not None else current["status"],
+                    next_progress,
+                    phase if phase is not None else current["phase"],
+                    message if message is not None else current["message"],
+                    json.dumps(artifacts)
+                    if artifacts is not None
+                    else current["artifacts_json"],
+                    job_id,
+                ),
+            )
+
+    def recovery_rows(self, worker_key: str) -> list[sqlite3.Row]:
+        with connect_db() as conn:
+            return conn.execute(
+                """
+                SELECT *
+                FROM jobs
+                WHERE engine=? AND status IN ('queued','running','cancel_requested')
+                ORDER BY created_at
+                """,
+                (worker_key,),
+            ).fetchall()
+
+    def payload(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "job_id": row["id"],
+            "dataset_id": row["dataset_id"],
+            "engine": row["engine"],
+            "profile": row["profile"],
+            "workflow": row["workflow"],
+            "options": _json_object(row["options_json"]),
+        }
+
+    def log_path(self, job_id: str) -> Path:
+        return DATA_ROOT / "jobs" / str(job_id) / "worker.log"
+
+    def stream_name(self, worker_key: str) -> str:
+        return f"geophoto:stream:{worker_key}"
+
+    def legacy_queue_name(self, worker_key: str) -> str | None:
+        return f"geophoto:queue:{worker_key}"
+
+    def worker_state_key(self, worker_key: str) -> str:
+        return f"geophoto:worker:{worker_key}"
+
+    def reconcile_lock_key(self, worker_key: str, job_id: str) -> str:
+        return f"geophoto:reconcile:{worker_key}:{job_id}"
+
+    def attempt_key(self, worker_key: str, message_id: str) -> str:
+        return f"geophoto:attempt:{worker_key}:{message_id}"
+
+
+class ArtifactJobBackend:
+    namespace = "artifact"
+
+    def get(self, job_id: str) -> dict[str, Any] | None:
+        with connect_db() as conn:
+            row = conn.execute(
+                "SELECT * FROM artifact_jobs WHERE id=?",
+                (job_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def update(
+        self,
+        job_id: str,
+        *,
+        status: str | None = None,
+        progress: float | None = None,
+        phase: str | None = None,
+        message: str | None = None,
+        artifacts: list[dict] | None = None,
+    ) -> None:
+        current = self.get(job_id)
+        if not current:
+            return
+        next_progress = (
+            max(0.0, min(100.0, float(progress)))
+            if progress is not None
+            else current["progress"]
+        )
+        with connect_db() as conn:
+            conn.execute(
+                """
+                UPDATE artifact_jobs
+                SET status=?, progress=?, phase=?, message=?, artifacts_json=?,
+                    updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                WHERE id=?
+                """,
+                (
+                    status if status is not None else current["status"],
+                    next_progress,
+                    phase if phase is not None else current["phase"],
+                    message if message is not None else current["message"],
+                    json.dumps(artifacts)
+                    if artifacts is not None
+                    else current["artifacts_json"],
+                    job_id,
+                ),
+            )
+
+    def recovery_rows(self, worker_key: str) -> list[sqlite3.Row]:
+        with connect_db() as conn:
+            return conn.execute(
+                """
+                SELECT *
+                FROM artifact_jobs
+                WHERE processor=? AND status IN ('queued','running','cancel_requested')
+                ORDER BY created_at
+                """,
+                (worker_key,),
+            ).fetchall()
+
+    def payload(self, row: sqlite3.Row) -> dict[str, Any]:
+        artifact_job_id = str(row["id"])
+        return {
+            "job_id": artifact_job_id,
+            "artifact_job_id": artifact_job_id,
+            "source_job_id": row["source_job_id"],
+            "source_artifact_index": int(row["source_artifact_index"]),
+            "processor": row["processor"],
+            "operation": row["operation"],
+            "options": _json_object(row["options_json"]),
+        }
+
+    def log_path(self, job_id: str) -> Path:
+        return DATA_ROOT / "artifact-jobs" / str(job_id) / "worker.log"
+
+    def stream_name(self, worker_key: str) -> str:
+        return f"geophoto:stream:artifact:{worker_key}"
+
+    def legacy_queue_name(self, worker_key: str) -> str | None:
+        return None
+
+    def worker_state_key(self, worker_key: str) -> str:
+        return f"geophoto:worker:artifact:{worker_key}"
+
+    def reconcile_lock_key(self, worker_key: str, job_id: str) -> str:
+        return f"geophoto:reconcile:artifact:{worker_key}:{job_id}"
+
+    def attempt_key(self, worker_key: str, message_id: str) -> str:
+        return f"geophoto:attempt:artifact:{worker_key}:{message_id}"
+
+
+DATASET_JOB_BACKEND = DatasetJobBackend()
+ARTIFACT_JOB_BACKEND = ArtifactJobBackend()
+
+
+# Backwards-compatible helpers used by existing workers.
+def get_job(job_id: str) -> dict[str, Any] | None:
+    return DATASET_JOB_BACKEND.get(job_id)
 
 
 def update_job(
@@ -62,30 +288,18 @@ def update_job(
     message: str | None = None,
     artifacts: list[dict] | None = None,
 ) -> None:
-    current = get_job(job_id)
-    if not current:
-        return
-    with connect_db() as conn:
-        conn.execute(
-            """
-            UPDATE jobs
-            SET status=?, progress=?, phase=?, message=?, artifacts_json=?,
-                updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-            WHERE id=?
-            """,
-            (
-                status if status is not None else current["status"],
-                progress if progress is not None else current["progress"],
-                phase if phase is not None else current["phase"],
-                message if message is not None else current["message"],
-                json.dumps(artifacts) if artifacts is not None else current["artifacts_json"],
-                job_id,
-            ),
-        )
+    DATASET_JOB_BACKEND.update(
+        job_id,
+        status=status,
+        progress=progress,
+        phase=phase,
+        message=message,
+        artifacts=artifacts,
+    )
 
 
 def cancellation_requested(job_id: str) -> bool:
-    job = get_job(job_id)
+    job = DATASET_JOB_BACKEND.get(job_id)
     return bool(job and job["status"] == "cancel_requested")
 
 
@@ -96,7 +310,9 @@ def run_process(
     cwd: Path,
     log_path: Path,
     progress_probe: Callable[[str], float | None] | None = None,
+    backend: JobBackend | None = None,
 ) -> int:
+    selected = backend or DATASET_JOB_BACKEND
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8", errors="replace") as log:
         log.write("$ " + " ".join(command) + "\n")
@@ -119,13 +335,17 @@ def run_process(
                 if progress_probe:
                     progress = progress_probe(line)
                     if progress is not None:
-                        update_job(job_id, progress=max(0.0, min(99.0, progress)))
+                        selected.update(
+                            job_id,
+                            progress=max(0.0, min(99.0, progress)),
+                        )
             elif proc.poll() is not None:
                 break
             else:
                 time.sleep(0.2)
 
-            if cancellation_requested(job_id) and proc.poll() is None:
+            job = selected.get(job_id)
+            if job and job["status"] == "cancel_requested" and proc.poll() is None:
                 try:
                     os.killpg(proc.pid, signal.SIGTERM)
                 except ProcessLookupError:
@@ -137,7 +357,7 @@ def run_process(
                         os.killpg(proc.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
-                update_job(
+                selected.update(
                     job_id,
                     status="cancelled",
                     phase="cancelled",
@@ -149,11 +369,17 @@ def run_process(
 
 
 def stream_name(engine: str) -> str:
-    return f"geophoto:stream:{engine}"
+    return DATASET_JOB_BACKEND.stream_name(engine)
+
+
+def artifact_stream_name(processor: str) -> str:
+    return ARTIFACT_JOB_BACKEND.stream_name(processor)
 
 
 def legacy_queue_name(engine: str) -> str:
-    return f"geophoto:queue:{engine}"
+    value = DATASET_JOB_BACKEND.legacy_queue_name(engine)
+    assert value is not None
+    return value
 
 
 def _ensure_group(redis: Redis, stream: str) -> None:
@@ -164,13 +390,19 @@ def _ensure_group(redis: Redis, stream: str) -> None:
             raise
 
 
-def _migrate_legacy_queue(redis: Redis, engine: str) -> int:
-    legacy = legacy_queue_name(engine)
-    stream = stream_name(engine)
+def _migrate_legacy_queue_keys(redis: Redis, legacy: str, stream: str) -> int:
     migrated = 0
     while redis.eval(_LEGACY_MIGRATE_LUA, 2, legacy, stream):
         migrated += 1
     return migrated
+
+
+def _migrate_legacy_queue(redis: Redis, engine: str) -> int:
+    return _migrate_legacy_queue_keys(
+        redis,
+        legacy_queue_name(engine),
+        stream_name(engine),
+    )
 
 
 def _decode_payload(fields: dict) -> dict | None:
@@ -194,9 +426,11 @@ def _job_ids_in_stream(redis: Redis, stream: str) -> set[str]:
     return result
 
 
-def _job_ids_in_legacy_queue(redis: Redis, engine: str) -> set[str]:
+def _job_ids_in_legacy_queue_key(redis: Redis, legacy: str | None) -> set[str]:
+    if not legacy:
+        return set()
     result: set[str] = set()
-    for raw in redis.lrange(legacy_queue_name(engine), 0, -1):
+    for raw in redis.lrange(legacy, 0, -1):
         try:
             payload = json.loads(raw)
         except (TypeError, json.JSONDecodeError):
@@ -206,49 +440,33 @@ def _job_ids_in_legacy_queue(redis: Redis, engine: str) -> set[str]:
     return result
 
 
-def _payload_from_job(row: sqlite3.Row) -> dict:
-    options: dict = {}
-    raw_options = row["options_json"] if "options_json" in row.keys() else None
-    if raw_options:
-        try:
-            parsed = json.loads(raw_options)
-            if isinstance(parsed, dict):
-                options = parsed
-        except json.JSONDecodeError:
-            pass
-    return {
-        "job_id": row["id"],
-        "dataset_id": row["dataset_id"],
-        "engine": row["engine"],
-        "profile": row["profile"],
-        "workflow": row["workflow"],
-        "options": options,
-    }
+def _job_ids_in_legacy_queue(redis: Redis, engine: str) -> set[str]:
+    return _job_ids_in_legacy_queue_key(redis, legacy_queue_name(engine))
 
 
-def _reconcile_jobs(redis: Redis, engine: str, consumer: str) -> int:
-    stream = stream_name(engine)
+def _payload_from_job(row: sqlite3.Row) -> dict[str, Any]:
+    return DATASET_JOB_BACKEND.payload(row)
+
+
+def _reconcile_backend_jobs(
+    redis: Redis,
+    worker_key: str,
+    consumer: str,
+    backend: JobBackend,
+) -> int:
+    stream = backend.stream_name(worker_key)
+    legacy = backend.legacy_queue_name(worker_key)
     present = _job_ids_in_stream(redis, stream)
-    present.update(_job_ids_in_legacy_queue(redis, engine))
-
-    with connect_db() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM jobs
-            WHERE engine=? AND status IN ('queued','running','cancel_requested')
-            ORDER BY created_at
-            """,
-            (engine,),
-        ).fetchall()
+    present.update(_job_ids_in_legacy_queue_key(redis, legacy))
 
     recovered = 0
-    for row in rows:
+    for row in backend.recovery_rows(worker_key):
         job_id = str(row["id"])
         if job_id in present:
             continue
+
         if row["status"] == "cancel_requested":
-            update_job(
+            backend.update(
                 job_id,
                 status="cancelled",
                 phase="cancelled",
@@ -256,12 +474,12 @@ def _reconcile_jobs(redis: Redis, engine: str, consumer: str) -> int:
             )
             continue
 
-        lock = f"geophoto:reconcile:{engine}:{job_id}"
+        lock = backend.reconcile_lock_key(worker_key, job_id)
         if not redis.set(lock, consumer, nx=True, ex=60):
             continue
 
         current = _job_ids_in_stream(redis, stream)
-        current.update(_job_ids_in_legacy_queue(redis, engine))
+        current.update(_job_ids_in_legacy_queue_key(redis, legacy))
         if job_id in current:
             present.add(job_id)
             continue
@@ -270,12 +488,12 @@ def _reconcile_jobs(redis: Redis, engine: str, consumer: str) -> int:
             stream,
             {
                 "payload": json.dumps(
-                    _payload_from_job(row),
+                    backend.payload(row),
                     separators=(",", ":"),
                 )
             },
         )
-        update_job(
+        backend.update(
             job_id,
             status="queued",
             phase="recovery",
@@ -284,6 +502,15 @@ def _reconcile_jobs(redis: Redis, engine: str, consumer: str) -> int:
         present.add(job_id)
         recovered += 1
     return recovered
+
+
+def _reconcile_jobs(redis: Redis, engine: str, consumer: str) -> int:
+    return _reconcile_backend_jobs(
+        redis,
+        engine,
+        consumer,
+        DATASET_JOB_BACKEND,
+    )
 
 
 def _read_new_message(
@@ -336,7 +563,7 @@ def _recover_stale_message(
 
 
 def _attempt_key(engine: str, message_id: str) -> str:
-    return f"geophoto:attempt:{engine}:{message_id}"
+    return DATASET_JOB_BACKEND.attempt_key(engine, message_id)
 
 
 def _ack_message(
@@ -375,21 +602,33 @@ def _refresh_claim(
             pass
 
 
-def _append_recovery_log(job_id: str, text: str) -> None:
-    log_path = DATA_ROOT / "jobs" / str(job_id) / "worker.log"
+def _append_recovery_log(
+    job_id: str,
+    text: str,
+    *,
+    backend: JobBackend | None = None,
+) -> None:
+    selected = backend or DATASET_JOB_BACKEND
+    log_path = selected.log_path(job_id)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8", errors="replace") as log:
         log.write(f"\n--- {text} ---\n")
 
 
-def _heartbeat(engine: str, consumer: str) -> None:
+def _heartbeat(
+    worker_key: str,
+    consumer: str,
+    backend: JobBackend | None = None,
+) -> None:
+    selected = backend or DATASET_JOB_BACKEND
     redis = redis_client()
-    global_key = f"geophoto:worker:{engine}"
-    consumer_key = f"geophoto:worker:{engine}:{consumer}"
+    global_key = selected.worker_state_key(worker_key)
+    consumer_key = f"{global_key}:{consumer}"
     while True:
         payload = json.dumps(
             {
-                "engine": engine,
+                "engine": worker_key,
+                "job_namespace": selected.namespace,
                 "status": "online",
                 "pid": os.getpid(),
                 "consumer": consumer,
@@ -406,18 +645,26 @@ def _heartbeat(engine: str, consumer: str) -> None:
         time.sleep(5)
 
 
-def consume(engine: str, handler: Callable[[dict], None]) -> None:
-    stream = stream_name(engine)
+def consume(
+    worker_key: str,
+    handler: Callable[[dict], None],
+    *,
+    backend: JobBackend | None = None,
+) -> None:
+    selected = backend or DATASET_JOB_BACKEND
+    stream = selected.stream_name(worker_key)
     consumer = f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
     redis = redis_client()
 
     _ensure_group(redis, stream)
-    _migrate_legacy_queue(redis, engine)
-    _reconcile_jobs(redis, engine, consumer)
+    legacy = selected.legacy_queue_name(worker_key)
+    if legacy:
+        _migrate_legacy_queue_keys(redis, legacy, stream)
+    _reconcile_backend_jobs(redis, worker_key, consumer, selected)
 
     threading.Thread(
         target=_heartbeat,
-        args=(engine, consumer),
+        args=(worker_key, consumer, selected),
         daemon=True,
     ).start()
 
@@ -438,20 +685,20 @@ def consume(engine: str, handler: Callable[[dict], None]) -> None:
 
         message_id, fields = message
         payload = _decode_payload(fields)
-        attempt_key = _attempt_key(engine, message_id)
+        attempt_key = selected.attempt_key(worker_key, message_id)
 
         if payload is None or not payload.get("job_id"):
             _ack_message(redis, stream, message_id, attempt_key)
             continue
 
         job_id = str(payload["job_id"])
-        job = get_job(job_id)
+        job = selected.get(job_id)
         if job is None or job["status"] in _TERMINAL:
             _ack_message(redis, stream, message_id, attempt_key)
             continue
 
         if job["status"] == "cancel_requested":
-            update_job(
+            selected.update(
                 job_id,
                 status="cancelled",
                 phase="cancelled",
@@ -469,8 +716,9 @@ def consume(engine: str, handler: Callable[[dict], None]) -> None:
                     "Maximale Anzahl automatischer Wiederaufnahmen "
                     f"überschritten ({QUEUE_MAX_CRASH_ATTEMPTS})"
                 ),
+                backend=selected,
             )
-            update_job(
+            selected.update(
                 job_id,
                 status="failed",
                 phase="failed",
@@ -486,8 +734,9 @@ def consume(engine: str, handler: Callable[[dict], None]) -> None:
             _append_recovery_log(
                 job_id,
                 f"Wiederaufnahme nach Worker-Ausfall, Versuch {attempts}",
+                backend=selected,
             )
-            update_job(
+            selected.update(
                 job_id,
                 status="queued",
                 phase="recovery",
@@ -508,12 +757,12 @@ def consume(engine: str, handler: Callable[[dict], None]) -> None:
         try:
             handler(payload)
         except Exception:
-            log_path = DATA_ROOT / "jobs" / str(job_id) / "worker.log"
+            log_path = selected.log_path(job_id)
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open("a", encoding="utf-8", errors="replace") as log:
                 log.write("\n--- Worker-Fehler ---\n")
                 traceback.print_exc(file=log)
-            update_job(
+            selected.update(
                 job_id,
                 status="failed",
                 phase="failed",
