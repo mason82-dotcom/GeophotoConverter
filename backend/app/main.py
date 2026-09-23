@@ -475,6 +475,7 @@ def create_job(body: JobCreate) -> dict:
             detail="Die Thermal-Engine erfordert workflow='thermal'.",
         )
 
+    qa: dict | None = None
     if engine in {"odm", "micmac", "gsplat", "thermal"}:
         qa = dataset_qa(store.list_files(body.dataset_id))
         readiness_key = (
@@ -500,6 +501,10 @@ def create_job(body: JobCreate) -> dict:
         job_options = normalize_job_options(engine, workflow, body.options)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if engine == "odm" and workflow == "multispectral":
+        assert qa is not None
+        job_options["__input_selection"] = qa["multispectral"]["selection"]
 
     if engine == "telesculptor":
         raise HTTPException(
