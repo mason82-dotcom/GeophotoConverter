@@ -374,7 +374,7 @@ export function ProcessingPage() {
             </span>
             <span>
               <strong>
-                {qa.mapping.geometry.gsd_cm_px.median == null
+                {qa.mapping.geometry?.gsd_cm_px.median == null
                   ? '—'
                   : `${qa.mapping.geometry.gsd_cm_px.median.toFixed(2)} cm/px`}
               </strong>{' '}
@@ -382,7 +382,7 @@ export function ProcessingPage() {
             </span>
             <span>
               <strong>
-                {qa.mapping.geometry.overlap.forward_percent.median == null
+                {qa.mapping.geometry?.overlap.forward_percent.median == null
                   ? '—'
                   : `${qa.mapping.geometry.overlap.forward_percent.median.toFixed(1)}%`}
               </strong>{' '}
@@ -390,14 +390,14 @@ export function ProcessingPage() {
             </span>
             <span>
               <strong>
-                {qa.mapping.geometry.overlap.side_percent.median == null
+                {qa.mapping.geometry?.overlap.side_percent.median == null
                   ? '—'
                   : `${qa.mapping.geometry.overlap.side_percent.median.toFixed(1)}%`}
               </strong>{' '}
               geschätzte Seitenüberdeckung
             </span>
           </div>
-          {qa.mapping.geometry.status === 'available' && (
+          {qa.mapping.geometry?.status === 'available' && (
             <p className="muted-copy">
               <Map size={16} />
               Geometrie geschätzt aus EXIF-35-mm-Äquivalent und DJI RelativeAltitude;
