@@ -91,23 +91,10 @@ def _dji(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return (metadata or {}).get("dji") or {}
 
 
-def _capture_uuid(metadata: dict[str, Any] | None) -> str | None:
-    value = _dji(metadata).get("capture_uuid")
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
 def _capture_group(
     path: PurePosixPath,
     base: str | None,
-    metadata: dict[str, Any] | None,
-    *,
-    allow_capture_uuid: bool,
 ) -> tuple[str | None, str]:
-    capture_uuid = _capture_uuid(metadata) if allow_capture_uuid else None
-    if capture_uuid:
-        return f"dji:{capture_uuid}", "authoritative"
     if base:
         return _group_path(path, base), "heuristic"
     return None, "unavailable"
@@ -147,12 +134,7 @@ def classify_media(
                 conflicts.append("band_metadata_filename_conflict")
 
         base = filename_m3m.group("base") if filename_m3m else path.stem
-        capture_group, capture_source = _capture_group(
-            path,
-            base,
-            metadata,
-            allow_capture_uuid=True,
-        )
+        capture_group, capture_source = _capture_group(path, base)
         return MediaClassification(
             platform="M3M",
             media_kind=metadata_band,
@@ -166,8 +148,6 @@ def classify_media(
         capture_group, capture_source = _capture_group(
             path,
             filename_m3m.group("base"),
-            metadata,
-            allow_capture_uuid=True,
         )
         return MediaClassification(
             platform="M3M",
@@ -189,8 +169,6 @@ def classify_media(
             capture_group, capture_source = _capture_group(
                 path,
                 match.group("base"),
-                metadata,
-                allow_capture_uuid=platform == "M3M",
             )
             return MediaClassification(
                 platform=platform,
@@ -210,12 +188,7 @@ def classify_media(
         media_kind = "UNKNOWN"
 
     base = generic.group("base") if generic else None
-    capture_group, capture_source = _capture_group(
-        path,
-        base,
-        metadata,
-        allow_capture_uuid=platform == "M3M",
-    )
+    capture_group, capture_source = _capture_group(path, base)
     return MediaClassification(
         platform=platform,
         media_kind=media_kind,
