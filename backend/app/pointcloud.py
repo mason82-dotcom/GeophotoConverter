@@ -87,6 +87,13 @@ def _is_pointcloud_artifact(artifact: dict[str, Any]) -> bool:
     return "point_cloud" in kind or kind in {"pointcloud", "ply"}
 
 
+
+
+def _supports_reprojection(artifact: Mapping[str, Any] | dict[str, Any]) -> bool:
+    name = str(artifact.get("name") or "").lower()
+    return Path(name).suffix.lower() in {".las", ".laz"}
+
+
 def _job_or_404(job_id: str) -> dict[str, Any]:
     job = store.get_job(job_id)
     if not job:
@@ -658,6 +665,8 @@ def list_job_pointclouds(job_id: str) -> dict[str, Any]:
                 ),
                 "reproject_url": (
                     f"/api/v1/jobs/{job_id}/pointclouds/{index}/reproject"
+                    if _supports_reprojection(artifact)
+                    else None
                 ),
                 "download_url": f"/api/v1/jobs/{job_id}/artifacts/{index}",
             }
@@ -690,6 +699,8 @@ def pointcloud_metadata(job_id: str, artifact_index: int) -> dict[str, Any]:
         ),
         "reproject_url": (
             f"/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/reproject"
+            if _supports_reprojection(artifact)
+            else None
         ),
         "download_url": f"/api/v1/jobs/{job_id}/artifacts/{artifact_index}",
     }
