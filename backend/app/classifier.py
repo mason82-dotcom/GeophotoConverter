@@ -64,6 +64,7 @@ def _metadata_platform(metadata: dict[str, Any] | None) -> str:
         camera.get("make"),
         dji.get("product_name"),
         dji.get("aircraft_type"),
+        dji.get("drone_model"),
     )
     haystack = " | ".join(str(value).upper() for value in candidates if value)
     for token, platform in _PLATFORM_TOKENS:
@@ -128,7 +129,7 @@ def reconcile_group_platforms(
     items: list[tuple[str, MediaClassification]],
 ) -> dict[str, MediaClassification]:
     by_group: dict[str, str] = {}
-    definitive = {"M3M", "M3T", "M4T"}
+    definitive = {"M3M", "M3T", "M3E", "M4T", "M4E"}
     for _, item in items:
         if item.capture_group and item.platform in definitive:
             by_group.setdefault(item.capture_group, item.platform)
