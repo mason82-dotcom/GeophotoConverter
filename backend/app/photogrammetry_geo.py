@@ -3,14 +3,6 @@ from __future__ import annotations
 from math import isfinite
 from typing import Any, Iterable, Mapping
 
-from pyproj import CRS, Transformer
-from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
-
-
-WGS84_2D = CRS.from_epsg(4326)
-
-
 def _finite_number(value: Any) -> float | None:
     if isinstance(value, bool) or value is None:
         return None
@@ -51,6 +43,9 @@ def _valid_positions(
 def suggest_projected_crs(
     items: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
+    from pyproj import CRS
+    from pyproj.aoi import AreaOfInterest
+    from pyproj.database import query_utm_crs_info
     """Suggest one WGS84 UTM CRS that contains the complete dataset.
 
     The function is intentionally conservative. It never chooses an arbitrary
@@ -147,7 +142,9 @@ def suggest_projected_crs(
     }
 
 
-def _metric_projected_crs(value: Any) -> CRS:
+def _metric_projected_crs(value: Any) -> Any:
+    from pyproj import CRS
+
     crs = CRS.from_user_input(value)
     if not crs.is_projected:
         raise ValueError("Target CRS must be projected.")
@@ -169,10 +166,12 @@ def project_wgs84_positions(
     transformation and vertical reference semantics remain separate.
     """
 
+    from pyproj import CRS, Transformer
+
     positions = _valid_positions(items)
     crs = _metric_projected_crs(target_crs)
     transformer = Transformer.from_crs(
-        WGS84_2D,
+        CRS.from_epsg(4326),
         crs,
         always_xy=True,
         allow_ballpark=False,
