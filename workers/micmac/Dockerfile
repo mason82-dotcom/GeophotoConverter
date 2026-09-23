@@ -35,6 +35,7 @@ RUN curl -fL \
 RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir redis==7.4.1
 
+COPY backend/app/__init__.py backend/app/classifier.py /worker/app/
 COPY workers/common /worker/common
 COPY workers/micmac/worker.py /worker/worker.py
 
