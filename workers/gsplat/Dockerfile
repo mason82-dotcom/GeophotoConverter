@@ -21,7 +21,6 @@ RUN apt-get update \
         libboost-graph-dev \
         libboost-program-options-dev \
         libboost-system-dev \
-        libcgal-dev \
         libceres-dev \
         libcurl4-openssl-dev \
         libeigen3-dev \
@@ -32,14 +31,10 @@ RUN apt-get update \
         libmetis-dev \
         libopenblas-openmp-dev \
         libopenimageio-dev \
-        libqt6opengl6-dev \
-        libqt6openglwidgets6 \
         libsqlite3-dev \
         libssl-dev \
         ninja-build \
         openimageio-tools \
-        qt6-base-dev \
-        qt6-svg-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # OpenImageIO's Ubuntu CMake config expects this include directory even though
@@ -55,6 +50,14 @@ RUN cmake -S /src/colmap -B /src/colmap/build -GNinja \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
         -DCMAKE_INSTALL_PREFIX=/opt/colmap \
         -DBLA_VENDOR=OpenBLAS \
+        -DGUI_ENABLED=OFF \
+        -DOPENGL_ENABLED=OFF \
+        -DMVS_ENABLED=OFF \
+        -DONNX_ENABLED=OFF \
+        -DCGAL_ENABLED=OFF \
+        -DLSD_ENABLED=OFF \
+        -DDOWNLOAD_ENABLED=OFF \
+        -DTESTS_ENABLED=OFF \
     && cmake --build /src/colmap/build --target install --parallel 2
 
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION}
@@ -84,8 +87,6 @@ RUN apt-get update \
         libceres4t64 \
         libcurl4 \
         libgcc-s1 \
-        libgl1 \
-        libglew2.2 \
         libglib2.0-0 \
         libgoogle-glog0v6t64 \
         libimage-exiftool-perl \
@@ -93,12 +94,6 @@ RUN apt-get update \
         libopenblas0-openmp \
         libomp5 \
         libopenimageio2.4t64 \
-        libopengl0 \
-        libqt6core6 \
-        libqt6gui6 \
-        libqt6openglwidgets6 \
-        libqt6svg6 \
-        libqt6widgets6 \
         libraw-bin \
         libssl3t64 \
         ninja-build \
