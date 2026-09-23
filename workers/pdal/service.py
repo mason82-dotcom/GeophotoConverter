@@ -144,7 +144,7 @@ def _summary_dimensions(summary_payload: Mapping[str, Any]) -> list[str]:
     if isinstance(raw, str):
         return [part.strip() for part in raw.split(",") if part.strip()]
     if isinstance(raw, list):
-        return [str(value) for value in raw if str(value).strip()]
+        return [str(value).strip() for value in raw if str(value).strip()]
     return []
 
 
@@ -152,10 +152,17 @@ def _qa(relative_path: Any) -> dict[str, Any]:
     relative, target = _resolve_relative_path(relative_path)
 
     summary = _run_pdal_json(["info", "--summary", str(target)])
-    dimensions = set(_summary_dimensions(summary))
-    requested = [name for name in ("X", "Y", "Z") if name in dimensions]
-    if "Classification" in dimensions:
-        requested.append("Classification")
+    dimensions = _summary_dimensions(summary)
+    by_lower = {name.lower(): name for name in dimensions}
+
+    requested = [
+        by_lower[name]
+        for name in ("x", "y", "z")
+        if name in by_lower
+    ]
+    classification = by_lower.get("classification")
+    if classification is not None:
+        requested.append(classification)
 
     stats: dict[str, Any]
     if requested:
@@ -164,8 +171,8 @@ def _qa(relative_path: Any) -> dict[str, Any]:
             "--stats",
             f"--dimensions={','.join(requested)}",
         ]
-        if "Classification" in requested:
-            command.append("--enumerate=Classification")
+        if classification is not None:
+            command.append(f"--enumerate={classification}")
         command.append(str(target))
         stats = _run_pdal_json(command)
     else:
