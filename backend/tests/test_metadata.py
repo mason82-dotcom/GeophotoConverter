@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.classifier import classify_media, reconcile_group_platforms
-from app.metadata import _normalize_metadata
+from app.metadata import _normalize_metadata, _rtk_status
 
 
 def test_normalize_m3e_family1_metadata():
@@ -143,3 +143,14 @@ def test_m3e_classification_uses_drone_model_metadata():
     assert wide.media_kind == "WIDE"
     assert reconciled["flight/DJI_0001_Z.JPG"].platform == "M3E"
     assert reconciled["flight/DJI_0001_Z.JPG"].media_kind == "ZOOM"
+
+
+
+def test_m3e_rtk_status_mapping():
+    assert _rtk_status(0) == "none"
+    assert _rtk_status(16) == "single"
+    assert _rtk_status(34) == "float"
+    assert _rtk_status(50) == "fixed"
+    assert _rtk_status(52) == "gnss_plus"
+    assert _rtk_status(999) == "unknown"
+    assert _rtk_status(None) is None
