@@ -47,7 +47,7 @@ services:
         condition: service_healthy
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine3.21
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -137,7 +137,7 @@ services:
         condition: service_healthy
 
   dronedb:
-    image: dronedb/registry:latest
+    image: dronedb/registry:v2.6.6
     profiles: ["dronedb"]
     restart: unless-stopped
     environment:
@@ -156,7 +156,7 @@ services:
       retries: 10
 
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.11.4
     profiles: ["ai"]
     restart: unless-stopped
     volumes:
