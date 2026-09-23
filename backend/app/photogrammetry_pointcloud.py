@@ -119,6 +119,17 @@ def _metric_horizontal_srs(srs: Mapping[str, Any] | None) -> bool:
     return unit in {"metre", "meter", "metres", "meters", "m"}
 
 
+def _canonical_dimension_name(value: Any) -> str:
+    name = str(value).strip()
+    known = {
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "classification": "Classification",
+    }
+    return known.get(name.casefold(), name)
+
+
 def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     summary = payload.get("summary")
     source = summary if isinstance(summary, Mapping) else {}
@@ -139,12 +150,16 @@ def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     dimensions_raw = source.get("dimensions")
     if isinstance(dimensions_raw, str):
         dimensions = [
-            value.strip()
+            _canonical_dimension_name(value)
             for value in dimensions_raw.split(",")
             if value.strip()
         ]
     elif isinstance(dimensions_raw, list):
-        dimensions = [str(value) for value in dimensions_raw]
+        dimensions = [
+            _canonical_dimension_name(value)
+            for value in dimensions_raw
+            if str(value).strip()
+        ]
     else:
         dimensions = []
 
@@ -254,6 +269,7 @@ def parse_pdal_stats(payload: Mapping[str, Any]) -> dict[str, Any]:
         name = item.get("name")
         if not isinstance(name, str) or not name:
             continue
+        name = _canonical_dimension_name(name)
         record: dict[str, Any] = {}
         for key in ("minimum", "maximum", "average", "stddev", "variance"):
             value = _number(item.get(key))
