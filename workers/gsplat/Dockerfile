@@ -18,6 +18,7 @@ RUN apt-get update \
         ccache \
         cmake \
         git \
+        libglew-dev \
         libboost-graph-dev \
         libboost-program-options-dev \
         libboost-system-dev \
