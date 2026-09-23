@@ -147,10 +147,13 @@ def test_m3e_classification_uses_drone_model_metadata():
 
 
 def test_m3e_rtk_status_mapping():
-    assert _rtk_status(0) == "none"
+    assert _rtk_status(0) == "failed"
     assert _rtk_status(16) == "single"
+    assert _rtk_status(32) == "float"
     assert _rtk_status(34) == "float"
+    assert _rtk_status(49) == "float"
     assert _rtk_status(50) == "fixed"
-    assert _rtk_status(52) == "gnss_plus"
+    assert _rtk_status(51) == "unknown"
+    assert _rtk_status(52) == "unknown"
     assert _rtk_status(999) == "unknown"
     assert _rtk_status(None) is None
