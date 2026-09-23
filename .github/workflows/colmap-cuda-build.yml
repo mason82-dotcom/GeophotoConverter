@@ -36,6 +36,8 @@ jobs:
 
       - name: Verify COLMAP runtime in final image
         run: |
+          docker run --rm --entrypoint sh geophoto-gsplat-cuda:ci -lc \
+            "grep -q 'set(CUDA_ENABLED ON)' /usr/local/share/colmap/colmap-config.cmake"
           docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci version
           docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci feature_extractor -h             | grep -q -- "--FeatureExtraction.use_gpu"
           docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci exhaustive_matcher -h             | grep -q -- "--FeatureMatching.use_gpu"
