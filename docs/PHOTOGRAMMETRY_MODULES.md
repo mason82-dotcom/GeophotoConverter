@@ -87,8 +87,16 @@ implementierte oder spezifizierte Kamera-/Footprint-/Overlap-Logik wird
 
 Issue: #55
 
-Kontrollpunkte und unabhängige Prüfpunkte werden getrennt behandelt.
-Genauigkeit wird über Residuen und RMSE ausgewiesen.
+Status: **Phase 1 implementiert**
+
+- engine-neutraler Punkt-/Beobachtungsvertrag
+- Control/Checkpoint strikt getrennt
+- ODM `gcp_list.txt`-Export
+- MicMac 3D-/Bildmessungs-Export
+- explizite COLMAP-Fähigkeitsgrenze
+- getrennte Control-/Checkpoint-Residuen und RMSE
+
+Details: `docs/PGM_GCP.md`
 
 ## PGM-SFM-QA
 
