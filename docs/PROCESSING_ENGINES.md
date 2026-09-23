@@ -84,8 +84,10 @@ Eigenschaften:
 
 - Originale M3M-Dateinamen/Bandnamen bleiben für ODM erhalten.
 - Alle Bänder einer vollständigen Capture-Gruppe werden gemeinsam verarbeitet.
-- Der Worker staged ausschließlich vollständige Capture-Gruppen; unvollständige
-  Gruppen werden im Input-Manifest als `incomplete_m3m_capture_group` ausgewiesen.
+- Der Worker staged ausschließlich vollständige und physisch stagebare Capture-Gruppen.
+  Unvollständige Gruppen werden als `incomplete_m3m_capture_group`, Gruppen mit
+  fehlenden/nicht stagebaren Quelldateien als `unstageable_m3m_capture_group`
+  im Input-Manifest ausgewiesen.
 - `CaptureUUID` ist der bevorzugte Gruppenschlüssel, Dateinamen sind der Fallback.
 - Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation,
   wird der Datensatz für ODM-Multispektral blockiert, bis der Konflikt geklärt ist.
