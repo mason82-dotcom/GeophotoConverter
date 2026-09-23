@@ -1,0 +1,42 @@
+name: Refresh frontend lockfile
+
+on:
+  push:
+    branches:
+      - agent/reliable-queue
+    paths:
+      - "frontend/package.json"
+      - ".github/workflows/refresh-frontend-lockfile.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: agent/reliable-queue
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Refresh package lock
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commit package-lock.json
+        shell: bash
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            echo "package-lock.json already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore: refresh frontend lockfile"
+          git push origin HEAD:agent/reliable-queue
