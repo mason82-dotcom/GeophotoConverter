@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     dataset_id TEXT NOT NULL,
     engine TEXT NOT NULL,
     profile TEXT NOT NULL,
-    workflow TEXT NOT NULL DEFAULT 'rgb',
+    workflow TEXT NOT NULL DEFAULT 'mapping',
     options_json TEXT NOT NULL DEFAULT '{}',
     status TEXT NOT NULL,
     progress REAL NOT NULL DEFAULT 0,
@@ -261,7 +261,7 @@ class Store:
         dataset_id: str,
         engine: str,
         profile: str,
-        workflow: str = "rgb",
+        workflow: str = "mapping",
         options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         job_id = self.new_id()
