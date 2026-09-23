@@ -147,6 +147,7 @@ def test_overlap_is_unavailable_without_required_sequence_context() -> None:
                 "metadata": _metadata(
                     capture_time="",
                     gimbal_yaw=None,
+                    flight_yaw=None,
                 ),
             },
         ]
