@@ -205,6 +205,7 @@ Liefert unter anderem:
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
 - zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
+- M3M-Klassifikationskonflikte mit Konfliktcodes, betroffenen Dateien und Capture-Gruppen; solche Konflikte blockieren `odm_multispectral`
 
 ### GET /datasets/{dataset_id}/geojson
 
