@@ -63,11 +63,28 @@ Verarbeitungs- und Zusatzdienste werden über Compose-Profile aktiviert:
 docker compose --profile odm up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
+docker compose --profile thermal up -d
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
 
-ODM, MicMac und gsplat beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. DroneDB und Open WebUI bleiben optional.
+ODM, MicMac, gsplat und der Thermal-Worker beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt zusätzlich ein lokal installiertes DJI Thermal SDK; es wird nicht mit diesem Repository ausgeliefert. Der Host-Pfad wird über `DJI_TSDK_HOST_PATH` konfiguriert (Standard: `./dji-tsdk`). DroneDB und Open WebUI bleiben optional.
+
+## Offline-Karten
+
+Baden-Württemberg als Standardpaket installieren:
+
+```powershell
+python scripts/maps/download_map_pack.py baden-wuerttemberg
+```
+
+Den vollständig konfigurierten Süddeutschland-Satz installieren:
+
+```powershell
+python scripts/maps/download_map_pack.py south-germany
+```
+
+Die MBTiles-Dateien werden unter `data/maps/` gespeichert und nicht in Git eingecheckt. Weitere Details stehen in `docs/OFFLINE_MAPS.md`.
 
 ## VS Code
 
