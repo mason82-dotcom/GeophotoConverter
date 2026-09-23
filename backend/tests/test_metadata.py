@@ -161,3 +161,30 @@ def test_m3e_rtk_status_mapping():
     assert _rtk_status(52) == "unknown"
     assert _rtk_status(999) == "unknown"
     assert _rtk_status(None) is None
+
+
+
+def test_capture_uuid_is_preferred_grouping_key():
+    metadata = {
+        "camera": {"make": "DJI", "model": "Mavic 3 Enterprise"},
+        "dji": {"capture_uuid": "  capture-123  "},
+    }
+
+    wide = classify_media("flight/DJI_0001_W.JPG", metadata)
+    generic = classify_media("flight/DJI_9999.JPG", metadata)
+
+    assert wide.capture_group == "dji:capture-123"
+    assert generic.capture_group == "dji:capture-123"
+
+
+def test_capture_group_falls_back_to_filename_without_capture_uuid():
+    metadata = {
+        "camera": {"make": "DJI", "model": "Mavic 3 Multispectral"},
+        "dji": {},
+    }
+
+    rgb = classify_media("M3M/DJI_0002_D.JPG", metadata)
+    nir = classify_media("M3M/DJI_0002_MS_NIR.TIF", metadata)
+
+    assert rgb.capture_group == "M3M/DJI_0002"
+    assert nir.capture_group == "M3M/DJI_0002"
