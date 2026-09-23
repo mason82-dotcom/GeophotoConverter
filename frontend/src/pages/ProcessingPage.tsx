@@ -372,7 +372,38 @@ export function ProcessingPage() {
             <span>
               <strong>{qa.mapping.orientation_metadata_images}</strong> mit vollständiger DJI-Lage
             </span>
+            <span>
+              <strong>
+                {qa.mapping.geometry.gsd_cm_px.median == null
+                  ? '—'
+                  : `${qa.mapping.geometry.gsd_cm_px.median.toFixed(2)} cm/px`}
+              </strong>{' '}
+              geschätzte GSD
+            </span>
+            <span>
+              <strong>
+                {qa.mapping.geometry.overlap.forward_percent.median == null
+                  ? '—'
+                  : `${qa.mapping.geometry.overlap.forward_percent.median.toFixed(1)}%`}
+              </strong>{' '}
+              geschätzte Vorwärtsüberdeckung
+            </span>
+            <span>
+              <strong>
+                {qa.mapping.geometry.overlap.side_percent.median == null
+                  ? '—'
+                  : `${qa.mapping.geometry.overlap.side_percent.median.toFixed(1)}%`}
+              </strong>{' '}
+              geschätzte Seitenüberdeckung
+            </span>
           </div>
+          {qa.mapping.geometry.status === 'available' && (
+            <p className="muted-copy">
+              <Map size={16} />
+              Geometrie geschätzt aus EXIF-35-mm-Äquivalent und DJI RelativeAltitude;
+              RelativeAltitude ist keine Terrain-AGL-Höhe.
+            </p>
+          )}
           {qa.mapping.issues.length > 0 && (
             <div className="mapping-issue-list">
               {qa.mapping.issues.map((issue) => (
