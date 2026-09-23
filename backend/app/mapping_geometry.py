@@ -79,17 +79,20 @@ def _range(values: list[float]) -> dict[str, float | int | None]:
     }
 
 
-def estimate_capture_geometry(\n    metadata: dict[str, Any] | None,\n    fh2_media: dict[str, Any] | None = None,\n) -> dict[str, Any]:
+def estimate_capture_geometry(
+    metadata: dict[str, Any] | None,
+    fh2_media: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Estimate nadir camera footprint and GSD from file-contained geometry.
 
-    The result deliberately uses DJI RelativeAltitude as relative-to-takeoff
+    The result deliberately uses canonical relative height as relative-to-takeoff
     height, not terrain AGL. It is therefore an estimated capture geometry,
     never a terrain-accurate footprint.
     """
 
     data = _mapping(metadata)
     image = _mapping(data.get("image"))
-    canonical = fuse_photogrammetry_metadata(data)
+    canonical = fuse_photogrammetry_metadata(data, fh2_media)
     orientation = canonical["orientation"]
 
     width = _positive_int(image.get("width"))
@@ -347,7 +350,7 @@ def evaluate_mapping_geometry(files: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "captures": captures,
         "note": (
-            "RelativeAltitude is relative to takeoff, not terrain AGL; "
+            "Relative height is relative to takeoff, not terrain AGL; "
             "GSD, footprint and overlap are estimates."
         ),
     }
