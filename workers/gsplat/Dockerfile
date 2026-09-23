@@ -40,26 +40,8 @@ RUN git clone https://github.com/nerfstudio-project/gsplat.git /opt/gsplat \
     && git checkout "${GSPLAT_COMMIT}" \
     && test "$(git rev-parse HEAD)" = "${GSPLAT_COMMIT}"
 
-RUN pip install --no-cache-dir \
-        "pycolmap>=3.10.0" \
-        "viser" \
-        "git+https://github.com/nerfstudio-project/nerfview@4538024fe0d15fd1a0e4d760f3695fc44ca72787" \
-        "imageio[ffmpeg]" \
-        "numpy>=2.0,<3.0" \
-        scipy \
-        scikit-learn \
-        tqdm \
-        torchmetrics==1.8.2 \
-        opencv-python-headless \
-        "tyro>=0.8.8,!=1.0.9,!=1.0.10" \
-        Pillow \
-        piexif \
-        tensorboard \
-        tensorly \
-        pyyaml \
-        matplotlib \
-        splines \
-        redis==7.4.1
+COPY workers/gsplat/requirements.txt /tmp/gsplat-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/gsplat-requirements.txt
 
 RUN cd /opt/gsplat \
     && BUILD_NO_CUDA=1 BUILD_EXPERIMENTAL=0 pip install --no-cache-dir -e .
