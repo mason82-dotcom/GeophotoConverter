@@ -12,6 +12,7 @@ from .config import (
     OPENWEBUI_INTERNAL_URL,
     OPENWEBUI_PUBLIC_PORT,
     OPENWEBUI_PUBLIC_URL,
+    PDAL_SERVICE_URL,
 )
 
 
@@ -95,7 +96,17 @@ def external_services(request: Request) -> dict[str, dict[str, Any]]:
         }
     )
 
+    pdal = _probe_service(PDAL_SERVICE_URL, "/health")
+    pdal.update(
+        {
+            "profile": "pdal",
+            "role": "pointcloud_qa",
+            "version_contract": "2.10.2",
+        }
+    )
+
     return {
         "dronedb": dronedb,
         "open_webui": open_webui,
+        "pdal": pdal,
     }
