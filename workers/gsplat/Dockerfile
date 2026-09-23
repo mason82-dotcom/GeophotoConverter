@@ -24,6 +24,7 @@ RUN apt-get update \
         libceres-dev \
         libcurl4-openssl-dev \
         libeigen3-dev \
+        libglew-dev \
         libgoogle-glog-dev \
         libmetis-dev \
         libopenblas-openmp-dev \
@@ -91,6 +92,8 @@ RUN apt-get update \
         libceres4t64 \
         libcurl4 \
         libgcc-s1 \
+        libgl1 \
+        libglew2.2 \
         libglib2.0-0 \
         libgoogle-glog0v6t64 \
         libimage-exiftool-perl \
