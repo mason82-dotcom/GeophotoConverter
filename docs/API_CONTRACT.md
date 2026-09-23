@@ -205,6 +205,10 @@ Liefert unter anderem:
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
 - zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
+- `mapping.issues[]` liefert maschinenlesbare Qualitätsbefunde mit `code`, `severity`, `count` und `message`
+- Mapping-Geometrie diagnostiziert fehlende/ungültige GPS-Werte, eindeutige/duplizierte Positionen und die räumliche GPS-Ausdehnung
+- Mapping-Konsistenz diagnostiziert Kamera-/Bildgrößen-/Brennweitenmix, Absolute↔Relative-Höhenoffset, Nadirabweichung, Aufnahmezeiten und Metadatenfehler
+- RTK- und vollständige Lageinformationen werden ausgewiesen; ihr Fehlen allein blockiert normales Mapping nicht
 - `multispectral.classification_conflicts` zählt erkannte Konfliktcodes; `blocking_conflict_count` und `blocking_conflict_groups` markieren blockierende Konflikte in vollständigen M3M-Gruppen. Aktuell blockieren `band_metadata_filename_conflict` und `band_platform_conflict` den `odm_multispectral`-Workflow. Konflikte in unvollständigen, ohnehin nicht verarbeitbaren Gruppen werden diagnostiziert, blockieren zwei saubere vollständige Gruppen aber nicht zusätzlich.
 
 ### GET /datasets/{dataset_id}/geojson
