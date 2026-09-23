@@ -16,6 +16,64 @@ from redis import Redis
 DATA_ROOT = Path(os.getenv("GEOPHOTO_DATA_ROOT", "/data")).resolve()
 DB_PATH = DATA_ROOT / "geophoto.db"
 REDIS_URL = os.getenv("GEOPHOTO_REDIS_URL", "redis://redis:6379/0")
+ACCELERATOR = os.getenv("GEOPHOTO_ACCELERATOR", "").strip() or None
+CUDA_REQUIRED = os.getenv("GEOPHOTO_CUDA_REQUIRED", "0").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+CUDA_PROBE = os.getenv("GEOPHOTO_CUDA_PROBE", "0").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+CUDA_VERSION = os.getenv("GEOPHOTO_CUDA_VERSION", "").strip() or None
+
+
+def _accelerator_state() -> dict[str, object]:
+    if ACCELERATOR != "nvidia-cuda":
+        return {}
+
+    state: dict[str, object] = {
+        "accelerator": "nvidia-cuda",
+        "cuda_required": CUDA_REQUIRED,
+    }
+    if CUDA_VERSION:
+        state["cuda_version"] = CUDA_VERSION
+    if not CUDA_PROBE:
+        state["cuda_probe"] = "not_requested"
+        return state
+
+    try:
+        proc = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader,nounits",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        state["cuda_probe"] = "unavailable"
+        return state
+
+    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    if proc.returncode != 0 or not lines:
+        state["cuda_probe"] = "unavailable"
+        return state
+
+    parts = [part.strip() for part in lines[0].split(",")]
+    state["cuda_probe"] = "ok"
+    if parts:
+        state["cuda_device"] = parts[0]
+    if len(parts) > 1:
+        state["cuda_driver"] = parts[1]
+    if len(parts) > 2:
+        try:
+            state["cuda_memory_mb"] = int(float(parts[2]))
+        except ValueError:
+            pass
+    state["cuda_device_count"] = len(lines)
+    return state
 
 
 def redis_client() -> Redis:
@@ -132,6 +190,7 @@ def run_process(
 def _heartbeat(engine: str) -> None:
     client = redis_client()
     key = f"geophoto:worker:{engine}"
+    accelerator = _accelerator_state()
     while True:
         try:
             client.set(
@@ -142,6 +201,7 @@ def _heartbeat(engine: str) -> None:
                         "status": "online",
                         "pid": os.getpid(),
                         "updated_at": time.time(),
+                        **accelerator,
                     }
                 ),
                 ex=15,
