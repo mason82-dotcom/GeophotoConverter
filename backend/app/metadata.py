@@ -199,7 +199,6 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             source_keys[name] = source_key
         return value
 
-    capture_uuid = m3m_value("CaptureUUID")
     image_source = m3m_value("ImageSource")
     band_name = m3m_value("BandName")
     band_frequency = m3m_value("BandFreq")
@@ -295,7 +294,6 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             "gimbal_roll": _dji_first(raw, "GimbalRollDegree"),
             "cam_reverse": _dji_first(raw, "CamReverse"),
             "gimbal_reverse": _dji_first(raw, "GimbalReverse"),
-            "capture_uuid": capture_uuid,
             "image_source": image_source,
             "band_name": band_name,
             "band_frequency": band_frequency,
