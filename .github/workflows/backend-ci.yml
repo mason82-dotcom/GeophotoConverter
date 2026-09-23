@@ -14,7 +14,7 @@ on:
 
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       redis:
         image: redis:7.4.11-alpine3.21
@@ -31,9 +31,9 @@ jobs:
       GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
           cache: pip
