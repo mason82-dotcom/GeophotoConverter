@@ -79,6 +79,11 @@ def _verify_colmap_runtime(log_path: Path) -> None:
 
     cuda_state = "deaktiviert"
     if COLMAP_CUDA:
+        if "with CUDA" not in output:
+            raise RuntimeError(
+                "COLMAP-CUDA ist aktiviert, aber das ausgeführte COLMAP wurde "
+                "nicht mit CUDA-Unterstützung gebaut."
+            )
         gpu = subprocess.run(
             ["nvidia-smi", "-L"],
             check=False,
