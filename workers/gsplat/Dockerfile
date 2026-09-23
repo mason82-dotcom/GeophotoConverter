@@ -29,7 +29,10 @@ RUN apt-get update \
 RUN python3 -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+RUN pip install --no-cache-dir \
+        pip==26.2.1 \
+        setuptools==84.0.0 \
+        wheel==0.48.0 \
     && pip install --no-cache-dir \
         torch==2.9.1 \
         torchvision==0.24.1 \
