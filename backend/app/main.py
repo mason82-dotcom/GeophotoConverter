@@ -35,7 +35,7 @@ from .storage import store
 
 app = FastAPI(
     title="GeoPhoto Converter API",
-    version="1.0.0",
+    version="1.0.1",
     description="Lokale Aufnahme, Prüfung und Verarbeitung georeferenzierter Luftbilder.",
 )
 
