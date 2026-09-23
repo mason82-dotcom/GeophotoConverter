@@ -15,7 +15,12 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from .config import DATA_ROOT, PDAL_SERVICE_URL, POINTCLOUD_CACHE_ROOT
+from .config import (
+    DATA_ROOT,
+    PDAL_SERVICE_URL,
+    PDAL_TIMEOUT_SECONDS,
+    POINTCLOUD_CACHE_ROOT,
+)
 from .photogrammetry_pointcloud import parse_pdal_stats, parse_pdal_summary
 from .storage import store
 
@@ -651,7 +656,7 @@ def pointcloud_qa(job_id: str, artifact_index: int) -> dict[str, Any]:
         response = httpx.post(
             f"{PDAL_SERVICE_URL}/qa",
             json={"relative_path": str(relative_path)},
-            timeout=httpx.Timeout(130.0, connect=2.0),
+            timeout=httpx.Timeout(float(PDAL_TIMEOUT_SECONDS + 10), connect=2.0),
         )
     except httpx.TimeoutException as exc:
         raise HTTPException(
