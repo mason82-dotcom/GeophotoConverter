@@ -31,6 +31,7 @@ RUN apt-get update \
         libopenimageio-dev \
         libsqlite3-dev \
         libssl-dev \
+        libsuitesparse-dev \
         ninja-build \
         openimageio-tools \
     && rm -rf /var/lib/apt/lists/*
