@@ -76,7 +76,7 @@ ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasse
 Für NVIDIA-GPUs gibt es zwei GPU-Pfade:
 
 - `odm-gpu`: OpenDroneMap 3.6.2 GPU-Image (CUDA 12.9.1) mit CUDA-beschleunigter SIFT-Merkmalsextraktion.
-- `gsplat`: CUDA 12.8.1 / PyTorch-CUDA für Gaussian Splatting.
+- `gsplat`: CUDA 12.8.1 / PyTorch-CUDA für Gaussian Splatting sowie COLMAP 4.2.0 mit CUDA-SIFT für Feature Extraction und Matching.
 
 Voraussetzung ist ein funktionierender NVIDIA-Treiber plus NVIDIA Container Toolkit.
 
@@ -95,6 +95,8 @@ docker compose --profile odm-gpu up -d --build
 ```
 
 `odm` und `odm-gpu` konsumieren denselben Redis-Stream für ODM-Aufträge und dürfen deshalb nicht gleichzeitig als regulärer Betriebsmodus laufen.
+
+Beim `gsplat`-Profil ist COLMAP-CUDA standardmäßig aktiviert. `GEOPHOTO_CUDA_DEVICE` wählt den NVIDIA-GPU-Index; Standard ist `0`.
 
 ## VS Code
 
