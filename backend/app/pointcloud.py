@@ -7,14 +7,20 @@ import os
 import struct
 import uuid
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 
 import laspy
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from .config import DATA_ROOT, POINTCLOUD_CACHE_ROOT
+from .pointcloud_processing import (
+    build_reprojection_pipeline,
+    reprojection_provenance,
+)
+from .queue import enqueue_artifact, ping as redis_ping
 from .storage import store
 
 router = APIRouter(prefix="/api/v1", tags=["pointcloud"])
@@ -160,6 +166,12 @@ def _inspect_las(path: Path) -> dict[str, Any]:
                 "epsg": crs.to_epsg(),
                 "authority": authority[0] if authority else None,
                 "code": authority[1] if authority else None,
+                "identifier": (
+                    f"{authority[0]}:{authority[1]}"
+                    if authority
+                    else crs.to_wkt()
+                ),
+                "wkt": crs.to_wkt(),
                 "projected": bool(crs.is_projected),
                 "geographic": bool(crs.is_geographic),
             }
@@ -578,6 +590,135 @@ def _preview_bytes(
         temp.unlink(missing_ok=True)
     _atomic_json(info_path, {"point_count": int(len(preview))})
     return target, int(len(preview))
+
+
+class PointcloudProcessRequest(BaseModel):
+    operation: Literal["reproject"] = "reproject"
+    target_crs: str = Field(min_length=1, max_length=4096)
+
+
+def _reprojection_source_crs(path: Path) -> str:
+    if path.suffix.lower() not in {".las", ".laz"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Reprojection unterstützt in Phase B1 nur LAS/LAZ/COPC-LAZ.",
+        )
+    try:
+        metadata = _inspect_las(path)
+    except (OSError, ValueError, laspy.errors.LaspyException) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Source-Punktwolke konnte nicht gelesen werden: {exc}",
+        ) from exc
+    crs = metadata.get("crs")
+    identifier = crs.get("identifier") if isinstance(crs, dict) else None
+    if not identifier:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Source-Punktwolke enthält kein explizites CRS; "
+                "Reprojection wird nicht geraten."
+            ),
+        )
+    return str(identifier)
+
+
+@router.post(
+    "/jobs/{job_id}/pointclouds/{artifact_index}/process",
+    status_code=201,
+)
+def process_pointcloud(
+    job_id: str,
+    artifact_index: int,
+    body: PointcloudProcessRequest,
+) -> dict[str, Any]:
+    source_job = _job_or_404(job_id)
+    if source_job.get("status") != "completed":
+        raise HTTPException(
+            status_code=409,
+            detail="Nur Artefakte abgeschlossener Source-Jobs dürfen verarbeitet werden.",
+        )
+
+    artifact, source_path = _artifact_or_404(job_id, artifact_index)
+    source_crs = _reprojection_source_crs(source_path)
+
+    if not redis_ping():
+        raise HTTPException(
+            status_code=503,
+            detail="Artifact-Processing-Warteschlange ist nicht verfügbar.",
+        )
+
+    artifact_job_id = store.new_id()
+    output_relative = (
+        f"artifact-jobs/{artifact_job_id}/derived/reprojected.laz"
+    )
+    output_path = DATA_ROOT / output_relative
+
+    try:
+        contract = build_reprojection_pipeline(
+            source_path,
+            output_path,
+            source_crs=source_crs,
+            target_crs=body.target_crs,
+        )
+        provenance = reprojection_provenance(
+            contract,
+            source_job_id=job_id,
+            source_artifact_index=artifact_index,
+            source_sha256=artifact.get("sha256"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    options = {
+        "source_relative_path": str(artifact["relative_path"]),
+        "output_relative_path": output_relative,
+        "source_crs": contract["source"]["crs"],
+        "target_crs": contract["target"]["crs"],
+        "contract_version": contract["schema_version"],
+    }
+    derived = store.create_artifact_job(
+        job_id,
+        artifact_index,
+        "pdal",
+        body.operation,
+        artifact_job_id=artifact_job_id,
+        options=options,
+        provenance=provenance,
+        status="prepared",
+    )
+
+    try:
+        enqueue_artifact(
+            "pdal",
+            {
+                "job_id": artifact_job_id,
+                "artifact_job_id": artifact_job_id,
+            },
+        )
+    except Exception as exc:
+        store.transition_artifact_job(
+            artifact_job_id,
+            expected_status="prepared",
+            status="failed",
+            phase="queue_failed",
+            message="Artifact-Processing-Auftrag konnte nicht eingereiht werden.",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Artifact-Processing-Auftrag konnte nicht eingereiht werden.",
+        ) from exc
+
+    store.transition_artifact_job(
+        artifact_job_id,
+        expected_status="prepared",
+        status="queued",
+        phase="queued",
+        message="Punktwolken-Reprojection wurde eingereiht.",
+    )
+    result = store.get_artifact_job(artifact_job_id)
+    assert result is not None
+    return result
 
 
 @router.get("/jobs/{job_id}/pointclouds")
