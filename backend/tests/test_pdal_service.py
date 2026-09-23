@@ -55,7 +55,7 @@ def test_pdal_service_qa_requests_only_available_dimensions(
             return {
                 "summary": {
                     "num_points": 4,
-                    "dimensions": "X, Y, Z, Red, Green, Blue",
+                    "dimensions": "x, y, z, red, green, blue",
                 }
             }
         return {
@@ -74,7 +74,7 @@ def test_pdal_service_qa_requests_only_available_dimensions(
 
     assert result["relative_path"] == "jobs/a/dense.ply"
     assert commands[0][0:2] == ["info", "--summary"]
-    assert "--dimensions=X,Y,Z" in commands[1]
+    assert "--dimensions=x,y,z" in commands[1]
     assert not any(
         item == "--enumerate=Classification"
         for item in commands[1]
