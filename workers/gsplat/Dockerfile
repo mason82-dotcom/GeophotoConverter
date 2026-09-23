@@ -30,7 +30,7 @@ RUN apt-get update \
         libgoogle-glog-dev \
         libgtest-dev \
         libmetis-dev \
-        libmkl-full-dev \
+        libopenblas-openmp-dev \
         libopenimageio-dev \
         libqt6opengl6-dev \
         libqt6openglwidgets6 \
@@ -54,7 +54,7 @@ RUN cmake -S /src/colmap -B /src/colmap/build -GNinja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
         -DCMAKE_INSTALL_PREFIX=/opt/colmap \
-        -DBLA_VENDOR=Intel10_64lp \
+        -DBLA_VENDOR=OpenBLAS \
     && cmake --build /src/colmap/build --target install --parallel 2
 
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION}
@@ -90,10 +90,7 @@ RUN apt-get update \
         libgoogle-glog0v6t64 \
         libimage-exiftool-perl \
         libmetis5 \
-        libmkl-core \
-        libmkl-intel-lp64 \
-        libmkl-intel-thread \
-        libmkl-locale \
+        libopenblas0-openmp \
         libomp5 \
         libopenimageio2.4t64 \
         libopengl0 \
