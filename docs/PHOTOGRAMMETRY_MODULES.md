@@ -52,15 +52,23 @@ Georeferenzierung, GCP/Checkpoints, Footprints, Overlap und räumliche QA.
 
 ## PGM-RASTER — Raster-QA
 
-Issue: #52
+Issue: #52  
+Status: **in Entwicklung**
 
-Geplant:
+Technischer Kern: Rasterio 1.5.1 auf GDAL-Basis.
 
-- GDAL/Rasterio
-- CRS, GeoTransform, Bounds, Pixelgröße und NoData
-- Band- und Datentypprüfung
-- Orthofoto/DSM/DTM-Konsistenz
-- später COG und Overviews
+Erster Vertrag:
+
+- GeoTIFF-/Raster-Öffnung und Treiberprüfung
+- CRS vorhanden / projiziert / metrisch
+- GeoTransform, Bounds und Pixelauflösung
+- Bandzahl, Datentyp und NoData
+- Warnung bei Rotation/Shear
+- Set-QA für Orthofoto/DSM/DTM:
+  - identisches CRS
+  - räumliche Überdeckung
+  - blockierte Einzelraster propagieren in das Set
+- später: COG, Overviews und enginebezogene Artifact-QA
 
 ## PGM-POINTCLOUD — Punktwolken-QA
 
