@@ -131,7 +131,7 @@ Liefert unter anderem:
 - Warnungen
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
-- zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung sowie RTK-/DJI-Lage-Metadatenabdeckung
+- zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten- und RTK-Fix-Anzahl sowie DJI-Lage-Metadatenabdeckung
 
 ### GET /datasets/{dataset_id}/geojson
 
