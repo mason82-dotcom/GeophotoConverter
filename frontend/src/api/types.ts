@@ -61,6 +61,9 @@ export interface MediaClassification {
   platform: string
   media_kind: string
   capture_group?: string | null
+  media_kind_source?: string
+  capture_group_source?: string
+  conflicts?: string[]
 }
 
 export interface UploadedFileRecord {
@@ -91,6 +94,8 @@ export interface EngineReadiness {
   platform?: string | null
   classification_conflict_files?: number
   classification_conflict_groups?: number
+  blocking_conflicts?: number
+  blocking_conflict_groups?: string[]
   reason: string | null
 }
 
@@ -155,6 +160,8 @@ export interface DatasetQa {
     conflict_files: string[]
     conflict_group_count: number
     conflict_groups: string[]
+    blocking_conflict_count: number
+    blocking_conflict_groups: string[]
   }
   readiness: {
     odm: EngineReadiness
