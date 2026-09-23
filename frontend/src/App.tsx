@@ -5,6 +5,7 @@ import { DatasetsPage } from './pages/DatasetsPage'
 import { ImportPage } from './pages/ImportPage'
 import { ProcessingPage } from './pages/ProcessingPage'
 import { ResultsPage } from './pages/ResultsPage'
+import { PointCloudPage, type PointCloudSelection } from './pages/PointCloudPage'
 import { DroneDBPage } from './pages/DroneDBPage'
 import { AssistantPage } from './pages/AssistantPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -64,6 +65,7 @@ function Overview({ onNavigate }: { onNavigate: (next: NavKey) => void }) {
 
 export default function App() {
   const [active, setActive] = useState<NavKey>('overview')
+  const [pointCloudSelection, setPointCloudSelection] = useState<PointCloudSelection>()
 
   return (
     <AppShell active={active} onNavigate={setActive}>
@@ -72,7 +74,15 @@ export default function App() {
       {active === 'datasets' && <DatasetsPage />}
       {active === 'map' && <DatasetsPage mapFocused />}
       {active === 'processing' && <ProcessingPage />}
-      {active === 'results' && <ResultsPage />}
+      {active === 'results' && (
+        <ResultsPage
+          onOpenPointCloud={(selection) => {
+            setPointCloudSelection(selection)
+            setActive('pointcloud')
+          }}
+        />
+      )}
+      {active === 'pointcloud' && <PointCloudPage initialSelection={pointCloudSelection} />}
       {active === 'dronedb' && <DroneDBPage />}
       {active === 'assistant' && <AssistantPage />}
       {active === 'settings' && <SettingsPage />}

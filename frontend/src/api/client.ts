@@ -10,6 +10,9 @@ import type {
   ProcessingEngine,
   ProcessingProfile,
   ProcessingWorkflow,
+  PointCloudListResponse,
+  PointCloudMetadata,
+  PointCloudPreview,
   ServicesResponse,
   UploadResponse,
 } from './types'
@@ -183,4 +186,59 @@ export function uploadDatasetFile(
 
     request.send(form)
   })
+}
+
+
+export async function listJobPointClouds(jobId: string): Promise<PointCloudListResponse> {
+  return readJson<PointCloudListResponse>(
+    await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/pointclouds`),
+  )
+}
+
+export async function getPointCloudMetadata(
+  jobId: string,
+  artifactIndex: number,
+): Promise<PointCloudMetadata> {
+  return readJson<PointCloudMetadata>(
+    await fetch(
+      `${API_BASE}/jobs/${encodeURIComponent(jobId)}/pointclouds/${artifactIndex}`,
+    ),
+  )
+}
+
+export async function getPointCloudPreview(
+  jobId: string,
+  artifactIndex: number,
+  maxPoints = 100_000,
+): Promise<PointCloudPreview> {
+  const response = await fetch(
+    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/pointclouds/${artifactIndex}/preview?max_points=${Math.max(1000, Math.min(500000, Math.trunc(maxPoints)))}`,
+  )
+  if (!response.ok) {
+    let detail: unknown
+    try {
+      detail = await response.json()
+    } catch {
+      detail = await response.text()
+    }
+    throw new ApiError(
+      `Punktwolkenvorschau fehlgeschlagen (Status ${response.status})`,
+      response.status,
+      detail,
+    )
+  }
+
+  const pointCount = Number(response.headers.get('X-Point-Count') ?? '0')
+  const stride = Number(response.headers.get('X-Point-Stride') ?? '16')
+  const origin = (response.headers.get('X-Point-Origin') ?? '0,0,0')
+    .split(',')
+    .map(Number) as [number, number, number]
+
+  return {
+    buffer: await response.arrayBuffer(),
+    pointCount,
+    stride,
+    origin,
+    hasRgb: response.headers.get('X-Point-Has-RGB') === '1',
+  }
 }
