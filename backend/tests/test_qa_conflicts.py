@@ -102,3 +102,32 @@ def test_conflict_in_incomplete_group_does_not_block_clean_complete_groups() -> 
         item["code"] != "M3M_CLASSIFICATION_CONFLICTS"
         for item in qa["warnings"]
     )
+
+
+
+def test_platform_band_conflict_in_complete_group_blocks_readiness() -> None:
+    conflicted_group = _complete_group("DJI_8302", "capture-platform-conflict")
+    green = next(
+        item
+        for item in conflicted_group
+        if item["relative_path"].endswith("_MS_G.TIF")
+    )
+    green["metadata"]["camera"]["model"] = "Mavic 3 Enterprise"
+    green["metadata"]["dji"]["product_name"] = "Mavic 3 Enterprise"
+
+    qa = dataset_qa(
+        [
+            *_complete_group("DJI_8301", "capture-clean"),
+            *conflicted_group,
+        ]
+    )
+
+    assert qa["multispectral"]["complete_groups"] == 2
+    assert qa["multispectral"]["classification_conflicts"] == {
+        "band_platform_conflict": 1
+    }
+    assert qa["multispectral"]["blocking_conflict_count"] == 1
+    assert qa["multispectral"]["blocking_conflict_groups"] == [
+        "dji:capture-platform-conflict"
+    ]
+    assert qa["readiness"]["odm_multispectral"]["ready"] is False
