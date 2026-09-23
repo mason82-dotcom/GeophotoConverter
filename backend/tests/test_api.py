@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from app.config import DATA_ROOT
-from app.main import _canonical_workflow
+from app.main import JobCreate, _canonical_workflow
 from app.storage import store
 
 
@@ -409,6 +409,7 @@ def test_processing_catalog_user_text_is_german(client):
 
 
 def test_legacy_rgb_workflow_is_canonicalized_by_engine():
+    assert JobCreate(dataset_id="legacy", engine="gsplat").workflow == "rgb"
     assert _canonical_workflow("odm", "rgb") == "mapping"
     assert _canonical_workflow("micmac", "rgb") == "mapping"
     assert _canonical_workflow("gsplat", "rgb") == "reconstruction"
