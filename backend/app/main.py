@@ -53,7 +53,7 @@ class JobCreate(BaseModel):
     dataset_id: str
     engine: str
     profile: str = "standard"
-    workflow: str = "mapping"
+    workflow: str = "rgb"
     options: dict[str, object] = Field(default_factory=dict)
 
 
