@@ -123,3 +123,76 @@ def test_odm_cuda_preserves_multispectral_profile(monkeypatch):
     assert options is not None
     assert "--radiometric-calibration" in options
     assert options[-2:] == ["--feature-type", "sift"]
+
+
+def _load_gsplat_worker(repo_root: Path):
+    workers_root = repo_root / "workers"
+    sys.path.insert(0, str(workers_root))
+    try:
+        return _load_module(
+            "geophoto_gsplat_cuda_test_module",
+            workers_root / "gsplat" / "worker.py",
+        )
+    finally:
+        sys.path.pop(0)
+
+
+def test_gsplat_colmap_commands_use_cuda(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = _load_gsplat_worker(repo_root)
+
+    monkeypatch.setattr(worker, "COLMAP_CUDA", True)
+    monkeypatch.setattr(worker, "COLMAP_GPU_INDEX", "0")
+
+    feature = worker._colmap_feature_command(
+        Path("/tmp/database.db"),
+        Path("/tmp/images"),
+        "2400",
+    )
+    matching = worker._colmap_match_command(
+        Path("/tmp/database.db"),
+        "exhaustive_matcher",
+    )
+
+    assert feature[feature.index("--FeatureExtraction.type") + 1] == "SIFT"
+    assert feature[feature.index("--FeatureExtraction.use_gpu") + 1] == "1"
+    assert feature[feature.index("--FeatureExtraction.gpu_index") + 1] == "0"
+    assert feature[feature.index("--FeatureExtraction.max_image_size") + 1] == "2400"
+    assert matching[matching.index("--FeatureMatching.use_gpu") + 1] == "1"
+    assert matching[matching.index("--FeatureMatching.gpu_index") + 1] == "0"
+
+
+def test_gsplat_colmap_runtime_verifies_version_and_gpu(monkeypatch, tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = _load_gsplat_worker(repo_root)
+
+    monkeypatch.setattr(worker, "COLMAP_CUDA", True)
+    monkeypatch.setattr(worker, "COLMAP_GPU_INDEX", "0")
+    monkeypatch.setattr(worker, "COLMAP_VERSION", "4.2.0")
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["colmap", "version"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="COLMAP 4.2.0 -- Structure-from-Motion and Multi-View Stereo\n",
+                stderr="",
+            )
+        if command[:2] == ["nvidia-smi", "-L"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="GPU 0: NVIDIA RTX Test (UUID: GPU-test)\n",
+                stderr="",
+            )
+        raise AssertionError(f"Unexpected command: {command}")
+
+    monkeypatch.setattr(worker.subprocess, "run", fake_run)
+
+    log_path = tmp_path / "worker.log"
+    worker._verify_colmap_runtime(log_path)
+
+    text = log_path.read_text(encoding="utf-8")
+    assert "COLMAP Runtime: 4.2.0" in text
+    assert "CUDA-SIFT aktiv" in text
+    assert "NVIDIA RTX Test" in text
