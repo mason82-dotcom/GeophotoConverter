@@ -146,9 +146,33 @@ def services(request: Request) -> dict:
     engines["thermal"]["wide_thermal_coregistered"] = False
     engines["thermal"]["georeferenced_temperature_raster"] = False
 
+    if queue_ok:
+        try:
+            pointcloud_processing = worker_state("pdal-processing")
+        except Exception:
+            pointcloud_processing = {
+                "engine": "pdal-processing",
+                "status": "unknown",
+                "queue_depth": None,
+            }
+    else:
+        pointcloud_processing = {
+            "engine": "pdal-processing",
+            "status": "unavailable",
+            "queue_depth": None,
+        }
+    pointcloud_processing.update(
+        {
+            "profile": "pdal-processing",
+            "role": "derived_pointcloud_processing",
+            "selectable_as_dataset_engine": False,
+        }
+    )
+
     return {
         "redis": {"status": "ok" if queue_ok else "unavailable"},
         **engines,
+        "pointcloud_processing": pointcloud_processing,
         "telesculptor": {
             "status": "experimental",
             "profile": "experimental",
