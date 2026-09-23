@@ -5,9 +5,11 @@ on:
     paths:
       - "workers/pdal/**"
       - "backend/app/photogrammetry_pointcloud.py"
+      - "backend/app/photogrammetry_pdal_pipeline.py"
       - "backend/app/pointcloud.py"
       - "backend/tests/test_pdal_service.py"
       - "backend/tests/test_photogrammetry_pointcloud.py"
+      - "backend/tests/test_photogrammetry_pdal_pipeline.py"
       - "backend/tests/test_pointcloud.py"
       - "compose.yaml"
       - ".github/workflows/pdal-service.yml"
@@ -47,6 +49,67 @@ jobs:
           2 2 3
           EOF
 
+          cat > data/ci/geographic.csv <<'EOF'
+          X,Y,Z
+          8.5000,49.0000,100
+          8.5001,49.0001,101
+          8.5002,49.0002,102
+          EOF
+
+          cat > data/ci/make-source.json <<'EOF'
+          {
+            "pipeline": [
+              {
+                "type": "readers.text",
+                "filename": "/data/ci/geographic.csv",
+                "override_srs": "EPSG:4326"
+              },
+              {
+                "type": "writers.las",
+                "filename": "/data/ci/source.laz",
+                "compression": true,
+                "a_srs": "EPSG:4326",
+                "scale_x": 0.0000001,
+                "scale_y": 0.0000001,
+                "scale_z": 0.001,
+                "offset_x": "auto",
+                "offset_y": "auto",
+                "offset_z": "auto"
+              }
+            ]
+          }
+          EOF
+
+          cat > data/ci/reproject.json <<'EOF'
+          {
+            "pipeline": [
+              {
+                "type": "readers.las",
+                "filename": "/data/ci/source.laz"
+              },
+              {
+                "type": "filters.reprojection",
+                "in_srs": "EPSG:4326",
+                "out_srs": "EPSG:32632"
+              },
+              {
+                "type": "writers.las",
+                "filename": "/data/ci/reprojected.laz",
+                "a_srs": "EPSG:32632",
+                "compression": true,
+                "forward": "header,vlr",
+                "extra_dims": "all",
+                "scale_x": 0.001,
+                "scale_y": 0.001,
+                "scale_z": 0.001,
+                "offset_x": "auto",
+                "offset_y": "auto",
+                "offset_z": "auto"
+              }
+            ]
+          }
+          EOF
+
       - name: Start PDAL service
         run: |
           docker run -d --rm             --name geophoto-pdal             -p 8090:8090             -v "$PWD/data:/data:ro"             geophoto-pdal:test
@@ -64,6 +127,39 @@ jobs:
 
       - name: Verify PDAL version
         run: docker exec geophoto-pdal pdal --version | grep -q "2.10.2"
+
+      - name: Run real reprojection pipeline
+        run: |
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data" \
+            geophoto-pdal:test \
+            pipeline /data/ci/make-source.json
+
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data" \
+            geophoto-pdal:test \
+            pipeline /data/ci/reproject.json
+
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data:ro" \
+            geophoto-pdal:test \
+            info --summary /data/ci/reprojected.laz \
+            > /tmp/reproject-summary.json
+
+          python3 - <<'PY'
+          import json
+          payload = json.load(open("/tmp/reproject-summary.json", encoding="utf-8"))
+          summary = payload["summary"]
+          assert summary["num_points"] == 3
+          bounds = summary["bounds"]
+          assert bounds["maxx"] > bounds["minx"] > 100000
+          assert bounds["maxy"] > bounds["miny"] > 1000000
+          srs = json.dumps(summary.get("srs", {}))
+          assert "32632" in srs
+          PY
 
       - name: Run real PLY QA
         run: |
