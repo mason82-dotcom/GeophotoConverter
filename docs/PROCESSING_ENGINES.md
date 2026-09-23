@@ -31,7 +31,7 @@ Engine-Jobfreigabe. `mapping.ready` bleibt kompatibel zur Mindestbildzahl;
 `mapping.status` und `mapping.issues[]` transportieren die fachliche Qualität.
 PGM-3 ergänzt eine rein diagnostische Aufnahmegeometrie. Sie wird nur berechnet,
 wenn die Datei Bildabmessungen, physische Brennweite, EXIF-35-mm-Äquivalent,
-positive DJI-`RelativeAltitude` und eine nadirnahe Gimbal-Lage liefert.
+positive kanonische `RelativeHeight` und eine nadirnahe Gimbal-Lage liefert.
 
 Dabei gilt:
 
@@ -40,7 +40,7 @@ Dabei gilt:
 - daraus folgen horizontaler/vertikaler Boden-Footprint und GSD;
 - zeitlich benachbarte Captures mit GPS und Heading erhalten eine Along-/Cross-track-
   Zerlegung und geschätzte Vorwärts-/Seitenüberdeckung;
-- `RelativeAltitude` ist relativ zum Takeoff und **keine Terrain-AGL-Höhe**;
+- `RelativeHeight` ist relativ zum Takeoff und **keine Terrain-AGL-Höhe**;
 - Methode: `exif_35mm_equivalent`, Confidence: `estimated`;
 - fehlende oder ungeeignete Parameter ergeben `unavailable` statt erfundener Werte;
 - PGM-3 verändert keine Jobfreigabe und keine ODM/MicMac-Processingparameter.
