@@ -51,7 +51,6 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     capture_groups: dict[str, set[str]] = {}
     capture_group_platforms: dict[str, set[str]] = {}
     capture_group_conflicts: dict[str, Counter[str]] = {}
-    classification_conflicts: Counter[str] = Counter()
     cameras: Counter[str] = Counter()
     gps_altitudes: list[float] = []
     relative_altitudes: list[float] = []
@@ -80,14 +79,6 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 set(),
             ).add(classification.platform)
 
-        for conflict in classification.conflicts:
-            classification_conflicts[conflict] += 1
-            if classification.capture_group:
-                capture_group_conflicts.setdefault(
-                    classification.capture_group,
-                    Counter(),
-                )[conflict] += 1
-
         if classification.conflicts:
             classification_conflicts.update(classification.conflicts)
             if classification.media_kind in {
@@ -99,6 +90,10 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 multispectral_conflict_files.append(item["relative_path"])
                 if classification.capture_group:
                     multispectral_conflict_groups.add(classification.capture_group)
+                    capture_group_conflicts.setdefault(
+                        classification.capture_group,
+                        Counter(),
+                    ).update(classification.conflicts)
 
         metadata = item.get("metadata") or {}
         camera = metadata.get("camera") or {}
@@ -278,20 +273,25 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         warnings.append(
             {
                 "code": "MULTISPECTRAL_CLASSIFICATION_CONFLICT",
-                "severity": "error",
+                "severity": (
+                    "error"
+                    if multispectral_blocking_conflict_count
+                    else "warning"
+                ),
                 "count": len(multispectral_conflict_files),
             }
         )
 
     multispectral_ready = (
         complete_multispectral_groups >= 2
-        and not multispectral_conflict_files
+        and multispectral_blocking_conflict_count == 0
     )
-    if multispectral_conflict_files:
+    if multispectral_blocking_conflict_count:
         multispectral_reason = (
-            "DJI-M3M-Bandmetadaten widersprechen der Dateinamenklassifikation "
-            "bei mindestens einem Multispektralbild. Konflikte müssen vor der "
-            "ODM-Verarbeitung geklärt werden."
+            f"{multispectral_blocking_conflict_count} blockierende "
+            "M3M-Klassifikationskonflikt(e) in "
+            f"{len(multispectral_blocking_conflict_groups)} vollständigen "
+            "Aufnahmegruppe(n)."
         )
     elif complete_multispectral_groups < 2:
         multispectral_reason = (
@@ -339,6 +339,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "complete_groups": complete_multispectral_groups,
             "classification_conflict_files": len(multispectral_conflict_files),
             "classification_conflict_groups": len(multispectral_conflict_groups),
+            "blocking_conflicts": multispectral_blocking_conflict_count,
+            "blocking_conflict_groups": multispectral_blocking_conflict_groups,
             "reason": multispectral_reason,
         },
     }
@@ -402,6 +404,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "conflict_files": sorted(multispectral_conflict_files),
             "conflict_group_count": len(multispectral_conflict_groups),
             "conflict_groups": sorted(multispectral_conflict_groups),
+            "blocking_conflict_count": multispectral_blocking_conflict_count,
+            "blocking_conflict_groups": multispectral_blocking_conflict_groups,
         },
         "readiness": readiness,
         "classifications": {
