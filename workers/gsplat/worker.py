@@ -37,13 +37,13 @@ def _colmap_feature_command(
         str(image_dir),
         "--ImageReader.single_camera",
         "1",
-        "--SiftExtraction.use_gpu",
+        "--FeatureExtraction.use_gpu",
         "1" if COLMAP_CUDA else "0",
-        "--SiftExtraction.max_image_size",
+        "--FeatureExtraction.max_image_size",
         max_image_size,
     ]
     if COLMAP_CUDA:
-        command.extend(["--SiftExtraction.gpu_index", COLMAP_GPU_INDEX])
+        command.extend(["--FeatureExtraction.gpu_index", COLMAP_GPU_INDEX])
     return command
 
 
@@ -53,11 +53,11 @@ def _colmap_match_command(database: Path, matcher: str) -> list[str]:
         matcher,
         "--database_path",
         str(database),
-        "--SiftMatching.use_gpu",
+        "--FeatureMatching.use_gpu",
         "1" if COLMAP_CUDA else "0",
     ]
     if COLMAP_CUDA:
-        command.extend(["--SiftMatching.gpu_index", COLMAP_GPU_INDEX])
+        command.extend(["--FeatureMatching.gpu_index", COLMAP_GPU_INDEX])
     return command
 
 
