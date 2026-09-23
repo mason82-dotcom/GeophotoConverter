@@ -31,6 +31,8 @@ def test_normalize_m3e_family1_metadata():
         "XMP-drone-dji:FlightYSpeed": -0.3,
         "XMP-drone-dji:FlightZSpeed": 0.1,
         "XMP-drone-dji:CamReverse": "0",
+        "XMP-drone-dji:GimbalReverse": "0",
+        "XMP-drone-dji:CaptureUUID": "3377fb05-b357-448f-b87b-7023daebbaed",
         "XMP-drone-dji:RtkFlag": 50,
         "XMP-drone-dji:RtkStdLon": 0.012,
         "XMP-drone-dji:RtkStdLat": 0.014,
@@ -75,6 +77,8 @@ def test_normalize_m3e_family1_metadata():
     assert dji["drone_model"] == "Mavic 3 Enterprise"
     assert dji["drone_serial_number"] == "DRONE-M3E-001"
     assert dji["product_name"] == "Mavic 3 Enterprise"
+    assert dji["capture_uuid"] == "3377fb05-b357-448f-b87b-7023daebbaed"
+    assert dji["gimbal_reverse"] == "0"
     assert dji["rtk_flag"] == 50
     assert dji["rtk_status"] == "fixed"
     assert dji["rtk_fixed"] is True
