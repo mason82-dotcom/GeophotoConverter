@@ -387,6 +387,29 @@ Liefert Status, Fortschritt, Phase, Meldung, Optionen, Artefakte und gegebenenfa
 
 Jedes Artefakt erhält eine relative `download_url`.
 
+ODM-`mapping` kann zusätzlich folgende Evidence-Artefakte liefern:
+
+- `input_manifest` – gestagte Eingaben und kanonische Georeferenzierungs-Evidence
+- `geolocation_override` – `geo.txt`, nur wenn alle gestagten Mapping-Bilder
+  kanonische Positionen besitzen
+- `georeferencing_evidence` – `geophoto-odm-evidence.json` mit konservativer
+  Prüfung von Orthofoto/DSM/DTM/LAZ
+
+Das Input-Manifest verwendet für ODM-Mapping:
+
+- `georeferencing.mode = geo_override`, wenn ein vollständiger kanonischer
+  `EPSG:4326`-Override erzeugt und per `--geo` an ODM übergeben wird
+- `georeferencing.mode = embedded_metadata_fallback`, wenn die kanonische
+  Positionsabdeckung nicht vollständig ist
+- `height_mode = ellipsoid` nur bei vollständiger kanonischer Ellipsoidhöhen-Abdeckung
+- andernfalls bei einem Override `height_mode = xy_only`; relative Höhe wird
+  nicht zu absolutem Z umgedeutet
+
+Das Ergebnis-Evidence unterscheidet Datei-Existenz, Inspektionsstatus und
+tatsächlich nachgewiesene Georeferenzierung. Ein Raster erhält
+`georeferencing_verified=true` ausschließlich bei berichtetem CRS **und**
+GeoTransform.
+
 ### GET /jobs/{job_id}/logs?tail=200
 
 Liefert die letzten 1–5000 Worker-Protokollzeilen.
