@@ -76,7 +76,7 @@ ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasse
 Für NVIDIA-GPUs gibt es zwei GPU-Pfade:
 
 - `odm-gpu`: OpenDroneMap 3.6.2 GPU-Image (CUDA 12.9.1) mit CUDA-beschleunigter SIFT-Merkmalsextraktion.
-- `gsplat`: CUDA 12.8.1 / PyTorch-CUDA für Gaussian Splatting.
+- `gsplat`: CUDA 12.8.1 / PyTorch-CUDA für Gaussian Splatting sowie COLMAP 4.2.0 mit CUDA-SIFT für Feature Extraction und Matching.
 
 Voraussetzung ist ein funktionierender NVIDIA-Treiber plus NVIDIA Container Toolkit.
 
