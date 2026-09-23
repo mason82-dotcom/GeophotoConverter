@@ -26,7 +26,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      PYTHONPATH: backend
+      PYTHONPATH: backend:workers
       GEOPHOTO_DATA_ROOT: /tmp/geophoto-ci
       GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
 
@@ -50,7 +50,7 @@ jobs:
         run: python -m compileall -q backend/app workers
 
       - name: Run backend tests
-        run: pytest -q backend/tests
+        run: pytest -q backend/tests workers/tests
 
       - name: Build thermal worker image
         run: docker build -f workers/thermal/Dockerfile -t geophoto-thermal-ci .
