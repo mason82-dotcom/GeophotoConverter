@@ -83,9 +83,13 @@ Jede Gruppe muss enthalten:
 Eigenschaften:
 
 - Originale M3M-Dateinamen/Bandnamen bleiben für ODM erhalten.
-- Alle Bänder werden gemeinsam verarbeitet.
+- `CaptureUUID` ist der bevorzugte Capture-Gruppierungsschlüssel; der DJI-Dateiname ist Fallback.
+- Nur vollständige, konfliktfreie Capture-Gruppen mit RGB + Green + Red + Red Edge + NIR werden an ODM gestaged.
+- Zusätzliche unvollständige oder blockierend widersprüchliche Gruppen werden nicht an ODM übergeben.
+- Das Input-Manifest enthält `selected_group_count`, `selected_capture_groups`, Gruppenstatus, fehlende Medienarten und blockierende Konfliktcodes.
+- Alle Bänder einer ausgewählten Gruppe werden gemeinsam verarbeitet.
 - Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation,
-  wird der Datensatz für ODM-Multispektral blockiert, bis der Konflikt geklärt ist.
+  wird die betroffene vollständige Gruppe nicht an ODM übergeben.
 - `--radiometric-calibration camera` ist aktiviert.
 - `camera+sun` ist bewusst nicht Standard, da dieser Modus in ODM als experimentell behandelt wird.
 - 3D-Modell wird in den aktuellen Multispektralprofilen übersprungen.
