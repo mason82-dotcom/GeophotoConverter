@@ -57,6 +57,16 @@ class JobCreate(BaseModel):
     options: dict[str, object] = Field(default_factory=dict)
 
 
+def _canonical_workflow(engine: str, workflow: str) -> str:
+    """Translate legacy workflow identifiers to their engine-specific canonical form."""
+    if workflow == "rgb":
+        if engine in {"odm", "micmac"}:
+            return "mapping"
+        if engine == "gsplat":
+            return "reconstruction"
+    return workflow
+
+
 def _dataset_or_404(dataset_id: str) -> dict:
     dataset = store.get_dataset(dataset_id)
     if not dataset:
@@ -438,6 +448,17 @@ def create_job(body: JobCreate) -> dict:
     workflow = body.workflow.lower().strip()
     if workflow not in WORKFLOW_NAMES:
         raise HTTPException(status_code=422, detail=f"Unbekannter Workflow: {workflow}")
+    workflow = _canonical_workflow(engine, workflow)
+    if workflow == "mapping" and engine not in {"odm", "micmac"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Der Mapping-Workflow ist derzeit nur mit ODM oder MicMac verfügbar.",
+        )
+    if workflow == "reconstruction" and engine != "gsplat":
+        raise HTTPException(
+            status_code=422,
+            detail="Der Reconstruction-Workflow ist nur mit gsplat verfügbar.",
+        )
     if workflow == "multispectral" and engine != "odm":
         raise HTTPException(
             status_code=422,
