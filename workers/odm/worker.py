@@ -127,7 +127,7 @@ def handle(payload: dict) -> None:
         status="running",
         progress=1,
         phase="staging",
-        message=f"Preparing ODM {workflow} project.",
+        message=f"ODM-Projekt wird vorbereitet: {workflow}.",
     )
     if workflow == "multispectral":
         manifest = prepare_multispectral_images(
@@ -140,7 +140,7 @@ def handle(payload: dict) -> None:
                 "ODM multispectral requires at least two complete M3M capture "
                 "groups (10 prepared images)."
             )
-        input_label = "M3M multispectral"
+        input_label = "M3M-Multispektral"
     else:
         manifest = prepare_photogrammetry_images(
             dataset_id,
@@ -149,7 +149,7 @@ def handle(payload: dict) -> None:
         image_count = manifest["prepared_count"]
         if image_count < 2:
             raise ValueError(
-                "ODM requires at least two RGB/WIDE images after normalization."
+                "ODM benötigt nach der Normalisierung mindestens zwei RGB/WIDE-Bilder."
             )
         input_label = "RGB/WIDE"
 
@@ -158,8 +158,8 @@ def handle(payload: dict) -> None:
         progress=5,
         phase="processing",
         message=(
-            f"ODM processing {image_count} {input_label} images using "
-            f"profile '{profile}' ({manifest['skipped_count']} images skipped)."
+            f"ODM verarbeitet {image_count} {input_label} Bilder mit "
+            f"profile '{profile}' ({manifest['skipped_count']} Bilder übersprungen)."
         ),
     )
 
@@ -173,7 +173,7 @@ def handle(payload: dict) -> None:
     if code == 130:
         return
     if code != 0:
-        raise RuntimeError(f"ODM exited with code {code}. See {log_path}")
+        raise RuntimeError(f"ODM wurde mit Code {code} beendet. Siehe {log_path}")
 
     artifacts = _collect_artifacts(project_dir, job_id, workflow)
     update_job(
@@ -181,7 +181,7 @@ def handle(payload: dict) -> None:
         status="completed",
         progress=100,
         phase="completed",
-        message=f"ODM completed with {len(artifacts)} detected artifacts.",
+        message=f"ODM abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 

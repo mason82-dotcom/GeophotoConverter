@@ -68,7 +68,7 @@ export function DroneDBPage() {
             <h2>DroneDB</h2>
             <p>Verarbeitete Datensätze und ausgewählte Ergebnisartefakte können mit dem optionalen DroneDB-Dienst verwendet werden.</p>
           </div>
-          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Refresh</button>
+          <button className="button" type="button" onClick={() => void load()}><RefreshCw size={16} /> Aktualisieren</button>
         </div>
 
         <div className="service-overview-card">

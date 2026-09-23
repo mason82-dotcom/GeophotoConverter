@@ -6,6 +6,7 @@ import signal
 import sqlite3
 import subprocess
 import threading
+import traceback
 import time
 from pathlib import Path
 from typing import Callable
@@ -121,7 +122,7 @@ def run_process(
                     job_id,
                     status="cancelled",
                     phase="cancelled",
-                    message="Verarbeitung durch Benutzer abgebrochen.",
+                    message="Verarbeitung wurde vom Benutzer abgebrochen.",
                 )
                 return 130
 
@@ -165,10 +166,15 @@ def consume(engine: str, handler: Callable[[dict], None]) -> None:
             continue
         try:
             handler(payload)
-        except Exception as exc:
+        except Exception:
+            log_path = DATA_ROOT / "jobs" / str(job_id) / "worker.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8", errors="replace") as log:
+                log.write("\n--- Worker-Fehler ---\n")
+                traceback.print_exc(file=log)
             update_job(
                 job_id,
                 status="failed",
                 phase="failed",
-                message=f"{type(exc).__name__}: {exc}",
+                message="Verarbeitung fehlgeschlagen. Details siehe Job-Log.",
             )

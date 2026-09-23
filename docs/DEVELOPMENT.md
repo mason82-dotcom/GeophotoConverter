@@ -49,7 +49,7 @@ In einem zweiten Terminal das Frontend installieren und starten:
 
 ```powershell
 Set-Location frontend
-npm install
+npm ci
 $env:GEOPHOTO_DEV_API_TARGET = "http://127.0.0.1:8088"
 npm run dev
 ```
@@ -66,7 +66,7 @@ Empfohlene Erweiterungen:
 - Docker/Compose
 - GitHub Actions
 
-Nach `npm install` verwendet das Frontend die TypeScript-Installation aus `frontend/node_modules`.
+Nach `npm ci` verwendet das Frontend die TypeScript-Installation aus `frontend/node_modules`.
 
 ## Prüfung
 
@@ -75,6 +75,8 @@ Die VS-Code-Aufgabe `Prüfen: Gesamtsystem` ausführen oder die entsprechenden B
 ```powershell
 python -m compileall backend/app workers
 Set-Location frontend
+npm ci
+npm run typecheck
 npm run build
 Set-Location ..
 docker compose config --quiet
@@ -89,6 +91,7 @@ Optionale Compose-Profile:
 - `odm` – OpenDroneMap-Worker
 - `micmac` – MicMac-Worker
 - `gsplat` – GPU-Worker für Gaussian Splatting
+- `thermal` – DJI-M3T/M4T-Thermal-Worker; benötigt lokal bereitgestelltes DJI Thermal SDK
 - `dronedb` – DroneDB Registry
 - `ai` – Open WebUI
 
@@ -113,3 +116,39 @@ ipconfig
 ```
 
 Falls die Windows Defender Firewall den Zugriff blockiert, eingehendes TCP nur für tatsächlich benötigte Ports und ausschließlich für das **private** Netzwerkprofil freigeben. Keine Router-/NAT-Portweiterleitungen einrichten, solange keine separate Authentifizierungs- und TLS-Lösung ergänzt wurde.
+
+
+## Offline-Karten für die Entwicklung
+
+Baden-Württemberg installieren:
+
+```powershell
+python scripts/maps/download_map_pack.py baden-wuerttemberg
+```
+
+Alle vorkonfigurierten süddeutschen Regionen installieren:
+
+```powershell
+python scripts/maps/download_map_pack.py south-germany
+```
+
+Die Dateien liegen unter `data/maps/`. Große MBTiles-Dateien sind absichtlich von Git ausgeschlossen.
+
+## Thermal-Entwicklung
+
+Das DJI Thermal SDK wird nicht im Repository gespeichert.
+
+Für den Thermal-Worker in `.env` den lokalen SDK-Pfad setzen, zum Beispiel:
+
+```text
+DJI_TSDK_HOST_PATH=./dji-tsdk
+DJI_TSDK_VERSION=<lokale SDK-Version>
+```
+
+Dann:
+
+```powershell
+docker compose --profile thermal up -d --build thermal-worker
+```
+
+Thermal-Ergebnisse bleiben im Sensor-Pixelraum. Die aktuellen Capture-GPS-Punkte stellen keine Georeferenzierung einzelner Temperaturpixel dar.

@@ -63,11 +63,12 @@ Verarbeitungs- und Zusatzdienste werden über Compose-Profile aktiviert:
 docker compose --profile odm up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
+docker compose --profile thermal up -d
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
 
-ODM, MicMac und gsplat beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. DroneDB und Open WebUI bleiben optional.
+ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
 
 ## VS Code
 
@@ -88,3 +89,33 @@ Nützliche Aufgaben stehen unter **Terminal > Aufgabe ausführen** bereit:
 Für Python-Debugging einen Python-Interpreter mit den Abhängigkeiten aus `backend/requirements.txt` auswählen und **Ausführen und Debuggen > Backend: FastAPI (Debug)** verwenden.
 
 Der empfohlene lokale Entwicklungsablauf ist in `docs/DEVELOPMENT.md` beschrieben.
+
+
+## Offline-Karten
+
+Für eine vollständig lokale Basiskarte kann zunächst Baden-Württemberg installiert werden:
+
+```powershell
+python scripts/maps/download_map_pack.py baden-wuerttemberg
+```
+
+Das komplette vorkonfigurierte Süddeutschland-Set:
+
+```powershell
+python scripts/maps/download_map_pack.py south-germany
+```
+
+Die MBTiles-Dateien werden unter `data/maps/` gespeichert und nicht in Git eingecheckt. Details stehen in `docs/OFFLINE_MAPS.md`.
+
+## Reproduzierbarer Frontend-Build
+
+Die direkten Frontend-Abhängigkeiten sind fest versioniert und `frontend/package-lock.json` ist Teil des Repositories.
+
+Lokale Installation:
+
+```powershell
+Set-Location frontend
+npm ci
+```
+
+CI und Frontend-Docker-Build verwenden ebenfalls `npm ci`.

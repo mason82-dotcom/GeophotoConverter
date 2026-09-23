@@ -170,7 +170,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
         <div className="compact-empty"><Clock3 size={22} /> Noch keine Verarbeitungsaufträge.</div>
       ) : (
         <div className="job-monitor-grid">
-          <div className="job-list" role="list" aria-label="Processing jobs">
+          <div className="job-list" role="list" aria-label="Verarbeitungsaufträge">
             {jobs.map((job) => (
               <button
                 key={job.id}
@@ -192,7 +192,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
             <div className="job-detail">
               <div className="job-detail-heading">
                 <div>
-                  <p className="eyebrow">Job {selectedJob.id.slice(0, 8)}</p>
+                  <p className="eyebrow">Auftrag {selectedJob.id.slice(0, 8)}</p>
                   <h3>{selectedJob.engine.toUpperCase()} / {workflowText(selectedJob.workflow ?? 'rgb')} / {profileText(selectedJob.profile)}</h3>
                 </div>
                 <span className={`status-chip ${statusClass(selectedJob.status)}`}>{statusText(selectedJob.status)}</span>
@@ -246,7 +246,7 @@ export function JobMonitor({ focusJobId }: JobMonitorProps) {
 
                 <section className="job-subpanel">
                   <div className="job-subpanel-title">
-                    <span><FileOutput size={16} /> Artifacts</span>
+                    <span><FileOutput size={16} /> Artefakte</span>
                     <span>{selectedJob.artifacts?.length ?? 0}</span>
                   </div>
                   <div className="artifact-list">

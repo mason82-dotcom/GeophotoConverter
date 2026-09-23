@@ -177,14 +177,14 @@ def _build_handoff(dataset_id: str, job_id: str, job_root: Path) -> tuple[Path, 
         if "WIDE" in items and "THERMAL" in items
     ]
     if not complete:
-        raise ValueError("No complete WIDE+THERMAL capture groups found.")
+        raise ValueError("Keine vollständigen WIDE+THERMAL-Aufnahmegruppen gefunden.")
     if len(platforms) != 1:
         raise ValueError(
-            "Thermal job requires exactly one confirmed platform (M3T or M4T)."
+            "Thermal-Verarbeitung erfordert genau eine bestätigte Plattform (M3T oder M4T)."
         )
     platform = next(iter(platforms))
     if platform not in {"M3T", "M4T"}:
-        raise ValueError(f"Unsupported thermal platform: {platform}")
+        raise ValueError(f"Nicht unterstützte Thermal-Plattform: {platform}")
 
     handoff = {
         "schema_version": 4,
@@ -267,7 +267,7 @@ def handle(payload: dict) -> None:
             job_id,
             status="cancelled",
             phase="cancelled",
-            message="Thermal job cancelled before decode.",
+            message="Thermal-Auftrag wurde vor der Dekodierung abgebrochen.",
         )
         return
 
@@ -276,7 +276,7 @@ def handle(payload: dict) -> None:
         status="running",
         progress=2,
         phase="thermal_handoff",
-        message="Preparing WIDE/THERMAL capture pairs.",
+        message="WIDE/THERMAL-Aufnahmepaare werden vorbereitet.",
     )
     handoff_path, platform, group_count = _build_handoff(
         dataset_id,
@@ -291,8 +291,8 @@ def handle(payload: dict) -> None:
         progress=8,
         phase="thermal_decode",
         message=(
-            f"Decoding {group_count} {platform} radiometric captures with "
-            "DJI DIRP. Temperature pixels remain in sensor space."
+            f"Dekodiere {group_count} {platform} radiometrische Aufnahmen mit "
+            "DJI DIRP. Temperaturpixel verbleiben im Sensor-Pixelraum."
         ),
     )
     decoder = DjiThermalSdk(sdk_dir, sdk_label=sdk_label)
@@ -313,8 +313,9 @@ def handle(payload: dict) -> None:
             progress=100,
             phase="cancelled",
             message=(
-                "Cancellation was received during DIRP processing; current "
-                "capture batch finished and generated artifacts were retained."
+                "Während der DIRP-Verarbeitung wurde ein Abbruch angefordert; "
+                "der aktuelle Aufnahmeblock wurde beendet und erzeugte Artefakte "
+                "wurden beibehalten."
             ),
             artifacts=artifacts,
         )
@@ -326,8 +327,8 @@ def handle(payload: dict) -> None:
         progress=100,
         phase="completed",
         message=(
-            f"Thermal processing completed for {group_count} {platform} "
-            f"capture groups with {len(artifacts)} artifacts."
+            f"Thermal-Verarbeitung abgeschlossen: {group_count} {platform}-"
+            f"Aufnahmegruppen, {len(artifacts)} Artefakte."
         ),
         artifacts=artifacts,
     )
