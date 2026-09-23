@@ -52,6 +52,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     metadata_errors = 0
     mapping_geotagged = 0
     mapping_rtk_metadata = 0
+    mapping_rtk_fixed = 0
     mapping_orientation_metadata = 0
     mapping_metadata_errors = 0
 
@@ -95,6 +96,11 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         if is_mapping_input:
             if dji.get("rtk_flag") is not None:
                 mapping_rtk_metadata += 1
+                rtk_fixed = dji.get("rtk_fixed")
+                if rtk_fixed is True or (
+                    rtk_fixed is None and dji.get("rtk_flag") == 50
+                ):
+                    mapping_rtk_fixed += 1
             orientation_values = (
                 dji.get("flight_yaw"),
                 dji.get("flight_pitch"),
@@ -307,6 +313,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             ),
             "missing_gps": mapping_missing_gps,
             "rtk_metadata_images": mapping_rtk_metadata,
+            "rtk_fixed_images": mapping_rtk_fixed,
             "orientation_metadata_images": mapping_orientation_metadata,
             "metadata_errors": mapping_metadata_errors,
             "reason": mapping_reason,
