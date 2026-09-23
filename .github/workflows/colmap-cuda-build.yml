@@ -1,0 +1,47 @@
+name: COLMAP CUDA Build
+
+on:
+  pull_request:
+    paths:
+      - "workers/gsplat/**"
+      - "workers/common/**"
+      - ".github/workflows/colmap-cuda-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  colmap-cuda-builder:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build complete gsplat CUDA image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: workers/gsplat/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: geophoto-gsplat-cuda:ci
+          cache-from: type=gha,scope=colmap-cuda
+          cache-to: type=gha,mode=max,scope=colmap-cuda
+
+      - name: Verify COLMAP runtime in final image
+        run: |
+          docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci version             | tee /tmp/colmap-version.txt
+          grep -q "COLMAP 4.2.0" /tmp/colmap-version.txt
+          grep -q "with CUDA" /tmp/colmap-version.txt
+          docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci feature_extractor -h             | grep -q -- "--FeatureExtraction.use_gpu"
+          docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci exhaustive_matcher -h             | grep -q -- "--FeatureMatching.use_gpu"
+
+      - name: Verify Python runtime imports
+        run: |
+          docker run --rm --entrypoint python3 geophoto-gsplat-cuda:ci -c             "import pycolmap, torch, redis; print(pycolmap.__version__); print(torch.__version__); print(redis.__version__)"
