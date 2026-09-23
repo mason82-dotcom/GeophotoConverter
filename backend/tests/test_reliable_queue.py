@@ -187,3 +187,54 @@ def test_reconcile_requeues_job_missing_from_redis(redis_client):
     payload = json.loads(fields["payload"])
     assert payload["job_id"] == job["id"]
     assert payload["profile"] == "preview"
+
+
+
+def test_reconcile_preserves_internal_multispectral_input_selection(
+    redis_client,
+) -> None:
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.QUEUE_GROUP = "geophoto-workers-test"
+    runtime.DB_PATH = DB_PATH
+
+    dataset = store.create_dataset("M3M Queue Recovery", None)
+    selection = {
+        "selected_capture_groups": ["dji:capture-a", "dji:capture-b"],
+        "selected_relative_paths": [
+            "M3M/DJI_1_D.JPG",
+            "M3M/DJI_1_MS_G.TIF",
+        ],
+        "selected_file_count": 2,
+        "excluded": [],
+    }
+    job = store.create_job(
+        dataset["id"],
+        "odm",
+        "standard",
+        "multispectral",
+        {
+            "__input_selection": selection,
+            "orthophoto_resolution_cm": 5,
+        },
+    )
+    store.update_job(job["id"], status="running", phase="processing")
+
+    stream = runtime.stream_name("odm")
+    runtime._ensure_group(redis_client, stream)
+
+    assert runtime._reconcile_jobs(
+        redis_client,
+        "odm",
+        "recovery-worker",
+    ) == 1
+
+    _, fields = redis_client.xrange(stream, min="-", max="+")[0]
+    payload = json.loads(fields["payload"])
+
+    assert payload["workflow"] == "multispectral"
+    assert payload["options"]["__input_selection"] == selection
+    assert payload["options"]["orthophoto_resolution_cm"] == 5
+
+    public_job = store.get_job(job["id"])
+    assert "__input_selection" not in public_job["options"]
+    assert public_job["options"]["orthophoto_resolution_cm"] == 5
