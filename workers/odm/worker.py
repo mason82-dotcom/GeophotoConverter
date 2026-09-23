@@ -107,7 +107,7 @@ def handle(payload: dict) -> None:
     job_id = payload["job_id"]
     dataset_id = payload["dataset_id"]
     profile = payload.get("profile", "standard")
-    workflow = payload.get("workflow", "rgb")
+    workflow = payload.get("workflow", "mapping")
     if workflow == "multispectral":
         options = MULTISPECTRAL_PROFILES.get(profile)
     else:
