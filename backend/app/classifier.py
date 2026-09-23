@@ -201,7 +201,7 @@ def classify_media(
         media_kind = "UNKNOWN"
 
     base = generic.group("base") if generic else None
-    capture_group, capture_source = _capture_group(path, base)
+    capture_group, capture_source = _capture_group(path, base, metadata)
     return MediaClassification(
         platform=platform,
         media_kind=media_kind,
