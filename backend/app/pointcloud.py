@@ -14,6 +14,7 @@ import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from .config import (
     DATA_ROOT,
@@ -21,12 +22,18 @@ from .config import (
     PDAL_TIMEOUT_SECONDS,
     POINTCLOUD_CACHE_ROOT,
 )
+from .photogrammetry_pdal_pipeline import (
+    build_reprojection_contract,
+    reprojection_provenance,
+)
 from .photogrammetry_pointcloud import parse_pdal_stats, parse_pdal_summary
+from .queue import enqueue, ping as redis_ping
 from .storage import store
 
 router = APIRouter(prefix="/api/v1", tags=["pointcloud"])
 
 _POINTCLOUD_SUFFIXES = {".las", ".laz", ".ply"}
+_PDAL_PROCESSING_ENGINE = "pdal-processing"
 _MAX_PLY_HEADER_BYTES = 1024 * 1024
 _PLY_TYPES = {
     "char": "i1",
@@ -46,6 +53,13 @@ _PLY_TYPES = {
     "double": "f8",
     "float64": "f8",
 }
+
+
+class PointcloudReprojectRequest(BaseModel):
+    target_crs: str = Field(min_length=1, max_length=8192)
+    coordinate_scale_m: float = Field(default=0.001, ge=1e-6, le=0.1)
+
+
 _PREVIEW_DTYPE = np.dtype(
     [
         ("x", "<f4"),
@@ -107,6 +121,32 @@ def _artifact_or_404(
     return artifact, path
 
 
+
+
+def _source_crs_input(path: Path, metadata: dict[str, Any]) -> str:
+    info = metadata.get("crs")
+    if isinstance(info, dict):
+        identifier = info.get("identifier")
+        if isinstance(identifier, str) and identifier.strip():
+            return identifier.strip()
+        authority = info.get("authority")
+        code = info.get("code")
+        if authority and code:
+            return f"{authority}:{code}"
+        wkt = info.get("wkt")
+        if isinstance(wkt, str) and wkt.strip():
+            return wkt.strip()
+
+    # Existing metadata caches may predate identifier/WKT fields. Re-read only
+    # the LAS/LAZ header rather than accepting a user-supplied source CRS.
+    with laspy.open(path) as reader:
+        crs = reader.header.parse_crs()
+    if crs is None:
+        raise ValueError("Punktwolke enthält kein explizites Source-CRS.")
+    authority = crs.to_authority()
+    return f"{authority[0]}:{authority[1]}" if authority else crs.to_wkt()
+
+
 def _source_signature(path: Path) -> str:
     stat = path.stat()
     raw = f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()
@@ -162,11 +202,18 @@ def _inspect_las(path: Path) -> dict[str, Any]:
         crs = header.parse_crs()
         if crs is not None:
             authority = crs.to_authority()
+            identifier = (
+                f"{authority[0]}:{authority[1]}"
+                if authority
+                else None
+            )
             crs_info = {
                 "name": crs.name,
                 "epsg": crs.to_epsg(),
                 "authority": authority[0] if authority else None,
                 "code": authority[1] if authority else None,
+                "identifier": identifier,
+                "wkt": crs.to_wkt(),
                 "projected": bool(crs.is_projected),
                 "geographic": bool(crs.is_geographic),
             }
@@ -609,6 +656,9 @@ def list_job_pointclouds(job_id: str) -> dict[str, Any]:
                 "qa_url": (
                     f"/api/v1/jobs/{job_id}/pointclouds/{index}/qa"
                 ),
+                "reproject_url": (
+                    f"/api/v1/jobs/{job_id}/pointclouds/{index}/reproject"
+                ),
                 "download_url": f"/api/v1/jobs/{job_id}/artifacts/{index}",
             }
         )
@@ -638,8 +688,93 @@ def pointcloud_metadata(job_id: str, artifact_index: int) -> dict[str, Any]:
         "qa_url": (
             f"/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/qa"
         ),
+        "reproject_url": (
+            f"/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/reproject"
+        ),
         "download_url": f"/api/v1/jobs/{job_id}/artifacts/{artifact_index}",
     }
+
+
+@router.post(
+    "/jobs/{job_id}/pointclouds/{artifact_index}/reproject",
+    status_code=201,
+)
+def reproject_pointcloud(
+    job_id: str,
+    artifact_index: int,
+    body: PointcloudReprojectRequest,
+) -> dict[str, Any]:
+    source_job = _job_or_404(job_id)
+    artifact, path = _artifact_or_404(job_id, artifact_index)
+    if path.suffix.lower() not in {".las", ".laz"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Reprojection unterstützt in B1 ausschließlich LAS/LAZ/COPC-LAZ.",
+        )
+
+    try:
+        metadata = inspect_pointcloud(path)
+        source_crs = _source_crs_input(path, metadata)
+    except (OSError, ValueError, laspy.errors.LaspyException) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Source-CRS ist nicht belastbar verfügbar: {exc}",
+        ) from exc
+
+    if not redis_ping():
+        raise HTTPException(
+            status_code=503,
+            detail="Pointcloud-Processing-Warteschlange ist nicht verfügbar.",
+        )
+
+    processing_job_id = store.new_id()
+    source_relative = str(artifact.get("relative_path") or "")
+    output_relative = (
+        f"jobs/{processing_job_id}/derived/reprojected.laz"
+    )
+    try:
+        contract = build_reprojection_contract(
+            source_relative_path=source_relative,
+            output_relative_path=output_relative,
+            source_crs=source_crs,
+            target_crs=body.target_crs,
+            coordinate_scale_m=body.coordinate_scale_m,
+        )
+        provenance = reprojection_provenance(
+            contract,
+            source_job_id=job_id,
+            source_artifact_index=artifact_index,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    options = {
+        "operation": "horizontal_reprojection",
+        "source_job_id": job_id,
+        "source_artifact_index": artifact_index,
+        "contract": contract,
+        "provenance": provenance,
+    }
+    processing_job = store.create_job(
+        source_job["dataset_id"],
+        _PDAL_PROCESSING_ENGINE,
+        "derived",
+        "pointcloud_reprojection",
+        options,
+        job_id=processing_job_id,
+    )
+    enqueue(
+        _PDAL_PROCESSING_ENGINE,
+        {
+            "job_id": processing_job_id,
+            "dataset_id": source_job["dataset_id"],
+            "engine": _PDAL_PROCESSING_ENGINE,
+            "profile": "derived",
+            "workflow": "pointcloud_reprojection",
+            "options": options,
+        },
+    )
+    return processing_job
 
 
 
