@@ -108,6 +108,7 @@ def handle(payload: dict) -> None:
     dataset_id = payload["dataset_id"]
     profile = payload.get("profile", "standard")
     workflow = payload.get("workflow", "mapping")
+    job_options = payload.get("options") or {}
     if workflow == "multispectral":
         options = MULTISPECTRAL_PROFILES.get(profile)
     else:
@@ -130,15 +131,28 @@ def handle(payload: dict) -> None:
         message=f"ODM-Projekt wird vorbereitet: {workflow}.",
     )
     if workflow == "multispectral":
+        selection = job_options.get("__input_selection")
+        if not isinstance(selection, dict):
+            raise ValueError(
+                "ODM-Multispektraljob enthält keine persistierte QA-Auswahl. "
+                "Den Auftrag nach dem Update neu erstellen."
+            )
         manifest = prepare_multispectral_images(
             dataset_id,
             project_dir / "images",
+            selection=selection,
         )
         image_count = manifest["prepared_count"]
-        if image_count < 10:
+        selected_group_count = len(manifest["selected_capture_groups"])
+        if manifest["missing_selected_paths"]:
             raise ValueError(
-                "ODM multispectral requires at least two complete M3M capture "
-                "groups (10 prepared images)."
+                "Mindestens eine von der QA ausgewählte M3M-Datei fehlt im "
+                "Datensatz. Auftrag neu prüfen."
+            )
+        if selected_group_count < 2 or image_count < 10:
+            raise ValueError(
+                "ODM multispectral requires at least two complete QA-selected "
+                "M3M capture groups (10 prepared images)."
             )
         input_label = "M3M-Multispektral"
     else:
