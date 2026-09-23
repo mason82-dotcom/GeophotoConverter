@@ -142,6 +142,7 @@ Laufzeitbasis:
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
 - der Worker-Heartbeat meldet NVIDIA-Gerätename, Treiberversion und VRAM, sofern `nvidia-smi` im Container erfolgreich ist
 - COLMAP wird mit `CMAKE_CUDA_ARCHITECTURES=all-major` gegen CUDA 12.8.1 gebaut
+- der gsplat-COLMAP-Build ist headless und sparse-only (`GUI_ENABLED=OFF`, `MVS_ENABLED=OFF`); GUI/Dense-MVS gehören nicht zu diesem Worker
 - SIFT-Feature-Extraktion und Matching verwenden die COLMAP-4.2-Schalter `FeatureExtraction.use_gpu=1` bzw. `FeatureMatching.use_gpu=1`
 - `GEOPHOTO_CUDA_DEVICE` wird auf `FeatureExtraction.gpu_index` und `FeatureMatching.gpu_index` abgebildet; Standard ist `0`
 - der Worker prüft vor dem ersten COLMAP-Schritt Version und sichtbare NVIDIA-GPU und protokolliert den Runtime-Vertrag
