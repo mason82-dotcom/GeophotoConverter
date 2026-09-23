@@ -147,10 +147,24 @@ B1-Ausführung:
 - Pipeline, Source-/Output-SHA256 und QA werden in Provenienz archiviert
 - Fehler, Pointcount-Drift und Timeout hinterlassen kein registriertes Teil-Artefakt
 
-Stufe B2 folgt nach erfolgreichem B1-Gate:
+Stufe B2 — Ground/SMRF + HAG, Contract in Entwicklung:
 
-- Ground/SMRF
-- HAG
+- Input ausschließlich LAS/LAZ/COPC-LAZ
+- Source-CRS muss horizontal 2D, projiziert und metrisch sein
+- geografische Grad-Koordinaten müssen zuerst über B1 reprojiziert werden
+- vorhandene Classification wird deterministisch auf 0 zurückgesetzt
+- Ground-Klassifikation über `filters.smrf`
+- fest dokumentierter Default-Satz: cell 1.0 m, cut 0.0 m, returns last/only,
+  scalar 1.25, slope 0.15, threshold 0.5 m, window 18.0 m
+- Ground-Class 2, Other-Class 1; `only_ground=false`
+- HAG zunächst über `filters.hag_nn`
+- Default: ein Ground-Nachbar, keine Extrapolation
+- Raw-Z bleibt unverändert; kein `HeightAboveGround=>Z`-Ferry
+- `HeightAboveGround` wird als zusätzliche Dimension archiviert
+- Output ist ein neues LAZ-1.4-Artefakt
+- Source-CRS bleibt erhalten; keine Vertikaldatumtransformation
+- neue 1-mm-Scale und Auto-Offsets wie im B1-Writervertrag
+- SMRF-/HAG-Parameter und Source-Identität sind Teil der Provenienz
 
 Stufe B3:
 
