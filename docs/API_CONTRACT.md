@@ -54,13 +54,16 @@ Erstellt einen Verarbeitungsauftrag.
 {
   "dataset_id":"...",
   "engine":"odm",
-  "profile":"preview"
+  "profile":"preview",
+  "workflow":"mapping"
 }
 ```
 
 Erlaubte Engines: `odm`, `micmac`, `gsplat`, `telesculptor`.
 
 Erlaubte Profile: `preview`, `standard`, `high`.
+
+Kanonische Workflows: `mapping` (ODM/MicMac), `reconstruction` (gsplat), `multispectral` (ODM) und `thermal` (Thermal-Engine). Der ältere Bezeichner `rgb` bleibt während der Migration als Legacy-Eingabe zulässig und wird engine-spezifisch auf `mapping` bzw. `reconstruction` normalisiert.
 
 ### GET /jobs/{job_id}
 Liefert Status, Fortschritt, Phase und eine Artefakt-Zusammenfassung. Jedes Artefakt enthält eine relative `download_url`.
