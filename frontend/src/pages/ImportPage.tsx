@@ -213,7 +213,7 @@ export function ImportPage() {
       setScanState('done')
     } catch (error) {
       setScanState('error')
-      setGlobalError(error instanceof Error ? error.message : 'Datensatz-Scan fehlgeschlagen.')
+      setGlobalError(error instanceof Error ? error.message : 'Metadatenprüfung fehlgeschlagen.')
     }
   }
 
@@ -226,7 +226,7 @@ export function ImportPage() {
             <h2>Lokale Luftbilddaten</h2>
             <p>Ordnerrelative Pfade werden nach Möglichkeit beibehalten; anschließend werden die Dateien direkt an die GeoPhoto-API übertragen.</p>
           </div>
-          {datasetId && <span className="mono-badge">Dataset {datasetId.slice(0, 8)}</span>}
+          {datasetId && <span className="mono-badge">Datensatz {datasetId.slice(0, 8)}</span>}
         </div>
 
         <div className="form-grid">
@@ -267,7 +267,7 @@ export function ImportPage() {
           <UploadCloud size={34} strokeWidth={1.5} aria-hidden="true" />
           <div>
             <strong>Bilddateien hier ablegen</strong>
-            <p>JPG, JPEG, TIFF, TIF, DNG and R-JPEG. Die Ordnerstruktur bleibt erhalten, wenn der Browser relative Pfade bereitstellt.</p>
+            <p>JPG, JPEG, TIFF, TIF, DNG und R-JPEG. Die Ordnerstruktur bleibt erhalten, wenn der Browser relative Pfade bereitstellt.</p>
           </div>
           <div className="button-row">
             <button className="button" type="button" onClick={() => fileInputRef.current?.click()}>
@@ -313,7 +313,7 @@ export function ImportPage() {
         <div className="section-heading section-heading--compact">
           <div>
             <p className="eyebrow">Upload-Warteschlange</p>
-            <h3>{items.length ? `${items.length} files · ${formatBytes(totalBytes)}` : 'Keine Dateien ausgewählt'}</h3>
+            <h3>{items.length ? `${items.length} Dateien · ${formatBytes(totalBytes)}` : 'Keine Dateien ausgewählt'}</h3>
           </div>
           {items.length > 0 && (
             <div className="queue-summary" aria-label="Gesamter Upload-Fortschritt">
@@ -383,7 +383,7 @@ export function ImportPage() {
                         {item.status === 'uploading' ? (
                           <button className="mini-button" type="button" onClick={() => cancelItem(item.id)} title="Upload abbrechen">
                             <XCircle size={15} />
-                            <span className="visually-hidden">Cancel {item.file.name}</span>
+                            <span className="visually-hidden">Abbrechen: {item.file.name}</span>
                           </button>
                         ) : item.status !== 'uploaded' ? (
                           <button className="mini-button" type="button" onClick={() => removeItem(item.id)} title="Datei entfernen">
@@ -411,7 +411,7 @@ export function ImportPage() {
                 onClick={() => void runScan()}
               >
                 {scanState === 'scanning' ? <LoaderCircle className="spin" size={17} /> : <RefreshCw size={17} />}
-                {scanState === 'done' ? 'Scan abgeschlossen' : scanState === 'scanning' ? 'Scan läuft …' : 'Metadaten scannen'}
+                {scanState === 'done' ? 'Metadaten geprüft' : scanState === 'scanning' ? 'Metadatenprüfung läuft …' : 'Metadaten prüfen'}
               </button>
             )}
             <button className="button button--primary" type="button" disabled={!canUpload} onClick={() => void startUpload()}>

@@ -53,10 +53,6 @@ const PROFILE_ICONS = {
   high: Box,
 } satisfies Record<ProcessingProfile, typeof Gauge>
 
-function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
 function optionLabel(value: string) {
   const labels: Record<string, string> = {
     emissivity: 'Emissionsgrad',
@@ -332,9 +328,9 @@ export function ProcessingPage() {
 
         {selectedDataset && (
           <div className="processing-dataset-summary">
-            <span><strong>{selectedDataset.image_count ?? 0}</strong> images</span>
+            <span><strong>{selectedDataset.image_count ?? 0}</strong> Bilder</span>
             <span><strong>{selectedDataset.geotagged_percent ?? 0}%</strong> georeferenziert</span>
-            <span><strong>{selectedDataset.scan_status}</strong> scan</span>
+            <span><strong>{statusText(selectedDataset.scan_status)}</strong> Metadatenstatus</span>
             <span>
               <strong>{qaLoading ? 'Wird geprüft …' : engineReadiness?.ready ? 'Bereit' : 'Blockiert'}</strong>
               {selectedEngine?.title ?? engine} Bereitschaft
@@ -428,7 +424,7 @@ export function ProcessingPage() {
             <h3>Radiometrische Verarbeitung M3T / M4T</h3>
           </div>
           <div className="thermal-boundary-grid">
-            <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Local DJI Thermal SDK erforderlich' : 'Nicht erforderlich'}</span>
+            <span><strong>SDK</strong>{selectedEngine?.requires_dji_tsdk ? 'Lokales DJI Thermal SDK erforderlich' : 'Nicht erforderlich'}</span>
             <span><strong>Temperaturraum</strong>{selectedWorkflow.temperature_space ?? 'Nicht gemeldet'}</span>
             <span><strong>WIDE ↔ THERMAL</strong>{selectedWorkflow.wide_thermal_coregistered ? 'Koregistriert' : 'Nicht koregistriert'}</span>
             <span><strong>Georeferenziertes Temperaturraster</strong>{selectedWorkflow.georeferenced_temperature_raster ? 'Verfügbar' : 'Nicht verfügbar'}</span>
@@ -462,13 +458,13 @@ export function ProcessingPage() {
                   aria-invalid={Boolean(optionErrors[key])}
                 />
                 <small className={optionErrors[key] ? 'field-error' : ''}>
-                  {optionErrors[key] ?? definition.note ?? (definition.default != null ? `Backend-Standard: ${definition.default}` : 'Optionaler Override')}
+                  {optionErrors[key] ?? definition.note ?? (definition.default != null ? `Backend-Standard: ${definition.default}` : 'Optionale Vorgabe')}
                 </small>
               </label>
             ))}
           </div>
           <p className="helper-text">
-            Es werden nur vom Backend-Katalog deklarierte Optionen gesendet. Messwert-Overrides werden erneut vom Backend und DJI DIRP validiert.
+            Es werden nur vom Backend-Katalog deklarierte Optionen gesendet. Messwertvorgaben werden erneut vom Backend und DJI DIRP validiert.
           </p>
         </section>
       )}
@@ -509,7 +505,7 @@ export function ProcessingPage() {
       <section className="panel job-submit-panel">
         <div>
           <p className="eyebrow">Auftragsanforderung</p>
-          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manuell'} · {titleCase(profile)}</h3>
+          <h3>{selectedEngine?.title ?? engine} · {selectedWorkflow?.title ?? 'Manuell'} · {profileText(profile)}</h3>
           {!selectedEngine?.automated ? (
             <p className="warning-copy">
               <TriangleAlert size={16} />
