@@ -140,7 +140,7 @@ Relevante normalisierte Felder pro Datei:
 - `dji.flight_speed_x`, `dji.flight_speed_y`, `dji.flight_speed_z`
 - `dji.gimbal_yaw`, `dji.gimbal_pitch`, `dji.gimbal_roll`
 - `dji.rtk_flag`
-- `dji.rtk_status`: `none`, `single`, `float`, `fixed`, `gnss_plus` oder `unknown`
+- `dji.rtk_status`: `failed`, `single`, `float`, `fixed` oder `unknown`
 - `dji.rtk_fixed`
 - `dji.rtk_std_lon`, `dji.rtk_std_lat`, `dji.rtk_std_hgt`
 - `dji.rtk_diff_age`
@@ -155,11 +155,11 @@ Relevante normalisierte Felder pro Datei:
 - `dji.drone_serial_number`
 
 RTK-Interpretation:
-- `0` → `none`
+- `0` → `failed`
 - `16` → `single`
-- `34` → `float`
+- `32–49` → `float`
 - `50` → `fixed`
-- `52` → `gnss_plus`
+- andere Werte → `unknown`
 
 NTRIP-Host, Port und Mountpoint werden nicht in das normalisierte
 GeoPhotoConverter-Metadatenobjekt übernommen.
