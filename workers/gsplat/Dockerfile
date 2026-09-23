@@ -109,7 +109,7 @@ RUN apt-get update \
 
 COPY --from=colmap-builder /opt/colmap/ /usr/local/
 
-RUN colmap -h 2>&1 | grep -q "COLMAP ${COLMAP_VERSION}"
+RUN colmap version 2>&1 | grep -q "COLMAP ${COLMAP_VERSION}"
 
 RUN python3 -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
