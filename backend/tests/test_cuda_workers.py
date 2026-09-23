@@ -134,8 +134,10 @@ def test_gsplat_colmap_commands_use_cuda(monkeypatch):
         "exhaustive_matcher",
     )
 
+    assert feature[feature.index("--FeatureExtraction.type") + 1] == "SIFT"
     assert feature[feature.index("--FeatureExtraction.use_gpu") + 1] == "1"
     assert feature[feature.index("--FeatureExtraction.gpu_index") + 1] == "0"
+    assert feature[feature.index("--FeatureExtraction.max_image_size") + 1] == "2400"
     assert matching[matching.index("--FeatureMatching.use_gpu") + 1] == "1"
     assert matching[matching.index("--FeatureMatching.gpu_index") + 1] == "0"
 
