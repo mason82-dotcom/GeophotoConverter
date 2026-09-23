@@ -97,6 +97,39 @@ Mögliche Artefakte:
 - LAZ-Punktwolke
 - OBJ-Mesh
 - PDF-Bericht
+- Input-Manifest
+- optionaler kanonischer `geo.txt`-Override
+- `geophoto-odm-evidence.json`
+
+#### PGM-4: kanonische ODM-Georeferenzierung
+
+Für den Workflow `mapping` erzeugt der Worker einen ODM-`geo.txt`-Override,
+wenn **alle tatsächlich gestagten RGB/WIDE-Bilder** eine gültige kanonische
+PGM-1-Position besitzen.
+
+- Projektion des Overrides: `EPSG:4326`.
+- Reihenfolge: vorbereiteter Bildname, Longitude, Latitude.
+- Ellipsoid-Z wird nur geschrieben, wenn sie für alle gestagten Bilder kanonisch
+  verfügbar ist.
+- DJI-`RelativeHeight` und generisches `gps.altitude` werden niemals als
+  absolute Z-Höhe eingesetzt.
+- FH2-Media kann Position und Ellipsoidhöhe über die PGM-1-Prioritätsregeln
+  liefern.
+- Ist die kanonische Positionsabdeckung unvollständig, wird kein partieller
+  `geo.txt` erzeugt; ODM fällt auf die eingebetteten Bildmetadaten zurück.
+- Der Override wird explizit mit `--geo` an ODM übergeben.
+
+Das Input-Manifest dokumentiert Modus, Positionsquellen, RTK-/RTK-Fix-Abdeckung,
+Ellipsoidhöhen-Abdeckung und PGM-1-Fusionskonflikte.
+
+Nach dem ODM-Lauf erzeugt der Worker `geophoto-odm-evidence.json`:
+
+- GeoTIFFs werden, soweit verfügbar, mit `gdalinfo -json` geprüft.
+- Eine Raster-Georeferenzierung gilt im Evidence-Objekt nur dann als
+  nachgewiesen, wenn sowohl CRS als auch GeoTransform berichtet werden.
+- LAZ wird, soweit verfügbar, mit `pdal info --metadata` auf CRS-Metadaten geprüft.
+- Fehlende Prüfwerkzeuge oder Parserfehler werden als `unavailable`/`error`
+  dokumentiert und niemals als erfolgreiche Georeferenzierung interpretiert.
 
 ### Workflow `multispectral` — DJI M3M
 
