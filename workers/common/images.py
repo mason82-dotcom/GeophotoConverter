@@ -372,10 +372,23 @@ def _multispectral_plan(records: list[dict[str, Any]]) -> dict[str, Any]:
         if _M3M_REQUIRED_KINDS.issubset(kinds)
     }
     incomplete_groups = set(group_kinds) - complete_groups
+    blocking_conflict_groups = sorted({
+        item["capture_group"]
+        for item in conflicts
+        if item["capture_group"] in complete_groups
+        and any(
+            code in {
+                "band_metadata_filename_conflict",
+                "band_platform_conflict",
+            }
+            for code in item["codes"]
+        )
+    })
     return {
         "classifications": classifications,
         "complete_groups": sorted(complete_groups),
         "incomplete_groups": sorted(incomplete_groups),
+        "blocking_conflict_groups": blocking_conflict_groups,
         "conflicts": conflicts,
     }
 
@@ -390,10 +403,15 @@ def prepare_multispectral_images(
 
     records = _dataset_files(dataset_id)
     plan = _multispectral_plan(records)
-    if plan["conflicts"]:
-        conflict = plan["conflicts"][0]
+    if plan["blocking_conflict_groups"]:
+        blocking_groups = set(plan["blocking_conflict_groups"])
+        conflict = next(
+            item
+            for item in plan["conflicts"]
+            if item["capture_group"] in blocking_groups
+        )
         raise ValueError(
-            "M3M classification conflict for "
+            "M3M classification conflict in complete capture group for "
             f"{conflict['relative_path']}: {', '.join(conflict['codes'])}"
         )
 
@@ -498,6 +516,8 @@ def prepare_multispectral_images(
         "complete_capture_groups": sorted(complete_groups),
         "incomplete_capture_groups": plan["incomplete_groups"],
         "unstageable_capture_groups": sorted(unstageable_groups),
+        "classification_conflicts": plan["conflicts"],
+        "blocking_conflict_groups": plan["blocking_conflict_groups"],
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
         "prepared": prepared,
