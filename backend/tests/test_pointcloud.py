@@ -97,6 +97,7 @@ def test_pointcloud_list_excludes_gsplat_ply(client):
     assert items[0]["artifact_index"] == 0
     assert items[0]["name"] == "cloud.las"
     assert items[0]["qa_url"].endswith("/pointclouds/0/qa")
+    assert items[0]["reproject_url"].endswith("/pointclouds/0/reproject")
 
 
 def test_las_metadata_and_binary_preview(client):
@@ -125,6 +126,7 @@ def test_las_metadata_and_binary_preview(client):
     assert body["bounds"]["min"] == [100.0, 200.0, 50.0]
     assert body["bounds"]["max"] == [107.0, 214.0, 57.0]
     assert body["qa_url"].endswith("/pointclouds/0/qa")
+    assert body["reproject_url"].endswith("/pointclouds/0/reproject")
 
     preview = client.get(
         f"/api/v1/jobs/{job['id']}/pointclouds/0/preview",
@@ -358,6 +360,8 @@ def test_las_crs_and_header_metadata(client):
     assert body["las_version"] == "1.2"
     assert body["point_format"] == 3
     assert body["crs"]["epsg"] == 32632
+    assert body["crs"]["identifier"] == "EPSG:32632"
+    assert "PROJCRS" in body["crs"]["wkt"]
     assert body["crs"]["projected"] is True
     assert len(body["scales"]) == 3
     assert len(body["offsets"]) == 3
@@ -455,3 +459,161 @@ def test_pointcloud_qa_reports_sidecar_unavailable(client, monkeypatch):
 
     response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0/qa")
     assert response.status_code == 503
+
+
+def test_reproject_pointcloud_enqueues_internal_processing_job(client, monkeypatch):
+    root = DATA_ROOT / "jobs" / "pc-reproject-source"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "cloud.las"
+    _las_file(path, compressed=False, crs_epsg=32632)
+
+    source_job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+
+    queued = {}
+
+    monkeypatch.setattr(pointcloud_module, "redis_ping", lambda: True)
+
+    def fake_enqueue(engine, payload):
+        queued["engine"] = engine
+        queued["payload"] = payload
+        return "1-0"
+
+    monkeypatch.setattr(pointcloud_module, "enqueue", fake_enqueue)
+
+    response = client.post(
+        f"/api/v1/jobs/{source_job['id']}/pointclouds/0/reproject",
+        json={"target_crs": "EPSG:32633", "coordinate_scale_m": 0.001},
+    )
+
+    assert response.status_code == 201
+    job = response.json()
+    assert job["engine"] == "pdal-processing"
+    assert job["profile"] == "derived"
+    assert job["workflow"] == "pointcloud_reprojection"
+    assert job["status"] == "queued"
+    assert queued["engine"] == "pdal-processing"
+    assert queued["payload"]["job_id"] == job["id"]
+
+    options = job["options"]
+    contract = options["contract"]
+    assert contract["source"]["crs"] == "EPSG:32632"
+    assert contract["output"]["crs"] == "EPSG:32633"
+    assert contract["output"]["relative_path"] == (
+        f"jobs/{job['id']}/derived/reprojected.laz"
+    )
+    assert options["provenance"]["source_job_id"] == source_job["id"]
+    assert options["provenance"]["source_artifact_index"] == 0
+    assert options["provenance"]["source_sha256"] is None
+
+
+def test_reproject_pointcloud_requires_embedded_source_crs(client, monkeypatch):
+    root = DATA_ROOT / "jobs" / "pc-reproject-no-crs"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "cloud.las"
+    _las_file(path, compressed=False)
+
+    source_job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+    monkeypatch.setattr(pointcloud_module, "redis_ping", lambda: True)
+
+    response = client.post(
+        f"/api/v1/jobs/{source_job['id']}/pointclouds/0/reproject",
+        json={"target_crs": "EPSG:32633"},
+    )
+
+    assert response.status_code == 409
+    assert "Source-CRS" in response.json()["detail"]
+
+
+def test_reproject_pointcloud_rejects_ply_and_invalid_target_before_queue(
+    client,
+    monkeypatch,
+):
+    root = DATA_ROOT / "jobs" / "pc-reproject-invalid"
+    root.mkdir(parents=True, exist_ok=True)
+
+    ply = root / "cloud.ply"
+    _ascii_ply(ply)
+    ply_job = _job_with_artifacts([{
+        "type": "dense_point_cloud",
+        "name": ply.name,
+        "relative_path": ply.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": ply.stat().st_size,
+    }])
+
+    monkeypatch.setattr(
+        pointcloud_module,
+        "redis_ping",
+        lambda: (_ for _ in ()).throw(AssertionError("queue should not be checked")),
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{ply_job['id']}/pointclouds/0/reproject",
+        json={"target_crs": "EPSG:32633"},
+    )
+    assert response.status_code == 422
+
+    las = root / "cloud.las"
+    _las_file(las, compressed=False, crs_epsg=32632)
+    las_job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": las.name,
+        "relative_path": las.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": las.stat().st_size,
+    }])
+
+    response = client.post(
+        f"/api/v1/jobs/{las_job['id']}/pointclouds/0/reproject",
+        json={"target_crs": "EPSG:4326"},
+    )
+    assert response.status_code == 422
+    assert "projected" in response.json()["detail"]
+
+
+def test_reproject_pointcloud_reports_queue_unavailable_after_validation(
+    client,
+    monkeypatch,
+):
+    root = DATA_ROOT / "jobs" / "pc-reproject-queue"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "cloud.las"
+    _las_file(path, compressed=False, crs_epsg=32632)
+    source_job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+
+    monkeypatch.setattr(pointcloud_module, "redis_ping", lambda: False)
+    response = client.post(
+        f"/api/v1/jobs/{source_job['id']}/pointclouds/0/reproject",
+        json={"target_crs": "EPSG:32633"},
+    )
+
+    assert response.status_code == 503
+
+
+def test_internal_pdal_processing_engine_is_not_public_dataset_engine(client):
+    dataset = store.create_dataset("Internal engine guard", None)
+    response = client.post(
+        "/api/v1/jobs",
+        json={
+            "dataset_id": dataset["id"],
+            "engine": "pdal-processing",
+            "profile": "standard",
+            "workflow": "rgb",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Unbekannte Engine" in response.json()["detail"]
