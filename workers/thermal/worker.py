@@ -232,7 +232,7 @@ def _collect_artifacts(result_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(result_dir.rglob("*")):
         if not path.is_file():
             continue
-        artifacts.append({
+        Artefakten.append({
             "type": _artifact_kind(path),
             "name": path.name,
             "relative_path": path.relative_to(DATA_ROOT).as_posix(),
@@ -267,7 +267,7 @@ def handle(payload: dict) -> None:
             job_id,
             status="cancelled",
             phase="cancelled",
-            message="Thermal job cancelled before decode.",
+            message="Thermal-Auftrag wurde vor der Dekodierung abgebrochen.",
         )
         return
 
@@ -276,7 +276,7 @@ def handle(payload: dict) -> None:
         status="running",
         progress=2,
         phase="thermal_handoff",
-        message="Preparing WIDE/THERMAL capture pairs.",
+        message="WIDE/THERMAL-Aufnahmepaare werden vorbereitet.",
     )
     handoff_path, platform, group_count = _build_handoff(
         dataset_id,
@@ -291,8 +291,8 @@ def handle(payload: dict) -> None:
         progress=8,
         phase="thermal_decode",
         message=(
-            f"Decoding {group_count} {platform} radiometric captures with "
-            "DJI DIRP. Temperature pixels remain in sensor space."
+            f"Dekodiere {group_count} {platform} radiometrische Aufnahmen mit "
+            "DJI DIRP. Temperaturpixel verbleiben im Sensor-Pixelraum."
         ),
     )
     decoder = DjiThermalSdk(sdk_dir, sdk_label=sdk_label)
@@ -326,8 +326,8 @@ def handle(payload: dict) -> None:
         progress=100,
         phase="completed",
         message=(
-            f"Thermal processing completed for {group_count} {platform} "
-            f"capture groups with {len(artifacts)} artifacts."
+            f"Thermal-Verarbeitung abgeschlossen für {group_count} {platform} "
+            f"capture groups with {len(artifacts)} Artefakten."
         ),
         artifacts=artifacts,
     )

@@ -66,40 +66,40 @@ def handle(payload: dict) -> None:
     if work_dir.exists():
         shutil.rmtree(work_dir)
 
-    update_job(job_id, status="running", progress=1, phase="staging", message="Preparing MicMac project.")
+    update_job(job_id, status="running", progress=1, phase="staging", message="MicMac-Projekt wird vorbereitet.")
     manifest = prepare_photogrammetry_images(dataset_id, work_dir)
     image_count = manifest["prepared_count"]
     if image_count < 3:
-        raise ValueError("MicMac requires at least three RGB/WIDE images after normalization.")
+        raise ValueError("MicMac benötigt nach der Normalisierung mindestens drei RGB/WIDE-Bilder.")
 
     update_job(
         job_id, progress=8, phase="tie_points",
         message=(
-            f"MicMac Tapioca matching {image_count} RGB/WIDE images "
-            f"({manifest['skipped_count']} non-mapping images skipped)."
+            f"MicMac Tapioca ordnet {image_count} RGB/WIDE-Bilder zu "
+            f"({manifest['skipped_count']} Nicht-Mapping-Bilder übersprungen)."
         ),
     )
     if not _run(job_id, work_dir, log_path, ["mm3d", "Tapioca", "All", PATTERN, profile["tie_size"]]):
         return
 
-    update_job(job_id, progress=35, phase="orientation", message=f"MicMac Tapas calibration: {profile['calibration']}.")
+    update_job(job_id, progress=35, phase="orientation", message=f"MicMac-Tapas-Kalibrierung: {profile['calibration']}.")
     if not _run(job_id, work_dir, log_path, ["mm3d", "Tapas", profile["calibration"], PATTERN, "Out=GeoPhoto"]):
         return
 
-    update_job(job_id, progress=58, phase="sparse_cloud", message="Generating MicMac sparse point cloud.")
+    update_job(job_id, progress=58, phase="sparse_cloud", message="MicMac erzeugt die dünne Punktwolke.")
     if not _run(job_id, work_dir, log_path, ["mm3d", "AperiCloud", PATTERN, "GeoPhoto", "Out=Sparse.ply"]):
         return
 
     dense_mode = profile["dense_mode"]
     if dense_mode:
-        update_job(job_id, progress=68, phase="dense_cloud", message=f"Generating dense point cloud with C3DC {dense_mode}.")
+        update_job(job_id, progress=68, phase="dense_cloud", message=f"Dichte Punktwolke wird mit C3DC {dense_mode}.")
         if not _run(job_id, work_dir, log_path, ["mm3d", "C3DC", dense_mode, PATTERN, "GeoPhoto", "Out=Dense.ply"]):
             return
 
     artifacts = _collect_artifacts(work_dir, job_id)
     update_job(
         job_id, status="completed", progress=100, phase="completed",
-        message=f"MicMac completed with {len(artifacts)} detected artifacts.",
+        message=f"MicMac abgeschlossen; {len(artifacts)} Artefakte erkannt.",
         artifacts=artifacts,
     )
 
