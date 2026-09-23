@@ -119,6 +119,7 @@ Phase 2B — **in Entwicklung** (#84):
 Stufe B1 fixiert zuerst einen deterministischen Reprojection-Vertrag:
 
 - Input ausschließlich LAS/LAZ/COPC-LAZ
+- COPC-LAZ wird explizit über `readers.copc` gelesen; klassisches LAS/LAZ über `readers.las`
 - Output immer als neues LAZ-Artefakt
 - kein In-place-Overwrite
 - explizites Source- und Target-CRS
@@ -130,7 +131,9 @@ Stufe B1 fixiert zuerst einen deterministischen Reprojection-Vertrag:
 - Writer mit `forward=header,vlr`, aber **ohne** alte Scale/Offsets
 - neue Millimeter-Scale als Standard (`0.001 m`)
 - automatische neue Offsets
-- Pipeline-JSON ist Bestandteil der späteren Artefakt-Provenienz
+- Pipeline-JSON ist Bestandteil der Artefakt-Provenienz
+- Provenienz bindet Source-Job, Artifact-Index, optionalen SHA-256, Source-/Target-CRS und PDAL-2.10.2-Vertrag
+- Vertikalreferenz bleibt explizit `unchanged_unspecified`
 
 Stufe B2 folgt nach erfolgreichem B1-Gate:
 
