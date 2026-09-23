@@ -493,6 +493,34 @@ class Store:
                 ).fetchall()
         return [self.row(row) for row in rows]
 
+    def transition_artifact_job(
+        self,
+        artifact_job_id: str,
+        *,
+        expected_status: str,
+        status: str,
+        phase: str | None = None,
+        message: str | None = None,
+    ) -> bool:
+        with self._lock, self.connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE artifact_jobs
+                SET status=?, phase=?, message=?, updated_at=?
+                WHERE id=? AND status=?
+                """,
+                (
+                    status,
+                    phase,
+                    message,
+                    self.now(),
+                    artifact_job_id,
+                    expected_status,
+                ),
+            )
+        return cursor.rowcount == 1
+
+
     def update_artifact_job(
         self,
         artifact_job_id: str,
