@@ -98,7 +98,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 mapping_rtk_metadata += 1
                 rtk_fixed = dji.get("rtk_fixed")
                 if rtk_fixed is True or (
-                    rtk_fixed is None and dji.get("rtk_flag") == 50
+                    rtk_fixed is None
+                    and str(dji.get("rtk_flag")).strip() == "50"
                 ):
                     mapping_rtk_fixed += 1
             orientation_values = (
