@@ -9,6 +9,7 @@ def test_m3m_normalization_extends_current_dji_contract():
         {
             "IFD0:Make": "DJI",
             "IFD0:Model": "Mavic 3 Multispectral",
+            "XMP-drone-dji:CaptureUUID": "3377fb05-b357-448f-b87b-7023daebbaed",
             "XMP-drone-dji:ImageSource": "MS_RED_CAMERA",
             "XMP-drone-dji:BandName": "Red",
             "XMP-drone-dji:BandFreq": "650(+/-16)nm",
@@ -28,7 +29,7 @@ def test_m3m_normalization_extends_current_dji_contract():
     )
 
     dji = metadata["dji"]
-    assert "capture_uuid" not in dji
+    assert dji["capture_uuid"] == "3377fb05-b357-448f-b87b-7023daebbaed"
     assert dji["band_name"] == "Red"
     assert dji["band_frequency"] == "650(+/-16)nm"
     assert dji["central_wavelength_nm"] == 650
@@ -44,14 +45,15 @@ def test_m3m_normalization_extends_current_dji_contract():
     ]
     assert dji["radiometry"]["black_level"] == 3200
     assert dji["source_keys"]["BandName"] == "XMP-drone-dji:BandName"
-    assert "CaptureUUID" not in dji["source_keys"]
+    assert dji["source_keys"]["CaptureUUID"] == "XMP-drone-dji:CaptureUUID"
 
 
-def test_m3m_authoritative_band_overrides_filename_heuristic():
+def test_m3m_authoritative_band_and_capture_uuid_override_filename_heuristics():
     metadata = _normalize_metadata(
         {
             "IFD0:Make": "DJI",
             "IFD0:Model": "Mavic 3 Multispectral",
+            "XMP-drone-dji:CaptureUUID": "capture-a",
             "XMP-drone-dji:BandName": "Red",
         }
     )
@@ -61,20 +63,22 @@ def test_m3m_authoritative_band_overrides_filename_heuristic():
     assert classification.platform == "M3M"
     assert classification.media_kind == "MS_RED"
     assert classification.media_kind_source == "authoritative"
-    assert classification.capture_group == "M3M/DJI_0001"
-    assert classification.capture_group_source == "heuristic"
+    assert classification.capture_group == "dji:capture-a"
+    assert classification.capture_group_source == "authoritative"
     assert classification.conflicts == ("band_metadata_filename_conflict",)
 
 
-def test_filename_groups_rgb_and_multispectral_assets_together():
+def test_capture_uuid_groups_rgb_and_multispectral_assets_together():
     rgb_metadata = _normalize_metadata(
         {
             "IFD0:Model": "Mavic 3 Multispectral",
+            "XMP-drone-dji:CaptureUUID": "capture-b",
         }
     )
     nir_metadata = _normalize_metadata(
         {
             "IFD0:Model": "Mavic 3 Multispectral",
+            "XMP-drone-dji:CaptureUUID": "capture-b",
             "XMP-drone-dji:BandName": "NIR",
         }
     )
@@ -82,16 +86,17 @@ def test_filename_groups_rgb_and_multispectral_assets_together():
     rgb = classify_media("M3M/DJI_0002_D.JPG", rgb_metadata)
     nir = classify_media("M3M/DJI_0002_MS_NIR.TIF", nir_metadata)
 
-    assert rgb.capture_group == "M3M/DJI_0002"
-    assert nir.capture_group == "M3M/DJI_0002"
-    assert rgb.capture_group_source == "heuristic"
-    assert nir.capture_group_source == "heuristic"
+    assert rgb.capture_group == "dji:capture-b"
+    assert nir.capture_group == "dji:capture-b"
+    assert rgb.capture_group_source == "authoritative"
+    assert nir.capture_group_source == "authoritative"
 
 
 def test_authoritative_band_marks_platform_conflict_without_losing_band_identity():
     metadata = _normalize_metadata(
         {
             "IFD0:Model": "Mavic 3 Enterprise",
+            "XMP-drone-dji:CaptureUUID": "capture-c",
             "XMP-drone-dji:BandName": "Green",
         }
     )
@@ -107,6 +112,7 @@ def test_filename_band_remains_heuristic_when_authoritative_band_is_absent():
     metadata = _normalize_metadata(
         {
             "IFD0:Model": "Mavic 3 Multispectral",
+            "XMP-drone-dji:CaptureUUID": "capture-d",
         }
     )
 
@@ -114,5 +120,5 @@ def test_filename_band_remains_heuristic_when_authoritative_band_is_absent():
 
     assert classification.media_kind == "MS_RED_EDGE"
     assert classification.media_kind_source == "heuristic"
-    assert classification.capture_group == "M3M/DJI_0004"
-    assert classification.capture_group_source == "heuristic"
+    assert classification.capture_group == "dji:capture-d"
+    assert classification.capture_group_source == "authoritative"
