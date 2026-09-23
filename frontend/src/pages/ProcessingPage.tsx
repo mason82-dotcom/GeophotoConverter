@@ -343,6 +343,24 @@ export function ProcessingPage() {
         )}
       </section>
 
+      {workflow === 'mapping' && qa?.mapping && (
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Mapping-Readiness</p>
+              <h3>{qa.mapping.status === 'ready' ? 'Bereit' : qa.mapping.status === 'warning' ? 'Bereit mit Warnung' : 'Blockiert'}</h3>
+              <p>{qa.mapping.reason ?? 'GPS- und Mapping-Metadaten sind für die Verarbeitung ausreichend.'}</p>
+            </div>
+          </div>
+          <div className="processing-dataset-summary">
+            <span><strong>{qa.mapping.eligible_images}</strong> RGB/WIDE</span>
+            <span><strong>{qa.mapping.geotagged_percent}%</strong> Mapping-GPS</span>
+            <span><strong>{qa.mapping.rtk_metadata_images}</strong> mit RTK-Metadatum</span>
+            <span><strong>{qa.mapping.orientation_metadata_images}</strong> mit vollständiger DJI-Lage</span>
+          </div>
+        </section>
+      )}
+
       <section className="panel">
         <div className="panel-heading">
           <div>
