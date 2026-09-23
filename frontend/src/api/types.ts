@@ -132,6 +132,7 @@ export interface DatasetQa {
     geotagged_percent: number
     missing_gps: number
     rtk_metadata_images: number
+    rtk_fixed_images: number
     orientation_metadata_images: number
     metadata_errors: number
     reason: string | null
