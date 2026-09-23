@@ -135,12 +135,13 @@ def handle(payload: dict) -> None:
             project_dir / "images",
         )
         image_count = manifest["prepared_count"]
-        if image_count < 10:
+        group_count = len(manifest["complete_capture_groups"])
+        if group_count < 2:
             raise ValueError(
-                "ODM multispectral requires at least two complete M3M capture "
-                "groups (10 prepared images)."
+                "ODM multispectral requires at least two complete, stageable "
+                "M3M capture groups."
             )
-        input_label = "M3M-Multispektral"
+        input_label = f"M3M-Multispektral aus {group_count} Capture-Gruppen"
     else:
         manifest = prepare_photogrammetry_images(
             dataset_id,
