@@ -205,7 +205,23 @@ Liefert unter anderem:
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
 - zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
+- `mapping.checks` mit additiven fachlichen Prüfungen: GPS-Verteilung, Kamera-/Brennweitenkonsistenz, Nadir-Plausibilität, Aufnahmezeit, relative/absolute Höhe und Konsistenz des Absolut-/Relativhöhen-Offsets
+- `mapping.reasons` mit stabilen maschinenlesbaren Codes, Severity, Meldung und optionalem Check-Bezug
 - `multispectral.classification_conflicts` zählt erkannte Konfliktcodes; `blocking_conflict_count` und `blocking_conflict_groups` markieren blockierende Konflikte in vollständigen M3M-Gruppen. Aktuell blockieren `band_metadata_filename_conflict` und `band_platform_conflict` den `odm_multispectral`-Workflow. Konflikte in unvollständigen, ohnehin nicht verarbeitbaren Gruppen werden diagnostiziert, blockieren zwei saubere vollständige Gruppen aber nicht zusätzlich.
+
+Mapping-Check-Semantik:
+
+- `pass`: die vorhandenen Daten liegen innerhalb der aktuellen QA-Heuristik
+- `warning`: auffällige, aber nicht automatisch blockierende Mapping-Eigenschaft
+- `unknown`: für diesen Check fehlen belastbare Metadaten; es wird keine Scheingenauigkeit erzeugt
+- zu wenige RGB/WIDE-Bilder bleiben der harte Mapping-Blocker
+- GPS-Degeneration: mindestens zwei numerische Aufnahmezentren vorhanden, aber weniger als zwei unterschiedliche Positionen
+- Brennweitenwarnung: Spannweite größer als max. 0,1 mm oder 2 % des Mittelwerts
+- Nadir-Plausibilität: bekannte Gimbal-Pitches innerhalb ±15° um -90°; Warnung unter 80 % nadirnahen Aufnahmen
+- relative Höhe: Warnschwelle max. 10 m oder 25 % der mittleren relativen Höhe
+- absolute Höhe: Warnung bei mehr als 50 m Spannweite
+- Absolut-/Relativhöhen-Offset: Warnung bei mehr als 5 m Spannweite
+- diese Schwellen sind QA-Heuristiken, keine photogrammetrische Genauigkeitsgarantie; Overlap/GSD wird separat modelliert
 
 ### GET /datasets/{dataset_id}/geojson
 
