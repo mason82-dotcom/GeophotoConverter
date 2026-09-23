@@ -25,7 +25,6 @@ RUN apt-get update \
         libceres-dev \
         libcurl4-openssl-dev \
         libeigen3-dev \
-        libglew-dev \
         libgoogle-glog-dev \
         libmetis-dev \
         libopenblas-openmp-dev \
