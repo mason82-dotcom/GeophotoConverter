@@ -190,3 +190,30 @@ def test_gsplat_colmap_runtime_verifies_version_and_gpu(monkeypatch, tmp_path):
     assert "COLMAP Runtime: 4.2.0" in text
     assert "CUDA-SIFT aktiv" in text
     assert "NVIDIA RTX Test" in text
+
+
+def test_gsplat_colmap_runtime_rejects_cpu_build(monkeypatch, tmp_path):
+    worker = _load_gsplat_worker()
+
+    monkeypatch.setattr(worker, "COLMAP_CUDA", True)
+    monkeypatch.setattr(worker, "COLMAP_VERSION", "4.2.0")
+    monkeypatch.setattr(
+        worker.subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "COLMAP 4.2.0 "
+                "(Commit test on 2026-09-23 without GPU support)\n"
+            ),
+            stderr="",
+        ),
+    )
+
+    try:
+        worker._verify_colmap_runtime(tmp_path / "worker.log")
+    except RuntimeError as exc:
+        assert "nicht mit CUDA-Unterstützung gebaut" in str(exc)
+    else:
+        raise AssertionError("CPU-only COLMAP runtime was accepted")
