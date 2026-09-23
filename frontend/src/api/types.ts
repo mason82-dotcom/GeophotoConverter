@@ -389,6 +389,15 @@ export interface PointCloudBounds {
   extent: [number, number, number]
 }
 
+export interface PointCloudCrs {
+  name: string
+  epsg?: number | null
+  authority?: string | null
+  code?: string | null
+  projected: boolean
+  geographic: boolean
+}
+
 export interface PointCloudMetadata {
   job_id: string
   artifact_index: number
@@ -401,6 +410,11 @@ export interface PointCloudMetadata {
   dimensions: string[]
   bounds: PointCloudBounds
   source_size_bytes: number
+  las_version?: string
+  point_format?: number
+  scales?: [number, number, number]
+  offsets?: [number, number, number]
+  crs?: PointCloudCrs | null
   preview_url: string
   download_url: string
 }

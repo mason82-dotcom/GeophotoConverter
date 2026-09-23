@@ -24,7 +24,9 @@ Unterstützte Formate:
 LAS/LAZ:
 - Reader: `laspy`
 - LAZ-Dekompression: `lazrs`
+- CRS-Auswertung: `pyproj` über die LAS/LAZ-VLRs
 - Verarbeitung in Chunks, damit große LAZ-Dateien nicht vollständig in den RAM geladen werden müssen
+- Metadaten enthalten zusätzlich LAS-Version, Punktformat, Scale/Offset und – falls vorhanden – Koordinatenreferenzsystem/EPSG
 
 PLY:
 - eigener Header-/Vertex-Reader

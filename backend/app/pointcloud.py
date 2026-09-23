@@ -144,16 +144,38 @@ def _inspect_las(path: Path) -> dict[str, Any]:
         header = reader.header
         dimensions = _dimension_names(header.point_format.dimension_names)
         names = {name.lower() for name in dimensions}
+        minimum = np.asarray(header.mins, dtype=np.float64)
+        maximum = np.asarray(header.maxs, dtype=np.float64)
+        if not np.all(np.isfinite(minimum)) or not np.all(np.isfinite(maximum)):
+            raise ValueError(
+                "LAS/LAZ enthält ungültige oder nicht endliche Bounds."
+            )
+
+        crs_info: dict[str, Any] | None = None
+        crs = header.parse_crs()
+        if crs is not None:
+            authority = crs.to_authority()
+            crs_info = {
+                "name": crs.name,
+                "epsg": crs.to_epsg(),
+                "authority": authority[0] if authority else None,
+                "code": authority[1] if authority else None,
+                "projected": bool(crs.is_projected),
+                "geographic": bool(crs.is_geographic),
+            }
+
         return {
             "format": path.suffix.lower().lstrip("/."),
             "point_count": int(header.point_count),
             "has_rgb": {"red", "green", "blue"}.issubset(names),
             "dimensions": dimensions,
-            "bounds": _bounds(
-                np.asarray(header.mins, dtype=np.float64),
-                np.asarray(header.maxs, dtype=np.float64),
-            ),
+            "bounds": _bounds(minimum, maximum),
             "source_size_bytes": path.stat().st_size,
+            "las_version": str(header.version),
+            "point_format": int(header.point_format.id),
+            "scales": [float(value) for value in header.scales],
+            "offsets": [float(value) for value in header.offsets],
+            "crs": crs_info,
         }
 
 

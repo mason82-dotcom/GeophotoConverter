@@ -245,6 +245,30 @@ export function PointCloudPage({ initialSelection }: Props) {
               <div><span>Maximum XYZ</span><strong>{coordinate(metadata.bounds.max)}</strong></div>
               <div><span>Ausdehnung XYZ</span><strong>{coordinate(metadata.bounds.extent)}</strong></div>
               <div><span>Ursprung der Vorschau</span><strong>{coordinate(preview.origin)}</strong></div>
+              {metadata.crs && (
+                <div>
+                  <span>Koordinatenreferenzsystem</span>
+                  <strong>
+                    {metadata.crs.epsg ? `EPSG:${metadata.crs.epsg} · ` : ''}
+                    {metadata.crs.name}
+                  </strong>
+                </div>
+              )}
+              {metadata.las_version && (
+                <div>
+                  <span>LAS-Version / Punktformat</span>
+                  <strong>
+                    {metadata.las_version}
+                    {metadata.point_format !== undefined ? ` / ${metadata.point_format}` : ''}
+                  </strong>
+                </div>
+              )}
+              {metadata.scales && (
+                <div><span>LAS Scale XYZ</span><strong>{coordinate(metadata.scales)}</strong></div>
+              )}
+              {metadata.offsets && (
+                <div><span>LAS Offset XYZ</span><strong>{coordinate(metadata.offsets)}</strong></div>
+              )}
             </div>
             <div className="pointcloud-dimensions">
               {metadata.dimensions.map((dimension) => <span className="mono-badge" key={dimension}>{dimension}</span>)}

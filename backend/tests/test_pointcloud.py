@@ -5,6 +5,7 @@ from pathlib import Path
 
 import laspy
 import numpy as np
+from pyproj import CRS
 
 from app.config import DATA_ROOT
 from app.storage import store
@@ -22,8 +23,15 @@ def _job_with_artifacts(artifacts: list[dict]) -> dict:
     return store.get_job(job["id"])
 
 
-def _las_file(path: Path, *, compressed: bool) -> None:
+def _las_file(
+    path: Path,
+    *,
+    compressed: bool,
+    crs_epsg: int | None = None,
+) -> None:
     header = laspy.LasHeader(point_format=3, version="1.2")
+    if crs_epsg is not None:
+        header.add_crs(CRS.from_epsg(crs_epsg))
     las = laspy.LasData(header)
     count = 8
     las.x = np.linspace(100.0, 107.0, count)
@@ -325,3 +333,28 @@ def test_ply_header_larger_than_limit_returns_422(client):
     response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
     assert response.status_code == 422
     assert "1 MiB" in response.json()["detail"]
+
+
+
+def test_las_crs_and_header_metadata(client):
+    root = DATA_ROOT / "jobs" / "pc-crs-las"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "utm32.las"
+    _las_file(path, compressed=False, crs_epsg=32632)
+
+    job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["las_version"] == "1.2"
+    assert body["point_format"] == 3
+    assert body["crs"]["epsg"] == 32632
+    assert body["crs"]["projected"] is True
+    assert len(body["scales"]) == 3
+    assert len(body["offsets"]) == 3
