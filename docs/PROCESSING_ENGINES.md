@@ -89,8 +89,14 @@ Eigenschaften:
   fehlenden/nicht stagebaren Quelldateien als `unstageable_m3m_capture_group`
   im Input-Manifest ausgewiesen.
 - `CaptureUUID` ist der bevorzugte Gruppenschlüssel, Dateinamen sind der Fallback.
-- Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation,
-  wird der Datensatz für ODM-Multispektral blockiert, bis der Konflikt geklärt ist.
+- Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation
+  in einer vollständigen Capture-Gruppe, blockiert dieser Konflikt den
+  ODM-Multispektralworkflow.
+- Konflikte in unvollständigen, ohnehin verworfenen Gruppen bleiben diagnostisch
+  im Input-Manifest sichtbar, blockieren zwei saubere vollständige Gruppen aber
+  nicht zusätzlich.
+- Der Worker prüft mindestens zwei vollständige, physisch stagebare Capture-Gruppen
+  und verwendet nicht mehr nur die rohe Zahl vorbereiteter Dateien als Gate.
 - `--radiometric-calibration camera` ist aktiviert.
 - `camera+sun` ist bewusst nicht Standard, da dieser Modus in ODM als experimentell behandelt wird.
 - 3D-Modell wird in den aktuellen Multispektralprofilen übersprungen.
