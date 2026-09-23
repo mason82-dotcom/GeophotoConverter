@@ -165,3 +165,47 @@ def test_prepare_multispectral_images_rejects_classification_conflicts(
             "dataset-2",
             tmp_path / "prepared",
         )
+
+
+
+def test_prepare_multispectral_images_excludes_group_with_missing_source(
+    monkeypatch,
+    tmp_path: Path,
+):
+    records = [
+        *_capture("DJI_8401", "capture-a"),
+        *_capture("DJI_8402", "capture-b"),
+        *_capture("DJI_8403", "capture-c"),
+    ]
+    materialized: list[dict] = []
+    missing_path = "M3M/DJI_8403_MS_NIR.TIF"
+    for index, record in enumerate(records):
+        suffix = Path(record["relative_path"]).suffix
+        source = tmp_path / "source" / f"{index:02d}{suffix}"
+        if record["relative_path"] != missing_path:
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(f"asset-{index}".encode())
+        materialized.append({**record, "stored_path": str(source)})
+
+    monkeypatch.setattr(
+        worker_images,
+        "_dataset_files",
+        lambda dataset_id: materialized,
+    )
+
+    manifest = worker_images.prepare_multispectral_images(
+        "dataset-3",
+        tmp_path / "prepared",
+    )
+
+    assert manifest["complete_capture_groups"] == [
+        "dji:capture-a",
+        "dji:capture-b",
+    ]
+    assert manifest["unstageable_capture_groups"] == ["dji:capture-c"]
+    assert manifest["prepared_count"] == 10
+    assert any(
+        item["capture_group"] == "dji:capture-c"
+        and item["reason"] == "unstageable_m3m_capture_group"
+        for item in manifest["skipped"]
+    )
