@@ -84,6 +84,8 @@ Eigenschaften:
 
 - Originale M3M-Dateinamen/Bandnamen bleiben für ODM erhalten.
 - Alle Bänder werden gemeinsam verarbeitet.
+- Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation,
+  wird der Datensatz für ODM-Multispektral blockiert, bis der Konflikt geklärt ist.
 - `--radiometric-calibration camera` ist aktiviert.
 - `camera+sun` ist bewusst nicht Standard, da dieser Modus in ODM als experimentell behandelt wird.
 - 3D-Modell wird in den aktuellen Multispektralprofilen übersprungen.
