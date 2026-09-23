@@ -177,6 +177,10 @@ def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     if srs is None:
         issues.append({"code": "POINTCLOUD_CRS_MISSING", "severity": "warning"})
+    elif srs.get("projected") is None:
+        issues.append(
+            {"code": "POINTCLOUD_CRS_UNRESOLVED", "severity": "warning"}
+        )
     elif srs.get("projected") is False:
         issues.append(
             {"code": "POINTCLOUD_CRS_NOT_PROJECTED", "severity": "warning"}
