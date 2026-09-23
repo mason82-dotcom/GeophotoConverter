@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from app.config import DATA_ROOT
+from app.main import _canonical_workflow
 from app.storage import store
 
 
@@ -330,6 +331,8 @@ def test_processing_profile_catalog_exposes_specialized_workflows(client):
         item["key"]: item
         for item in engines["odm"]["workflows"]
     }
+    assert "mapping" in odm_workflows
+    assert odm_workflows["mapping"]["eligible_media_kinds"] == ["RGB", "WIDE"]
     assert odm_workflows["multispectral"]["platforms"] == ["M3M"]
     assert odm_workflows["multispectral"]["radiometric_calibration"] == "camera"
 
@@ -349,5 +352,12 @@ def test_processing_catalog_user_text_is_german(client):
     engines = {item["key"]: item for item in response.json()["engines"]}
     odm_workflows = {item["key"]: item for item in engines["odm"]["workflows"]}
     assert "Multispektral" in odm_workflows["multispectral"]["title"]
-    assert "Schnelle Prüfung" in odm_workflows["rgb"]["profiles"]["preview"]["purpose"]
+    assert "Schnelle Prüfung" in odm_workflows["mapping"]["profiles"]["preview"]["purpose"]
     assert "Thermografie" in engines["thermal"]["title"]
+
+
+def test_legacy_rgb_workflow_is_canonicalized_by_engine():
+    assert _canonical_workflow("odm", "rgb") == "mapping"
+    assert _canonical_workflow("micmac", "rgb") == "mapping"
+    assert _canonical_workflow("gsplat", "rgb") == "reconstruction"
+    assert _canonical_workflow("thermal", "thermal") == "thermal"
