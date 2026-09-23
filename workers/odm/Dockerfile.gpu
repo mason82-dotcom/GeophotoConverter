@@ -1,0 +1,13 @@
+FROM opendronemap/odm:3.6.2-gpu@sha256:4588fbf8b3574752dce9903345ecfb98d71b20c7834d376a84bfce2f8315ef28
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libraw-bin libimage-exiftool-perl \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir redis==6.4.0
+
+COPY workers/common /worker/common
+COPY workers/odm/worker.py /worker/worker.py
+
+WORKDIR /worker
+ENTRYPOINT ["python3", "/worker/worker.py"]
