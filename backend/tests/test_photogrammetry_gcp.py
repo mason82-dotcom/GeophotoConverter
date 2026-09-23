@@ -190,3 +190,27 @@ def test_residual_report_tracks_missing_estimates() -> None:
 
     assert report["control"]["count"] == 1
     assert "CHK-01" in report["missing_estimates"]
+
+
+
+def test_warning_gcp_project_remains_exportable() -> None:
+    project = normalize_gcp_project(
+        [
+            _point("GCP-01", "control", 500_000.0),
+            _point("GCP-02", "control", 500_020.0),
+            _point("GCP-03", "control", 500_040.0),
+        ],
+        "EPSG:32632",
+    )
+
+    assert project["status"] == "warning"
+    assert any(
+        item["code"] == "low_control_point_count"
+        for item in project["issues"]
+    )
+
+    odm = build_odm_gcp_list(project)
+    micmac = build_micmac_gcp_bundle(project)
+
+    assert "GCP-01" in odm
+    assert "GCP-01" in micmac["ground_points_text"]
