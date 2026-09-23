@@ -303,8 +303,10 @@ class Store:
         profile: str,
         workflow: str = "rgb",
         options: dict[str, Any] | None = None,
+        *,
+        job_id: str | None = None,
     ) -> dict[str, Any]:
-        job_id = self.new_id()
+        job_id = job_id or self.new_id()
         now = self.now()
         with self._lock, self.connect() as conn:
             conn.execute(
