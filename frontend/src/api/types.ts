@@ -187,7 +187,7 @@ export interface MapCatalog {
 
 export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'thermal' | 'telesculptor'
 export type ProcessingProfile = 'preview' | 'standard' | 'high'
-export type ProcessingWorkflow = 'rgb' | 'multispectral' | 'thermal'
+export type ProcessingWorkflow = 'mapping' | 'reconstruction' | 'rgb' | 'multispectral' | 'thermal'
 
 export interface ProcessingProfileDefinition {
   purpose?: string
