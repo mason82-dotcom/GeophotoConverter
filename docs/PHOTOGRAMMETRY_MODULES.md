@@ -74,16 +74,35 @@ im API-Container ist für diesen Modulblock nicht erforderlich.
 
 ## PGM-POINTCLOUD — Punktwolken-QA
 
-Issue: #53
+Issue: #53  
+Status: **in Entwicklung**
 
-Geplant:
+Upstream-Vertrag: PDAL `2.10.2`.
 
-- PDAL
-- LAS/LAZ/COPC
-- Bounds und Punktdichte
-- Reprojektion
+Erste Phase:
+
+- standardisierte `pdal info --summary`-Abfrage
+- standardisierte `pdal info --stats`-Abfrage für X/Y/Z/Classification
+- Parser für:
+  - Punktzahl
+  - Bounds
+  - SRS
+  - Dimensionen
+  - XY-Flächendichte
+  - Z-Bereich
+  - Klassifikationszählungen
+- fehlendes CRS wird zunächst als Warning ausgewiesen
+- leere oder geometrisch degenerierte Clouds blockieren die QA
+- der API-Container erhält **keine** native libPDAL-Abhängigkeit
+
+Folgephase:
+
+- eigener PDAL-Worker auf dem offiziellen Release-Image `pdal/pdal:2.10.2`
+- LAS/LAZ/COPC Read/Write
+- Reprojection
 - Ground/HAG
-- Outlier- und Qualitätsmetriken
+- Outlier-/Density-QA
+- ODM-/MicMac-/OpenMVS-Artefaktintegration
 
 ## PGM-GEOMETRY — GSD, Footprint, Overlap
 
