@@ -25,13 +25,32 @@ def test_file_sources_use_field_specific_priority_and_keep_provenance():
                 source_key="GPS:GPSLatitude",
                 source_id="file:DJI_0001.JPG",
             ),
+            candidate(
+                "capture.capture_uuid",
+                "uuid-fh2",
+                source_kind="fh2_dji_media",
+                source_key="CaptureUUID",
+                source_id="fh2:asset-1",
+            ),
+            candidate(
+                "capture.capture_uuid",
+                "uuid-file",
+                source_kind="file_dji_xmp",
+                source_key="XMP-drone-dji:CaptureUUID",
+                source_id="file:DJI_0001.JPG",
+            ),
         ]
     )
 
     assert result["position"]["latitude_deg"] == 49.1234567
+    assert result["capture"]["capture_uuid"] == "uuid-file"
     assert (
         result["source_provenance"]["position.latitude_deg"]["selected"]["source_kind"]
         == "file_exif"
+    )
+    assert (
+        result["source_provenance"]["capture.capture_uuid"]["selected"]["source_kind"]
+        == "file_dji_xmp"
     )
 
 
