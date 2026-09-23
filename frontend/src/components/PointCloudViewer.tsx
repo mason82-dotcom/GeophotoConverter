@@ -40,7 +40,7 @@ function dot(a: [number, number, number], b: [number, number, number]) {
 function lookAt(eye: [number, number, number]) {
   const forward = normalize([-eye[0], -eye[1], -eye[2]])
   let right = normalize(cross(forward, [0, 0, 1]))
-  if (Math.hypot(...right) < 0.001) right = [1, 0, 0]
+  if (Math.hypot(right[0], right[1], right[2]) < 0.001) right = [1, 0, 0]
   const up = cross(right, forward)
   const out = new Float32Array(16)
   out[0] = right[0]
@@ -89,14 +89,14 @@ function shader(gl: WebGL2RenderingContext, type: number, source: string) {
 export function PointCloudViewer({ metadata, preview }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
+  const drawRef = useRef<() => void>(() => {})
+  const cameraRef = useRef({ yaw: -0.75, pitch: 0.55, distance: 1 })
+  const controlsRef = useRef({ pointSize: 2, colorMode: 'height' as 'rgb' | 'height' })
   const extent = metadata.bounds.extent
   const radius = useMemo(
     () => Math.max(Math.hypot(extent[0], extent[1], extent[2]) / 2, 1),
     [extent],
   )
-  const [yaw, setYaw] = useState(-0.75)
-  const [pitch, setPitch] = useState(0.55)
-  const [distance, setDistance] = useState(radius * 2.4)
   const [pointSize, setPointSize] = useState(2)
   const [colorMode, setColorMode] = useState<'rgb' | 'height'>(
     preview.hasRgb ? 'rgb' : 'height',
@@ -104,13 +104,20 @@ export function PointCloudViewer({ metadata, preview }: Props) {
   const [renderError, setRenderError] = useState<string>()
 
   useEffect(() => {
-    setDistance(radius * 2.4)
-    setYaw(-0.75)
-    setPitch(0.55)
-    setColorMode(preview.hasRgb ? 'rgb' : 'height')
-  }, [metadata.name, preview.hasRgb, radius])
+    controlsRef.current = { pointSize, colorMode }
+    drawRef.current()
+  }, [colorMode, pointSize])
 
   useEffect(() => {
+    cameraRef.current = {
+      yaw: -0.75,
+      pitch: 0.55,
+      distance: radius * 2.4,
+    }
+    const nextColorMode = preview.hasRgb ? 'rgb' : 'height'
+    controlsRef.current = { pointSize, colorMode: nextColorMode }
+    setColorMode(nextColorMode)
+
     const canvas = canvasRef.current
     if (!canvas) return
     const gl = canvas.getContext('webgl2', { antialias: true })
@@ -216,27 +223,31 @@ export function PointCloudViewer({ metadata, preview }: Props) {
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-        const clampedPitch = Math.max(-1.45, Math.min(1.45, pitch))
+        const camera = cameraRef.current
         const eye: [number, number, number] = [
-          distance * Math.cos(clampedPitch) * Math.cos(yaw),
-          distance * Math.cos(clampedPitch) * Math.sin(yaw),
-          distance * Math.sin(clampedPitch),
+          camera.distance * Math.cos(camera.pitch) * Math.cos(camera.yaw),
+          camera.distance * Math.cos(camera.pitch) * Math.sin(camera.yaw),
+          camera.distance * Math.sin(camera.pitch),
         ]
         const projection = perspective(
           Math.PI / 4,
           width / height,
           Math.max(radius * 0.001, 0.01),
-          Math.max(radius * 50, distance * 4),
+          Math.max(radius * 50, camera.distance * 4),
         )
         const mvp = multiply(projection, lookAt(eye))
+        const controls = controlsRef.current
 
         gl.useProgram(program)
         gl.bindVertexArray(vao)
         gl.uniformMatrix4fv(mvpLocation, false, mvp)
-        gl.uniform1f(pointSizeLocation, pointSize * ratio)
+        gl.uniform1f(pointSizeLocation, controls.pointSize * ratio)
         gl.uniform1f(minZLocation, relativeMinZ)
         gl.uniform1f(maxZLocation, relativeMaxZ)
-        gl.uniform1i(colorModeLocation, colorMode === 'rgb' && preview.hasRgb ? 0 : 1)
+        gl.uniform1i(
+          colorModeLocation,
+          controls.colorMode === 'rgb' && preview.hasRgb ? 0 : 1,
+        )
         gl.drawArrays(gl.POINTS, 0, preview.pointCount)
         gl.bindVertexArray(null)
       }
@@ -245,12 +256,14 @@ export function PointCloudViewer({ metadata, preview }: Props) {
         cancelAnimationFrame(frame)
         frame = requestAnimationFrame(draw)
       }
+      drawRef.current = schedule
       resizeObserver = new ResizeObserver(schedule)
       resizeObserver.observe(canvas)
       schedule()
       setRenderError(undefined)
 
       return () => {
+        drawRef.current = () => {}
         resizeObserver?.disconnect()
         cancelAnimationFrame(frame)
         if (buffer) gl.deleteBuffer(buffer)
@@ -258,17 +271,21 @@ export function PointCloudViewer({ metadata, preview }: Props) {
         if (program) gl.deleteProgram(program)
       }
     } catch (error) {
+      drawRef.current = () => {}
       setRenderError(error instanceof Error ? error.message : 'Punktwolke konnte nicht gerendert werden.')
       if (buffer) gl.deleteBuffer(buffer)
       if (vao) gl.deleteVertexArray(vao)
       if (program) gl.deleteProgram(program)
     }
-  }, [colorMode, distance, metadata, pitch, pointSize, preview, radius, yaw])
+  }, [metadata, preview, radius])
 
   function resetView() {
-    setYaw(-0.75)
-    setPitch(0.55)
-    setDistance(radius * 2.4)
+    cameraRef.current = {
+      yaw: -0.75,
+      pitch: 0.55,
+      distance: radius * 2.4,
+    }
+    drawRef.current()
   }
 
   return (
@@ -314,15 +331,23 @@ export function PointCloudViewer({ metadata, preview }: Props) {
             const dx = event.clientX - last.x
             const dy = event.clientY - last.y
             dragRef.current = { x: event.clientX, y: event.clientY }
-            setYaw((value) => value - dx * 0.006)
-            setPitch((value) => Math.max(-1.45, Math.min(1.45, value + dy * 0.006)))
+            cameraRef.current.yaw -= dx * 0.006
+            cameraRef.current.pitch = Math.max(
+              -1.45,
+              Math.min(1.45, cameraRef.current.pitch + dy * 0.006),
+            )
+            drawRef.current()
           }}
           onPointerUp={() => { dragRef.current = null }}
           onPointerCancel={() => { dragRef.current = null }}
           onWheel={(event) => {
             event.preventDefault()
             const factor = Math.exp(event.deltaY * 0.001)
-            setDistance((value) => Math.max(radius * 0.08, Math.min(radius * 30, value * factor)))
+            cameraRef.current.distance = Math.max(
+              radius * 0.08,
+              Math.min(radius * 30, cameraRef.current.distance * factor),
+            )
+            drawRef.current()
           }}
         />
         {renderError && <div className="pointcloud-render-error">{renderError}</div>}
