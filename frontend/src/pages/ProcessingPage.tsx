@@ -142,7 +142,7 @@ export function ProcessingPage() {
   const [qaLoading, setQaLoading] = useState(false)
   const [engine, setEngine] = useState<ProcessingEngine>('odm')
   const [profile, setProfile] = useState<ProcessingProfile>('standard')
-  const [workflow, setWorkflow] = useState<ProcessingWorkflow>('rgb')
+  const [workflow, setWorkflow] = useState<ProcessingWorkflow>('mapping')
   const [optionValues, setOptionValues] = useState<Record<string, string>>({})
   const [createdJob, setCreatedJob] = useState<Job>()
   const [loading, setLoading] = useState(true)
@@ -278,7 +278,7 @@ export function ProcessingPage() {
   function selectEngine(next: ProcessingEngine) {
     setEngine(next)
     const definition = catalog?.engines.find((item) => item.key === next)
-    setWorkflow(definition?.workflows[0]?.key ?? 'rgb')
+    setWorkflow(definition?.workflows[0]?.key ?? 'mapping')
   }
 
   if (loading) {
