@@ -23,8 +23,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate PDAL Compose profile
+        run: docker compose --profile pdal config >/dev/null
+
       - name: Build PDAL service
-        run: docker build --build-arg TARGETARCH=amd64 -f workers/pdal/Dockerfile -t geophoto-pdal:test .
+        run: docker build -f workers/pdal/Dockerfile -t geophoto-pdal:test .
 
       - name: Create point cloud fixture
         run: |
