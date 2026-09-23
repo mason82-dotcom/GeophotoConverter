@@ -419,6 +419,7 @@ class Store:
         processor: str,
         operation: str,
         *,
+        artifact_job_id: str | None = None,
         options: dict[str, Any] | None = None,
         provenance: dict[str, Any] | None = None,
         status: str = "prepared",
@@ -430,7 +431,9 @@ class Store:
         if not operation.strip():
             raise ValueError("operation is required.")
 
-        artifact_job_id = self.new_id()
+        artifact_job_id = artifact_job_id or self.new_id()
+        if not str(artifact_job_id).strip():
+            raise ValueError("artifact_job_id must not be empty.")
         now = self.now()
         with self._lock, self.connect() as conn:
             conn.execute(
