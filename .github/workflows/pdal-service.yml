@@ -8,6 +8,7 @@ on:
       - "backend/app/photogrammetry_pdal_pipeline.py"
       - "backend/app/pointcloud.py"
       - "backend/tests/test_pdal_service.py"
+      - "backend/tests/test_pdal_processing_worker.py"
       - "backend/tests/test_photogrammetry_pointcloud.py"
       - "backend/tests/test_photogrammetry_pdal_pipeline.py"
       - "backend/tests/test_pointcloud.py"
@@ -26,8 +27,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate PDAL Compose profile
-        run: docker compose --profile pdal config >/dev/null
+      - name: Validate PDAL Compose profiles
+        run: docker compose --profile pdal --profile pdal-processing config >/dev/null
 
       - name: Build PDAL service
         run: docker build -f workers/pdal/Dockerfile -t geophoto-pdal:test .
@@ -127,6 +128,17 @@ jobs:
 
       - name: Verify PDAL version
         run: docker exec geophoto-pdal pdal --version | grep -q "2.10.2"
+
+      - name: Verify processing worker runtime
+        run: |
+          docker run --rm \
+            --entrypoint /opt/conda/envs/pdal/bin/python \
+            geophoto-pdal:test \
+            -c "import redis; assert redis.__version__ == '7.4.1'; import sys; sys.path.insert(0, '/worker'); import common.runtime"
+          docker run --rm \
+            --entrypoint timeout \
+            geophoto-pdal:test \
+            --version
 
       - name: Run real reprojection pipeline
         run: |
