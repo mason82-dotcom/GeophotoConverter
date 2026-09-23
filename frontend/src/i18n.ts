@@ -37,5 +37,5 @@ export function readinessText(value?: string | boolean | null) {
 
 export function workflowText(workflow?: string | null) {
   if (!workflow) return '—'
-  return ({ rgb: 'RGB', multispectral: 'Multispektral', thermal: 'Thermal' } as Record<string, string>)[workflow] ?? workflow
+  return ({ mapping: 'Mapping', reconstruction: '3D-Rekonstruktion', rgb: 'RGB (Legacy)', multispectral: 'Multispektral', thermal: 'Thermal' } as Record<string, string>)[workflow] ?? workflow
 }
