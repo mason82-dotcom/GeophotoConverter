@@ -282,3 +282,14 @@ def test_multispectral_plan_marks_complete_conflict_group_as_blocking():
 
     assert plan["complete_groups"] == ["dji:capture-conflict"]
     assert plan["blocking_conflict_groups"] == ["dji:capture-conflict"]
+
+
+
+def test_odm_worker_image_ships_canonical_media_classifier():
+    dockerfile = (REPO_ROOT / "workers" / "odm" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "COPY backend/app/__init__.py backend/app/classifier.py /worker/app/"
+        in dockerfile
+    )
