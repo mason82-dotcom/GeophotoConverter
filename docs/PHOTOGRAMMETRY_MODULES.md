@@ -54,13 +54,27 @@ Georeferenzierung, GCP/Checkpoints, Footprints, Overlap und räumliche QA.
 
 Issue: #52
 
-Geplant:
+Status: **in Entwicklung**
 
-- GDAL/Rasterio
-- CRS, GeoTransform, Bounds, Pixelgröße und NoData
-- Band- und Datentypprüfung
-- Orthofoto/DSM/DTM-Konsistenz
-- später COG und Overviews
+Technischer Kern: `rasterio==1.5.1`.
+
+Phase 1:
+
+- engine-neutrale GeoTIFF-Inspektion
+- Driver, Größe, Bandzahl, Datentypen und NoData
+- CRS, GeoTransform, Bounds und Pixelauflösung
+- fehlendes CRS blockiert
+- geographisches oder nicht-metrisches CRS warnt
+- Rotation/Shear wird explizit markiert
+- Produktsets prüfen gemeinsames CRS und räumliche Überdeckung
+- unterschiedliche Auflösungen allein gelten nicht als Fehler
+
+Spätere Phasen:
+
+- ODM-Artefakt-QA direkt im Worker
+- quantitative NoData-/Histogramm-Prüfung
+- optionale Reprojektion/Resampling
+- COG und Overviews
 
 ## PGM-POINTCLOUD — Punktwolken-QA
 
