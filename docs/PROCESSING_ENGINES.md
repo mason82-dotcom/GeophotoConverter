@@ -164,7 +164,7 @@ Laufzeitbasis:
 - NVIDIA Container Toolkit erforderlich
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
 - der zuverlässige Worker-Heartbeat meldet bei NVIDIA-Workern zusätzlich GPU-Gerätename, Treiberversion und VRAM, sofern `nvidia-smi` verfügbar ist
-- COLMAP wird explizit mit `CUDA_ENABLED=ON`, `HIP_ENABLED=OFF`, `CMAKE_CUDA_ARCHITECTURES=all-major` und Boost-Fallback gebaut
+- COLMAP wird explizit mit `CUDA_ENABLED=ON`, `HIP_ENABLED=OFF`, `CMAKE_CUDA_ARCHITECTURES=all-major` sowie Ubuntu-Boost 1.83 und `COLMAP_HASH_MAP_BACKEND=STD` gebaut
 - der Build ist headless/sparse-only (`GUI`, `OpenGL`, `MVS`, `ONNX`, `CGAL`, `LSD` aus)
 - SIFT-Feature-Extraktion und Matching verwenden `FeatureExtraction.use_gpu=1` bzw. `FeatureMatching.use_gpu=1`
 - `GEOPHOTO_CUDA_DEVICE` wird auf die COLMAP-GPU-Indizes abgebildet; Standard ist `0`
