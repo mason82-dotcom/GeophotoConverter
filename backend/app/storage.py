@@ -139,7 +139,18 @@ class Store:
                 """
                 SELECT d.*,
                     COUNT(f.id) AS image_count,
-                    SUM(CASE WHEN json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL THEN 1 ELSE 0 END) AS geotagged_count
+                    SUM(
+                        CASE
+                            WHEN (
+                                json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL
+                                AND json_extract(f.metadata_json, '$.gps.longitude') IS NOT NULL
+                            ) OR (
+                                json_extract(f.fh2_media_json, '$.asset.capture.latitudeDeg') IS NOT NULL
+                                AND json_extract(f.fh2_media_json, '$.asset.capture.longitudeDeg') IS NOT NULL
+                            )
+                            THEN 1 ELSE 0
+                        END
+                    ) AS geotagged_count
                 FROM datasets d
                 LEFT JOIN files f ON f.dataset_id=d.id
                 GROUP BY d.id
@@ -154,7 +165,18 @@ class Store:
                 """
                 SELECT d.*,
                     COUNT(f.id) AS image_count,
-                    SUM(CASE WHEN json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL THEN 1 ELSE 0 END) AS geotagged_count
+                    SUM(
+                        CASE
+                            WHEN (
+                                json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL
+                                AND json_extract(f.metadata_json, '$.gps.longitude') IS NOT NULL
+                            ) OR (
+                                json_extract(f.fh2_media_json, '$.asset.capture.latitudeDeg') IS NOT NULL
+                                AND json_extract(f.fh2_media_json, '$.asset.capture.longitudeDeg') IS NOT NULL
+                            )
+                            THEN 1 ELSE 0
+                        END
+                    ) AS geotagged_count
                 FROM datasets d
                 LEFT JOIN files f ON f.dataset_id=d.id
                 WHERE d.id=?
