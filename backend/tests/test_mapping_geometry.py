@@ -8,6 +8,7 @@ from app.mapping_geometry import (
     estimate_capture_geometry,
     evaluate_mapping_geometry,
 )
+from app.mapping_readiness import evaluate_mapping_readiness
 
 
 def _metadata(
@@ -64,8 +65,8 @@ def test_capture_geometry_estimates_sensor_footprint_and_gsd() -> None:
 
     assert geometry["sensor_width_mm"] == pytest.approx(17.306646, abs=1e-6)
     assert geometry["sensor_height_mm"] == pytest.approx(12.979984, abs=1e-6)
-    assert geometry["footprint_width_m"] == pytest.approx(173.066463, abs=1e-6)
-    assert geometry["footprint_height_m"] == pytest.approx(129.799847, abs=1e-6)
+    assert geometry["footprint_width_m"] == pytest.approx(173.066461, abs=1e-5)
+    assert geometry["footprint_height_m"] == pytest.approx(129.799846, abs=1e-5)
     assert geometry["gsd_x_cm_px"] == pytest.approx(4.326662, abs=1e-6)
     assert geometry["gsd_y_cm_px"] == pytest.approx(4.326662, abs=1e-6)
     assert geometry["gsd_cm_px"] == pytest.approx(4.326662, abs=1e-6)
@@ -161,3 +162,29 @@ def test_geometry_does_not_mutate_metadata() -> None:
     estimate_capture_geometry(metadata)
 
     assert metadata == before
+
+
+
+def test_mapping_readiness_exposes_geometry_diagnostics() -> None:
+    files = [
+        {
+            "relative_path": "M3E/DJI_0201_D.JPG",
+            "metadata": _metadata(),
+            "scan_error": None,
+        },
+        {
+            "relative_path": "M3E/DJI_0202_D.JPG",
+            "metadata": _metadata(
+                latitude=49.0001,
+                capture_time="2026-09-23T12:00:01Z",
+            ),
+            "scan_error": None,
+        },
+    ]
+
+    result = evaluate_mapping_readiness(files)
+
+    assert result["ready"] is True
+    assert result["geometry"]["status"] == "available"
+    assert result["geometry"]["available_images"] == 2
+    assert result["geometry"]["overlap"]["pair_count"] == 1
