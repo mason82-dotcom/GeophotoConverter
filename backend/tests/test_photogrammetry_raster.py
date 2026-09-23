@@ -106,6 +106,7 @@ def test_raster_set_same_crs_and_overlap_is_ready(tmp_path: Path):
 
     assert result["status"] == "ready"
     assert result["crs_identifiers"] == ["EPSG:32632"]
+    assert result["common_bounds"] is not None
 
 
 def test_raster_set_crs_mismatch_blocks(tmp_path: Path):
@@ -132,6 +133,31 @@ def test_raster_set_disjoint_bounds_blocks(tmp_path: Path):
     result = evaluate_raster_set([inspect_raster(a), inspect_raster(b)])
 
     assert result["status"] == "blocked"
+    assert any(
+        issue["code"] == "RASTER_SET_BOUNDS_DISJOINT"
+        for issue in result["issues"]
+    )
+
+
+def test_raster_set_requires_one_common_overlap_for_all_products(tmp_path: Path):
+    anchor = tmp_path / "anchor.tif"
+    left = tmp_path / "left.tif"
+    right = tmp_path / "right.tif"
+
+    _write_tif(anchor, x=500000.0)
+    _write_tif(left, x=499999.25)
+    _write_tif(right, x=500000.75)
+
+    result = evaluate_raster_set(
+        [
+            inspect_raster(anchor),
+            inspect_raster(left),
+            inspect_raster(right),
+        ]
+    )
+
+    assert result["status"] == "blocked"
+    assert result["common_bounds"] is None
     assert any(
         issue["code"] == "RASTER_SET_BOUNDS_DISJOINT"
         for issue in result["issues"]

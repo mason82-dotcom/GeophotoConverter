@@ -103,13 +103,18 @@ def inspect_raster(path: str | Path) -> dict[str, Any]:
         }
 
 
-def _intersects(a: list[float], b: list[float]) -> bool:
-    return not (
-        a[2] <= b[0]
-        or b[2] <= a[0]
-        or a[3] <= b[1]
-        or b[3] <= a[1]
-    )
+def _common_bounds(items: Iterable[Mapping[str, Any]]) -> list[float] | None:
+    bounds = [list(item["bounds"]) for item in items]
+    if not bounds:
+        return None
+
+    left = max(value[0] for value in bounds)
+    bottom = max(value[1] for value in bounds)
+    right = min(value[2] for value in bounds)
+    top = min(value[3] for value in bounds)
+    if left >= right or bottom >= top:
+        return None
+    return [float(left), float(bottom), float(right), float(top)]
 
 
 def evaluate_raster_set(items: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
@@ -138,18 +143,20 @@ def evaluate_raster_set(items: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             }
         )
 
+    common_bounds = None
     if len(valid) >= 2 and len(identifiers) == 1:
-        anchor = valid[0]
-        for other in valid[1:]:
-            if not _intersects(list(anchor["bounds"]), list(other["bounds"])):
-                issues.append(
-                    {
-                        "code": "RASTER_SET_BOUNDS_DISJOINT",
-                        "severity": "error",
-                        "left": anchor.get("kind") or anchor.get("path"),
-                        "right": other.get("kind") or other.get("path"),
-                    }
-                )
+        common_bounds = _common_bounds(valid)
+        if common_bounds is None:
+            issues.append(
+                {
+                    "code": "RASTER_SET_BOUNDS_DISJOINT",
+                    "severity": "error",
+                    "members": [
+                        item.get("kind") or item.get("path")
+                        for item in valid
+                    ],
+                }
+            )
 
     blocked_inputs = [item for item in records if item.get("status") == "blocked"]
     if blocked_inputs:
@@ -173,5 +180,6 @@ def evaluate_raster_set(items: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         "status": status,
         "count": len(records),
         "crs_identifiers": sorted(identifiers),
+        "common_bounds": common_bounds,
         "issues": issues,
     }
