@@ -419,6 +419,8 @@ def test_pointcloud_qa_normalizes_pdal_response(client, monkeypatch):
     def fake_post(url, *, json, timeout):
         assert url.endswith("/qa")
         assert json["relative_path"] == path.relative_to(DATA_ROOT).as_posix()
+        assert timeout.connect == 2.0
+        assert timeout.read == float(pointcloud_module.PDAL_TIMEOUT_SECONDS + 10)
         return FakeResponse()
 
     monkeypatch.setattr(pointcloud_module.httpx, "post", fake_post)
