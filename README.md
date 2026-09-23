@@ -119,3 +119,19 @@ npm ci
 ```
 
 CI und Frontend-Docker-Build verwenden ebenfalls `npm ci`.
+
+
+## Punktwolken
+
+Abgeschlossene ODM- und MicMac-Aufträge können direkt in der Anwendung als klassische 3D-Punktwolken betrachtet werden.
+
+Unterstützt:
+- LAS
+- LAZ
+- PLY-Punktwolken
+
+Die Vorschau wird serverseitig gesampelt und als kompakter WebGL2-Binärstream ausgeliefert; große Originaldateien werden nicht vollständig an den Browser übertragen. RGB-Farben werden verwendet, wenn sie vorhanden sind, ansonsten steht eine Höhenfärbung zur Verfügung.
+
+Gaussian-Splat-PLY aus gsplat bleibt davon getrennt.
+
+Details: `docs/POINTCLOUD.md`.
