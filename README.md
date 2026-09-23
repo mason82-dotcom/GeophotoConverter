@@ -61,6 +61,7 @@ Verarbeitungs- und Zusatzdienste werden über Compose-Profile aktiviert:
 
 ```powershell
 docker compose --profile odm up -d
+docker compose --profile odm-gpu up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
 docker compose --profile thermal up -d
@@ -69,6 +70,31 @@ docker compose --profile ai up -d
 ```
 
 ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
+
+### NVIDIA CUDA
+
+Für NVIDIA-GPUs gibt es zwei GPU-Pfade:
+
+- `odm-gpu`: OpenDroneMap 3.6.2 GPU-Image (CUDA 12.9.1) mit CUDA-beschleunigter SIFT-Merkmalsextraktion.
+- `gsplat`: CUDA 12.8.1 / PyTorch-CUDA für Gaussian Splatting.
+
+Voraussetzung ist ein funktionierender NVIDIA-Treiber plus NVIDIA Container Toolkit.
+
+```powershell
+docker run --rm --gpus all nvidia/cuda:12.9.1-base-ubuntu24.04 nvidia-smi
+```
+
+Für ODM genau **eines** der beiden Profile starten:
+
+```powershell
+# CPU
+docker compose --profile odm up -d --build
+
+# NVIDIA CUDA
+docker compose --profile odm-gpu up -d --build
+```
+
+CPU- und GPU-ODM konsumieren denselben zuverlässigen Redis-Stream/Consumer-Group-Pfad. Deshalb nicht gleichzeitig als regulären Betriebsmodus starten.
 
 ## VS Code
 
