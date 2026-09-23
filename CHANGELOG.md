@@ -1,43 +1,40 @@
 # Changelog
 
-Alle wesentlichen Änderungen an GeoPhotoConverter werden in dieser Datei dokumentiert.
+Alle wesentlichen Änderungen an GeoPhotoConverter werden hier dokumentiert.
 
-## 1.0.1 – 2026-09-23
+## 1.0.1 — 2026-09-23
 
-V1.0.1 ist ein Stabilitäts- und Release-Hygiene-Update ohne neue Engine- oder Workflow-Familien.
+Patch-Release zur Stabilisierung von V1.0. Keine neuen Verarbeitungs-Engines oder Hauptworkflows.
 
-### Stabilität
+### Behoben
 
-- Worker-Fehlerbehandlung vereinheitlicht: technische Tracebacks bleiben im Job-Log, während die UI eine stabile Fehlermeldung erhält.
-- Thermal-Artefaktsammlung mit einem isolierten Regressionstest abgesichert.
-- verbliebene sichtbare Misch-/Englischtexte im deutschen Kernworkflow bereinigt.
+- letzte sichtbare englische/Mischtexte im deutschen Kernworkflow korrigiert
+- Worker-Fehlerbehandlung gehärtet: technische Exceptions landen im Job-Log statt roh im UI
+- Thermal-Worker sammelt erzeugte Artefakte wieder zuverlässig
+- Regressionstest für Thermal-Artefaktsammlung ergänzt
 
 ### Reproduzierbarkeit
 
-- direkte Frontend-Abhängigkeiten auf konkrete Versionen festgelegt.
-- `frontend/package-lock.json` eingeführt.
-- CI, Frontend-Docker-Build und VS-Code-Installtask auf `npm ci` umgestellt.
-- Frontend und Backend auf Version `1.0.1` abgeglichen.
+- direkte Frontend-Abhängigkeiten exakt versioniert
+- `frontend/package-lock.json` eingeführt
+- CI auf `npm ci` umgestellt
+- Frontend-Docker-Build auf `npm ci` umgestellt
+- VS-Code-Installtask und Entwicklungsdoku an den Lockfile-Workflow angepasst
 
 ### Dokumentation
 
-- API-Vertrag an die tatsächlich ausgelieferte V1.0.1-API angepasst.
-- Preview-Vertrag als WebP mit 1024 px Standardgröße dokumentiert.
-- ODM-Multispektral, DNG-Normalisierung und M3T/M4T-Thermal/DIRP dokumentiert.
-- Thermal-Grenzen ausdrücklich festgehalten: Temperaturwerte bleiben im Sensor-Pixelraum; keine behauptete WIDE↔THERMAL-Koregistrierung und kein georeferenziertes Temperatur-Raster.
-- Offline-Karten- und Entwicklungsdokumentation vollständig deutsch und an den realen Installer/Compose-Profile angeglichen.
+- API-Vertrag an den tatsächlichen V1.0.1-Code angeglichen
+- Processing-Dokumentation für ODM, M3M, MicMac, gsplat und Thermal aktualisiert
+- implementierte DNG-Normalisierung dokumentiert
+- Thermal-Grenzen dokumentiert: Sensor-Pixelraum, keine behauptete WIDE↔THERMAL-Coregistrierung
+- Offline-Karten-Dokumentation auf Deutsch und auf den aktuellen MBTiles-Workflow gebracht
+- README und Entwicklungsdoku um Thermal- und Offline-Kartenbetrieb ergänzt
 
-### Bewusst nicht Bestandteil von 1.0.1
+### Nicht Bestandteil von 1.0.1
 
-Folgende Punkte bleiben für nachgelagerte Stabilitäts-/Härtungsarbeit:
+Bewusst auf spätere Releases verschoben:
 
-- Pinning externer Runtime-Container auf Release-Tags/Digests.
-- weitergehende LAN/Auth/TLS-Härtung.
-- FastAPI-Lifespan-Migration.
-- zuverlässige Redis-Queue mit ACK/Crash-Recovery.
-- Worker/SQLite-Entkopplung und formale Schema-Migrationen.
-- erweiterte DJI-Metadaten-Normalisierung aus dem FH2-Metadatenvertrag.
-
-## 1.0.0 – 2026-09-21
-
-Erster stabiler Hauptrelease mit lokalem Bildimport, EXIF/XMP/DJI-Metadaten, Dataset-QA, Vorschauen, Offline-Karte, Processing-Katalog, ODM, MicMac, gsplat, DJI-Thermal-Workflow, Jobmonitor, Artefakten, optionaler DroneDB-Publikation und optionalem Open WebUI.
+- Digest-/Versions-Pinning externer Container-Images
+- zusätzliche Authentifizierungs-/TLS-Härtung für Betrieb außerhalb eines vertrauenswürdigen LAN
+- FastAPI-Lifespan-Migration
+- Entkopplung der Worker von direktem SQLite-Zugriff
