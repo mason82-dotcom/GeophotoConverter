@@ -13,8 +13,8 @@ def processing_catalog() -> dict[str, Any]:
                 "automated": True,
                 "workflows": [
                     {
-                        "key": "rgb",
-                        "title": "RGB-/Weitwinkel-Mapping",
+                        "key": "mapping",
+                        "title": "Mapping (RGB/WIDE)",
                         "description": (
                             "Orthofoto, Geländemodelle, Punktwolke und Mesh "
                             "aus RGB/WIDE-Luftbildern."
@@ -93,8 +93,8 @@ def processing_catalog() -> dict[str, Any]:
                 "automated": True,
                 "workflows": [
                     {
-                        "key": "rgb",
-                        "title": "RGB-/Weitwinkel-Rekonstruktion",
+                        "key": "mapping",
+                        "title": "Mapping (RGB/WIDE) mit MicMac",
                         "eligible_media_kinds": ["RGB", "WIDE"],
                         "minimum_images": 3,
                         "outputs": ["sparse_point_cloud", "dense_point_cloud"],
@@ -119,7 +119,7 @@ def processing_catalog() -> dict[str, Any]:
                 "requires_gpu": True,
                 "workflows": [
                     {
-                        "key": "rgb",
+                        "key": "reconstruction",
                         "title": "RGB-/Weitwinkel-3D-Gaussian-Splatting",
                         "eligible_media_kinds": ["RGB", "WIDE"],
                         "minimum_images": 3,
