@@ -164,7 +164,11 @@ Laufzeitbasis:
 - NVIDIA Container Toolkit erforderlich
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
 - der zuverlässige Worker-Heartbeat meldet bei NVIDIA-Workern zusätzlich GPU-Gerätename, Treiberversion und VRAM, sofern `nvidia-smi` verfügbar ist
-- COLMAP-SIFT bleibt in CUDA-1 noch CPU-seitig; CUDA-2 (#28 / PR #31) liefert den explizit verifizierten COLMAP-CUDA-Build
+- COLMAP wird explizit mit `CUDA_ENABLED=ON`, `HIP_ENABLED=OFF` und `CMAKE_CUDA_ARCHITECTURES=all-major` gegen CUDA 12.8.1 gebaut
+- der COLMAP-Build ist headless und sparse-only (`GUI_ENABLED=OFF`, `OPENGL_ENABLED=OFF`, `MVS_ENABLED=OFF`)
+- SIFT-Feature-Extraktion und Matching verwenden `FeatureExtraction.use_gpu=1` bzw. `FeatureMatching.use_gpu=1`
+- `GEOPHOTO_CUDA_DEVICE` steuert `FeatureExtraction.gpu_index` und `FeatureMatching.gpu_index`; Standard ist `0`
+- der Worker prüft vor dem ersten COLMAP-Schritt Version und sichtbare NVIDIA-GPU und protokolliert den Runtime-Vertrag
 
 Mindestanforderung: drei geeignete RGB/WIDE-Bilder.
 
