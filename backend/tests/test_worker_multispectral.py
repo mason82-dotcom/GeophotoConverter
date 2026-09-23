@@ -148,11 +148,12 @@ def test_prepare_multispectral_images_rejects_classification_conflicts(
     tmp_path: Path,
 ):
     records = _capture("DJI_8301", "capture-a")
-    conflicting = records[1].copy()
-    metadata = json.loads(conflicting["metadata_json"])
-    metadata["dji"]["band_name"] = "Red"
-    conflicting["metadata_json"] = json.dumps(metadata)
-    records[1] = conflicting
+    conflicting = _record(
+        "M3M/DJI_8301_EXTRA_MS_NIR.TIF",
+        capture_uuid="capture-a",
+        band_name="Red",
+    )
+    records.append(conflicting)
 
     monkeypatch.setattr(
         worker_images,
@@ -269,11 +270,13 @@ def test_incomplete_group_conflict_is_diagnostic_only(
 
 def test_multispectral_plan_marks_complete_conflict_group_as_blocking():
     records = _capture("DJI_8601", "capture-conflict")
-    conflicting = records[1].copy()
-    metadata = json.loads(conflicting["metadata_json"])
-    metadata["dji"]["band_name"] = "Red"
-    conflicting["metadata_json"] = json.dumps(metadata)
-    records[1] = conflicting
+    records.append(
+        _record(
+            "M3M/DJI_8601_EXTRA_MS_NIR.TIF",
+            capture_uuid="capture-conflict",
+            band_name="Red",
+        )
+    )
 
     plan = worker_images._multispectral_plan(records)
 
