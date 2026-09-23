@@ -37,6 +37,8 @@ def _colmap_feature_command(
         str(image_dir),
         "--ImageReader.single_camera",
         "1",
+        "--FeatureExtraction.type",
+        "SIFT",
         "--FeatureExtraction.use_gpu",
         "1" if COLMAP_CUDA else "0",
         "--FeatureExtraction.max_image_size",
