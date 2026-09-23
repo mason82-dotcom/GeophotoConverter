@@ -138,6 +138,7 @@ Relevante normalisierte Felder pro Datei:
 - `dji.absolute_altitude`, `dji.relative_altitude`
 - `dji.flight_yaw`, `dji.flight_pitch`, `dji.flight_roll`
 - `dji.flight_speed_x`, `dji.flight_speed_y`, `dji.flight_speed_z`
+- `dji.capture_uuid` – DJI Capture UUID; bei M3E gespeichert, bei M3M als bevorzugter Capture-Set-Schlüssel nutzbar
 - `dji.gimbal_reverse`
 - `dji.gimbal_yaw`, `dji.gimbal_pitch`, `dji.gimbal_roll`
 - `dji.rtk_flag`
