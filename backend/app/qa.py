@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from .classifier import classify_media, reconcile_group_platforms
+from .mapping_readiness import evaluate_mapping_readiness
 
 
 _MULTISPECTRAL_BLOCKING_CONFLICTS = {
@@ -57,11 +58,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     times: list[datetime] = []
     missing_gps = 0
     metadata_errors = 0
-    mapping_geotagged = 0
-    mapping_rtk_metadata = 0
-    mapping_rtk_fixed = 0
-    mapping_orientation_metadata = 0
-    mapping_metadata_errors = 0
+    mapping_files: list[dict[str, Any]] = []
     classification_conflicts: Counter[str] = Counter()
     multispectral_conflict_files: list[str] = []
     multispectral_conflict_groups: set[str] = set()
@@ -107,8 +104,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         is_mapping_input = classification.media_kind in {"RGB", "WIDE"}
         if latitude is None or longitude is None:
             missing_gps += 1
-        elif is_mapping_input:
-            mapping_geotagged += 1
+        if is_mapping_input:
+            mapping_files.append(item)
 
         gps_altitude = gps.get("altitude")
         if isinstance(gps_altitude, (int, float)):
@@ -119,52 +116,17 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(relative_altitude, (int, float)):
             relative_altitudes.append(float(relative_altitude))
 
-        if is_mapping_input:
-            if dji.get("rtk_flag") is not None:
-                mapping_rtk_metadata += 1
-                rtk_fixed = dji.get("rtk_fixed")
-                if rtk_fixed is True or (
-                    rtk_fixed is None
-                    and str(dji.get("rtk_flag")).strip() == "50"
-                ):
-                    mapping_rtk_fixed += 1
-            orientation_values = (
-                dji.get("flight_yaw"),
-                dji.get("flight_pitch"),
-                dji.get("flight_roll"),
-                dji.get("gimbal_yaw"),
-                dji.get("gimbal_pitch"),
-                dji.get("gimbal_roll"),
-            )
-            if all(value is not None for value in orientation_values):
-                mapping_orientation_metadata += 1
-
         capture_time = _parse_time(metadata.get("capture_time"))
         if capture_time is not None:
             times.append(capture_time)
 
         if item.get("scan_error"):
             metadata_errors += 1
-            if is_mapping_input:
-                mapping_metadata_errors += 1
 
     total = len(files)
     geotagged = total - missing_gps
     mapping_inputs = media_counts.get("RGB", 0) + media_counts.get("WIDE", 0)
-    mapping_missing_gps = max(mapping_inputs - mapping_geotagged, 0)
-    mapping_ready = mapping_inputs >= 2
-    if not mapping_ready:
-        mapping_status = "blocked"
-        mapping_reason = "Mindestens zwei RGB/WIDE-Bilder sind erforderlich."
-    elif mapping_missing_gps:
-        mapping_status = "warning"
-        mapping_reason = f"{mapping_missing_gps} Mapping-Bild(er) ohne GPS-Koordinaten."
-    elif mapping_metadata_errors:
-        mapping_status = "warning"
-        mapping_reason = f"{mapping_metadata_errors} Mapping-Bild(er) mit Metadatenfehlern."
-    else:
-        mapping_status = "ready"
-        mapping_reason = None
+    mapping = evaluate_mapping_readiness(mapping_files)
     thermal_inputs = media_counts.get("THERMAL", 0)
     multispectral_inputs = sum(
         media_counts.get(kind, 0)
@@ -372,24 +334,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "thermal_groups": thermal_group_count,
             "complete_thermal_groups": complete_thermal_groups,
         },
-        "mapping": {
-            "status": mapping_status,
-            "ready": mapping_ready,
-            "minimum_images": 2,
-            "eligible_images": mapping_inputs,
-            "geotagged_images": mapping_geotagged,
-            "geotagged_percent": (
-                round(mapping_geotagged * 100 / mapping_inputs, 1)
-                if mapping_inputs
-                else 0.0
-            ),
-            "missing_gps": mapping_missing_gps,
-            "rtk_metadata_images": mapping_rtk_metadata,
-            "rtk_fixed_images": mapping_rtk_fixed,
-            "orientation_metadata_images": mapping_orientation_metadata,
-            "metadata_errors": mapping_metadata_errors,
-            "reason": mapping_reason,
-        },
+        "mapping": mapping,
         "thermal": {
             "group_count": thermal_group_count,
             "complete_groups": complete_thermal_groups,
