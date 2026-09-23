@@ -61,15 +61,22 @@ def _group_path(path: PurePosixPath, base: str) -> str:
     return base if parent == "." else f"{parent}/{base}"
 
 
+def _capture_uuid(metadata: dict[str, Any] | None) -> str | None:
+    dji = (metadata or {}).get("dji") or {}
+    value = dji.get("capture_uuid")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 def _capture_group(
     path: PurePosixPath,
     base: str | None,
     metadata: dict[str, Any] | None,
 ) -> str | None:
-    dji = (metadata or {}).get("dji") or {}
-    capture_uuid = dji.get("capture_uuid")
-    if isinstance(capture_uuid, str) and capture_uuid.strip():
-        return f"dji:{capture_uuid.strip()}"
+    capture_uuid = _capture_uuid(metadata)
+    if capture_uuid:
+        return f"dji:{capture_uuid}"
     if base:
         return _group_path(path, base)
     return None
@@ -140,9 +147,7 @@ def classify_media(
             capture_group=_capture_group(path, base, metadata),
             media_kind_source="authoritative",
             capture_group_source=(
-                "authoritative"
-                if ((metadata or {}).get("dji") or {}).get("capture_uuid")
-                else "heuristic"
+                "authoritative" if _capture_uuid(metadata) else "heuristic"
             ),
             conflicts=tuple(conflicts),
         )
@@ -173,9 +178,7 @@ def classify_media(
                 media_kind=media_kind,
                 capture_group=_capture_group(path, match.group("base"), metadata),
                 capture_group_source=(
-                    "authoritative"
-                    if ((metadata or {}).get("dji") or {}).get("capture_uuid")
-                    else "heuristic"
+                    "authoritative" if _capture_uuid(metadata) else "heuristic"
                 ),
             )
 
@@ -194,7 +197,7 @@ def classify_media(
         capture_group=_capture_group(path, generic.group("base") if generic else None, metadata),
         capture_group_source=(
             "authoritative"
-            if ((metadata or {}).get("dji") or {}).get("capture_uuid")
+            if _capture_uuid(metadata)
             else ("heuristic" if generic else "unavailable")
         ),
     )
