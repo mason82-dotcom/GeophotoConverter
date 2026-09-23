@@ -6,6 +6,7 @@ from math import asin, cos, isfinite, radians, sin, sqrt
 from statistics import median
 from typing import Any
 
+from .mapping_geometry import evaluate_mapping_geometry
 from .photogrammetry import fuse_photogrammetry_metadata
 
 
@@ -460,6 +461,8 @@ def evaluate_mapping_readiness(
         None,
     )
 
+    geometry = evaluate_mapping_geometry(files)
+
     return {
         "status": status,
         "ready": hard_ready,
@@ -530,5 +533,6 @@ def evaluate_mapping_readiness(
             ),
         },
         "issues": issues,
+        "geometry": geometry,
         "reason": primary_issue["message"] if primary_issue else None,
     }
