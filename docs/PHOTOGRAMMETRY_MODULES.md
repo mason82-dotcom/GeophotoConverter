@@ -80,14 +80,35 @@ Spätere Phasen:
 
 Issue: #53
 
-Geplant:
+Status: **in Entwicklung**
 
-- PDAL
-- LAS/LAZ/COPC
-- Bounds und Punktdichte
-- Reprojektion
+Upstream-Vertrag: PDAL `2.10.2`.
+
+Phase 1 ergänzt den bestehenden LAS/LAZ/PLY-Viewer um einen engine-neutralen
+PDAL-QA-Vertrag:
+
+- standardisierte `pdal info --summary`-Abfrage
+- standardisierte `pdal info --stats`-Abfrage für X/Y/Z/Classification
+- Punktzahl, Bounds, strukturierte SRS-Daten und Dimensionen
+- XY-Dichte mit expliziter Einheit statt impliziter Quadratmeter-Annahme
+- Z-Bereich und Klassifikationszählungen
+- fehlendes CRS = Warning
+- geographisches CRS = Warning
+- leere oder geometrisch degenerierte Clouds = blocked
+- keine native libPDAL-Abhängigkeit im FastAPI-Container
+
+Der vorhandene Viewer bleibt für LAS/LAZ/PLY zuständig. PGM-POINTCLOUD ist die
+fachliche QA-/Processing-Schicht und dupliziert Sampling oder WebGL-Darstellung
+nicht.
+
+Folgephase:
+
+- eigener PDAL-Dienst/Worker mit gepinntem 2.10.2-Runtimevertrag
+- COPC
+- Reprojection
 - Ground/HAG
-- Outlier- und Qualitätsmetriken
+- Outlier-/Density-QA
+- ODM-/MicMac-/OpenMVS-Artefaktintegration
 
 ## PGM-GEOMETRY — GSD, Footprint, Overlap
 
