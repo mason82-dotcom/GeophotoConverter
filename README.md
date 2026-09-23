@@ -64,11 +64,12 @@ docker compose --profile odm up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
 docker compose --profile thermal up -d
+docker compose --profile pdal up -d --build
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
 
-ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
+ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Das optionale Profil `pdal` startet einen internen, read-only eingebundenen PDAL-2.10.2-QA-Service für klassische Punktwolkenartefakte; es ist keine zusätzliche Dataset-Processing-Engine. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
 
 ## VS Code
 
@@ -134,4 +135,6 @@ Die Vorschau wird serverseitig gesampelt und als kompakter WebGL2-Binärstream a
 
 Gaussian-Splat-PLY aus gsplat bleibt davon getrennt.
 
-Details: `docs/POINTCLOUD.md`.
+Mit gestartetem `pdal`-Profil steht pro klassischem Punktwolkenartefakt zusätzlich die fachliche QA unter `/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/qa` bereit. Der PDAL-Sidecar erhält `/data` ausschließlich read-only; Phase 2A führt nur Analysebefehle aus und erzeugt keine neuen Artefakte.
+
+Details: `docs/POINTCLOUD.md` und `docs/PHOTOGRAMMETRY_MODULES.md`.
