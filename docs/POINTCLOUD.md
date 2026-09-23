@@ -30,6 +30,8 @@ PLY:
 - eigener Header-/Vertex-Reader
 - keine zusätzliche GPL-Paketabhängigkeit
 - Standard-Vertex-Eigenschaften `x/y/z` erforderlich
+- PLY-Header ist auf 1 MiB begrenzt
+- verkürzte Vertex-Zeilen sowie NaN/Inf-Koordinaten werden als ungültig abgelehnt
 - RGB wird über `red/green/blue` oder `r/g/b` erkannt
 
 ### Sampling
@@ -39,6 +41,8 @@ Der Browser lädt nicht die Originalpunktwolke.
 Die API bildet eine gleichmäßig verteilte Stichprobe mit 1.000–500.000 Punkten. Standard sind 100.000 Punkte.
 
 Die Vorschau wird mit der Quellsignatur aus Pfad, Dateigröße und Änderungszeit gecacht. Ändert sich das Artefakt, entsteht automatisch ein neuer Cache-Key.
+
+Cache-Schreibvorgänge verwenden eindeutige temporäre Dateien und atomisches Umbenennen, damit parallele Preview-Anfragen nicht auf denselben `.part`-Pfad schreiben.
 
 ### Binärformat
 

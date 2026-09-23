@@ -5,6 +5,7 @@ import json
 import math
 import os
 import struct
+import uuid
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -19,6 +20,7 @@ from .storage import store
 router = APIRouter(prefix="/api/v1", tags=["pointcloud"])
 
 _POINTCLOUD_SUFFIXES = {".las", ".laz", ".ply"}
+_MAX_PLY_HEADER_BYTES = 1024 * 1024
 _PLY_TYPES = {
     "char": "i1",
     "int8": "i1",
@@ -111,12 +113,15 @@ def _cache_dir(path: Path) -> Path:
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
-    temp = path.with_suffix(path.suffix + ".part")
-    temp.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    os.replace(temp, path)
+    temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.part")
+    try:
+        temp.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def _bounds(minimum: np.ndarray, maximum: np.ndarray) -> dict[str, list[float]]:
@@ -161,10 +166,16 @@ def _read_ply_header(path: Path) -> dict[str, Any]:
         fmt: str | None = None
         elements: list[dict[str, Any]] = []
         current: dict[str, Any] | None = None
+        header_bytes = len(first) + 1
         while True:
             raw = handle.readline()
             if not raw:
                 raise ValueError("PLY-Header endet unerwartet.")
+            header_bytes += len(raw)
+            if header_bytes > _MAX_PLY_HEADER_BYTES:
+                raise ValueError(
+                    "PLY-Header überschreitet das zulässige Limit von 1 MiB."
+                )
             line = raw.decode("ascii", errors="strict").strip()
             if not line or line.startswith("comment") or line.startswith("obj_info"):
                 continue
@@ -172,9 +183,12 @@ def _read_ply_header(path: Path) -> dict[str, Any]:
             if parts[0] == "format" and len(parts) >= 2:
                 fmt = parts[1]
             elif parts[0] == "element" and len(parts) == 3:
+                count = int(parts[2])
+                if count < 0:
+                    raise ValueError("PLY-Elementanzahl darf nicht negativ sein.")
                 current = {
                     "name": parts[1],
-                    "count": int(parts[2]),
+                    "count": count,
                     "properties": [],
                 }
                 elements.append(current)
@@ -300,6 +314,15 @@ def _inspect_ply(path: Path) -> dict[str, Any]:
                 if not raw:
                     raise ValueError("PLY-vertex-Daten enden unerwartet.")
                 parts = raw.decode("ascii", errors="strict").split()
+                required_index = max(
+                    indices["x"],
+                    indices["y"],
+                    indices["z"],
+                )
+                if len(parts) <= required_index:
+                    raise ValueError(
+                        "PLY-vertex-Zeile enthält zu wenige Werte."
+                    )
                 point = np.asarray(
                     [
                         float(parts[indices["x"]]),
@@ -308,6 +331,10 @@ def _inspect_ply(path: Path) -> dict[str, Any]:
                     ],
                     dtype=np.float64,
                 )
+                if not np.all(np.isfinite(point)):
+                    raise ValueError(
+                        "PLY enthält ungültige oder nicht endliche Koordinaten."
+                    )
                 minimum = np.minimum(minimum, point)
                 maximum = np.maximum(maximum, point)
 
@@ -418,13 +445,24 @@ def _sample_ascii_ply(
             if index % step != 0 or len(positions) >= max_points:
                 continue
             parts = raw.decode("ascii", errors="strict").split()
-            positions.append(
-                [
-                    float(parts[indices["x"]]),
-                    float(parts[indices["y"]]),
-                    float(parts[indices["z"]]),
-                ]
-            )
+            required_names = ["x", "y", "z"]
+            if color_names:
+                required_names.extend(color_names)
+            required_index = max(indices[name] for name in required_names)
+            if len(parts) <= required_index:
+                raise ValueError(
+                    "PLY-vertex-Zeile enthält zu wenige Werte."
+                )
+            point = [
+                float(parts[indices["x"]]),
+                float(parts[indices["y"]]),
+                float(parts[indices["z"]]),
+            ]
+            if not all(math.isfinite(value) for value in point):
+                raise ValueError(
+                    "PLY enthält ungültige oder nicht endliche Koordinaten."
+                )
+            positions.append(point)
             if color_names:
                 colors.append(
                     [
@@ -510,9 +548,12 @@ def _preview_bytes(
         preview["b"] = 255
     preview["a"] = 255
 
-    temp = target.with_suffix(".bin.part")
-    temp.write_bytes(preview.tobytes(order="C"))
-    os.replace(temp, target)
+    temp = target.with_name(f".{target.name}.{uuid.uuid4().hex}.part")
+    try:
+        temp.write_bytes(preview.tobytes(order="C"))
+        os.replace(temp, target)
+    finally:
+        temp.unlink(missing_ok=True)
     _atomic_json(info_path, {"point_count": int(len(preview))})
     return target, int(len(preview))
 

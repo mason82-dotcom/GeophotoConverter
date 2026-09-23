@@ -247,3 +247,81 @@ def test_non_pointcloud_artifact_is_rejected(client):
 
     response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
     assert response.status_code == 422
+
+
+
+def test_truncated_ascii_ply_returns_422(client):
+    root = DATA_ROOT / "jobs" / "pc-truncated-ply"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "broken.ply"
+    path.write_text(
+        "ply\n"
+        "format ascii 1.0\n"
+        "element vertex 1\n"
+        "property float x\n"
+        "property float y\n"
+        "property float z\n"
+        "end_header\n"
+        "1.0 2.0\n",
+        encoding="ascii",
+    )
+    job = _job_with_artifacts([{
+        "type": "dense_point_cloud",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
+    assert response.status_code == 422
+    assert "zu wenige Werte" in response.json()["detail"]
+
+
+def test_non_finite_ascii_ply_returns_422(client):
+    root = DATA_ROOT / "jobs" / "pc-nan-ply"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "nan.ply"
+    path.write_text(
+        "ply\n"
+        "format ascii 1.0\n"
+        "element vertex 1\n"
+        "property float x\n"
+        "property float y\n"
+        "property float z\n"
+        "end_header\n"
+        "nan 2.0 3.0\n",
+        encoding="ascii",
+    )
+    job = _job_with_artifacts([{
+        "type": "dense_point_cloud",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
+    assert response.status_code == 422
+    assert "nicht endliche Koordinaten" in response.json()["detail"]
+
+
+def test_ply_header_larger_than_limit_returns_422(client):
+    root = DATA_ROOT / "jobs" / "pc-large-header"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "huge-header.ply"
+    with path.open("wb") as handle:
+        handle.write(b"ply\nformat ascii 1.0\n")
+        handle.write(b"comment " + b"x" * (1024 * 1024) + b"\n")
+        handle.write(
+            b"element vertex 0\n"
+            b"property float x\n"
+            b"property float y\n"
+            b"property float z\n"
+            b"end_header\n"
+        )
+    job = _job_with_artifacts([{
+        "type": "dense_point_cloud",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0")
+    assert response.status_code == 422
+    assert "1 MiB" in response.json()["detail"]
