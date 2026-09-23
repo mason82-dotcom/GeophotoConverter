@@ -31,6 +31,8 @@ jobs:
           push: false
           load: true
           tags: geophoto-gsplat-cuda:ci
+          build-args: |
+            CUDA_ARCHITECTURES=86
           cache-from: type=gha,scope=colmap-cuda
           cache-to: type=gha,mode=max,scope=colmap-cuda
 
