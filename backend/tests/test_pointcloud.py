@@ -197,6 +197,7 @@ def test_ascii_ply_metadata_and_preview(client):
     assert body["point_count"] == 4
     assert body["has_rgb"] is True
     assert body["bounds"]["max"] == [2.0, 2.0, 3.0]
+    assert body["reproject_url"] is None
 
     preview = client.get(
         f"/api/v1/jobs/{job['id']}/pointclouds/0/preview",
