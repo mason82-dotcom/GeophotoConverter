@@ -398,7 +398,31 @@ def prepare_multispectral_images(
         )
 
     classifications = plan["classifications"]
-    complete_groups = set(plan["complete_groups"])
+    classified_complete_groups = set(plan["complete_groups"])
+
+    stageable_group_kinds: dict[str, set[str]] = {}
+    for record in records:
+        info = classifications.get(record["relative_path"])
+        if info is None or info["capture_group"] not in classified_complete_groups:
+            continue
+        source = Path(record["stored_path"])
+        suffix = source.suffix.lower()
+        if source.is_file() and (
+            suffix == ".dng" or suffix in _DIRECT_EXTENSIONS
+        ):
+            stageable_group_kinds.setdefault(
+                info["capture_group"],
+                set(),
+            ).add(info["media_kind"])
+
+    complete_groups = {
+        group
+        for group in classified_complete_groups
+        if _M3M_REQUIRED_KINDS.issubset(
+            stageable_group_kinds.get(group, set())
+        )
+    }
+    unstageable_groups = classified_complete_groups - complete_groups
 
     for record in records:
         relative_path = record["relative_path"]
@@ -419,7 +443,11 @@ def prepare_multispectral_images(
                 "relative_path": relative_path,
                 "media_kind": info["media_kind"],
                 "capture_group": capture_group,
-                "reason": "incomplete_m3m_capture_group",
+                "reason": (
+                    "unstageable_m3m_capture_group"
+                    if capture_group in unstageable_groups
+                    else "incomplete_m3m_capture_group"
+                ),
             })
             continue
 
@@ -467,8 +495,9 @@ def prepare_multispectral_images(
     manifest = {
         "dataset_id": dataset_id,
         "workflow": "multispectral",
-        "complete_capture_groups": plan["complete_groups"],
+        "complete_capture_groups": sorted(complete_groups),
         "incomplete_capture_groups": plan["incomplete_groups"],
+        "unstageable_capture_groups": sorted(unstageable_groups),
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
         "prepared": prepared,
