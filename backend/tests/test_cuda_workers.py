@@ -151,7 +151,7 @@ def test_gsplat_colmap_runtime_verifies_version_and_gpu(monkeypatch, tmp_path):
     monkeypatch.setattr(worker, "COLMAP_VERSION", "4.2.0")
 
     def fake_run(command, **kwargs):
-        if command[:2] == ["colmap", "-h"]:
+        if command[:2] == ["colmap", "version"]:
             return subprocess.CompletedProcess(
                 command,
                 0,
