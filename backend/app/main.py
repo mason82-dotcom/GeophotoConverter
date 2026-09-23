@@ -23,10 +23,16 @@ from .config import (
     ensure_directories,
 )
 from .metadata import read_metadata
+from .artifact_jobs import router as artifact_jobs_router
 from .maps import router as maps_router
 from .job_options import normalize_job_options
 from .dronedb import router as dronedb_router
-from .queue import enqueue, ping as redis_ping, worker_state
+from .queue import (
+    artifact_worker_state,
+    enqueue,
+    ping as redis_ping,
+    worker_state,
+)
 from .profiles import processing_catalog
 from .previews import router as previews_router
 from .photogrammetry import fuse_photogrammetry_metadata
@@ -45,6 +51,7 @@ app.include_router(maps_router)
 app.include_router(previews_router)
 app.include_router(dronedb_router)
 app.include_router(pointcloud_router)
+app.include_router(artifact_jobs_router)
 
 
 class DatasetCreate(BaseModel):
@@ -157,6 +164,25 @@ def services(request: Request) -> dict:
                 "automated pipeline."
             ),
         },
+        "pointcloud_processing": (
+            {
+                **artifact_worker_state("pdal"),
+                "profile": "pdal-processing",
+                "role": "derived_pointcloud_processing",
+                "operations": ["reproject"],
+            }
+            if queue_ok
+            else {
+                "processor": "pdal",
+                "job_namespace": "artifact",
+                "status": "unavailable",
+                "queue_depth": None,
+                "processing_depth": None,
+                "profile": "pdal-processing",
+                "role": "derived_pointcloud_processing",
+                "operations": ["reproject"],
+            }
+        ),
         **external_services(request),
     }
 
