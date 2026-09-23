@@ -215,7 +215,7 @@ export interface DatasetQa {
       span_seconds: number | null
     }
     issues: MappingQaIssue[]
-    geometry: MappingGeometrySummary
+    geometry?: MappingGeometrySummary
     reason: string | null
   }
   thermal: {
