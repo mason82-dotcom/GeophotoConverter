@@ -34,6 +34,7 @@ def test_normalize_metadata_reads_dji_group1_namespace() -> None:
     assert metadata["dji"]["absolute_altitude"] == 123.4
     assert metadata["dji"]["relative_altitude"] == 40.1
     assert metadata["dji"]["rtk_flag"] == 50
+    assert metadata["dji"]["rtk_fixed"] is True
     assert metadata["dji"]["capture_uuid"] == "3377fb05-b357-448f-b87b-7023daebbaed"
     assert metadata["dji"]["band_name"] == "Red"
     assert metadata["dji"]["sensor_index"] == 2
@@ -58,6 +59,7 @@ def test_normalize_metadata_keeps_legacy_xmp_fallback() -> None:
     assert metadata["dji"]["absolute_altitude"] == 88.0
     assert metadata["dji"]["gimbal_yaw"] == 17.5
     assert metadata["dji"]["rtk_flag"] == 1
+    assert metadata["dji"]["rtk_fixed"] is False
 
 
 def test_capture_uuid_overrides_filename_grouping() -> None:
