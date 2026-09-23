@@ -269,10 +269,23 @@ def parse_pdal_stats(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     issues: list[dict[str, Any]] = []
     for required in ("X", "Y", "Z"):
-        if required not in by_name:
+        record = by_name.get(required)
+        if record is None:
             issues.append(
                 {
                     "code": "POINTCLOUD_STATS_DIMENSION_MISSING",
+                    "severity": "warning",
+                    "dimension": required,
+                }
+            )
+            continue
+
+        minimum = _number(record.get("minimum"))
+        maximum = _number(record.get("maximum"))
+        if minimum is None or maximum is None or maximum < minimum:
+            issues.append(
+                {
+                    "code": "POINTCLOUD_STATS_DIMENSION_INVALID",
                     "severity": "warning",
                     "dimension": required,
                 }
@@ -282,7 +295,7 @@ def parse_pdal_stats(payload: Mapping[str, Any]) -> dict[str, Any]:
     z_min = _number(z.get("minimum"))
     z_max = _number(z.get("maximum"))
     z_range = None
-    if z_min is not None and z_max is not None:
+    if z_min is not None and z_max is not None and z_max >= z_min:
         z_range = z_max - z_min
 
     return {
