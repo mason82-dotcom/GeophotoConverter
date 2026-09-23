@@ -187,3 +187,147 @@ def test_reconcile_requeues_job_missing_from_redis(redis_client):
     payload = json.loads(fields["payload"])
     assert payload["job_id"] == job["id"]
     assert payload["profile"] == "preview"
+
+
+
+def test_reconcile_requeues_artifact_job_missing_from_redis(
+    redis_client,
+):
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.QUEUE_GROUP = "geophoto-workers-test"
+    runtime.DB_PATH = DB_PATH
+
+    dataset = store.create_dataset("Artifact Queue Recovery", None)
+    source = store.create_job(
+        dataset["id"],
+        "odm",
+        "standard",
+        "mapping",
+        {},
+    )
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+        options={"target_crs": "EPSG:32632"},
+        status="prepared",
+    )
+    store.update_artifact_job(
+        artifact_job["id"],
+        status="running",
+        phase="reproject",
+        message="vor simuliertem Redis-Verlust",
+    )
+
+    stream = runtime.stream_name("artifact:pdal")
+    runtime._ensure_group(redis_client, stream)
+
+    assert runtime._reconcile_artifact_jobs(
+        redis_client,
+        "pdal",
+        "artifact-recovery-worker",
+    ) == 1
+    assert redis_client.xlen(stream) == 1
+    assert redis_client.xlen(runtime.stream_name("pdal")) == 0
+
+    recovered = store.get_artifact_job(artifact_job["id"])
+    assert recovered["status"] == "queued"
+    assert recovered["phase"] == "recovery"
+
+    _, fields = redis_client.xrange(stream, min="-", max="+")[0]
+    payload = json.loads(fields["payload"])
+    assert payload == {
+        "job_id": artifact_job["id"],
+        "source_job_id": source["id"],
+        "source_artifact_index": 0,
+        "processor": "pdal",
+        "operation": "reproject",
+        "options": {"target_crs": "EPSG:32632"},
+    }
+
+
+def test_artifact_reconcile_cancels_without_requeue(redis_client):
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.QUEUE_GROUP = "geophoto-workers-test"
+    runtime.DB_PATH = DB_PATH
+
+    dataset = store.create_dataset("Artifact Cancel Recovery", None)
+    source = store.create_job(
+        dataset["id"],
+        "odm",
+        "standard",
+        "mapping",
+        {},
+    )
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+    )
+    store.update_artifact_job(
+        artifact_job["id"],
+        status="cancel_requested",
+    )
+
+    stream = runtime.stream_name("artifact:pdal")
+    runtime._ensure_group(redis_client, stream)
+
+    assert runtime._reconcile_artifact_jobs(
+        redis_client,
+        "pdal",
+        "artifact-recovery-worker",
+    ) == 0
+    assert redis_client.xlen(stream) == 0
+
+    cancelled = store.get_artifact_job(artifact_job["id"])
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["phase"] == "cancelled"
+
+
+def test_artifact_log_path_is_separate_from_dataset_jobs():
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+
+    dataset_log = runtime._dataset_log_path("same-id")
+    artifact_log = runtime._artifact_log_path("same-id")
+
+    assert dataset_log != artifact_log
+    assert dataset_log.as_posix().endswith("/jobs/same-id/worker.log")
+    assert artifact_log.as_posix().endswith(
+        "/artifact-jobs/same-id/worker.log"
+    )
+
+
+def test_artifact_payload_does_not_require_dataset_engine_fields():
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.DB_PATH = DB_PATH
+
+    dataset = store.create_dataset("Artifact Payload", None)
+    source = store.create_job(
+        dataset["id"],
+        "odm",
+        "standard",
+        "mapping",
+        {},
+    )
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+        options={"target_crs": "EPSG:25832"},
+    )
+
+    with runtime.connect_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM artifact_jobs WHERE id=?",
+            (artifact_job["id"],),
+        ).fetchone()
+
+    payload = runtime._payload_from_artifact_job(row)
+    assert payload["processor"] == "pdal"
+    assert payload["operation"] == "reproject"
+    assert payload["options"] == {"target_crs": "EPSG:25832"}
+    assert "dataset_id" not in payload
+    assert "engine" not in payload
