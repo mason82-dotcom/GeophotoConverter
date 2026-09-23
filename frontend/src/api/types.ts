@@ -124,6 +124,18 @@ export interface DatasetQa {
     thermal_groups: number
     complete_thermal_groups: number
   }
+  mapping: {
+    status: 'ready' | 'warning' | 'blocked'
+    ready: boolean
+    eligible_images: number
+    geotagged_images: number
+    geotagged_percent: number
+    missing_gps: number
+    rtk_metadata_images: number
+    orientation_metadata_images: number
+    metadata_errors: number
+    reason: string | null
+  }
   thermal: {
     group_count: number
     complete_groups: number
