@@ -4,3 +4,6 @@ python-multipart==0.0.32
 redis==7.4.1
 Pillow==12.3.0
 httpx==0.28.1
+numpy==2.5.3
+laspy==2.7.0
+lazrs==0.8.2
