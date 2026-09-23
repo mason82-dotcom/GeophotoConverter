@@ -342,9 +342,9 @@ def fuse_photogrammetry_metadata(
                 source_key=_source_key(fh2_source_keys, "UTCAtExposure"),
             ),
             _candidate(
-                _utc_millis(dji.get("utc_at_exposure")),
+                _utc_millis(file_data.get("utc_at_exposure")),
                 source="file_metadata",
-                path="dji.utc_at_exposure",
+                path="utc_at_exposure",
                 source_key=_source_key(file_source_keys, "UTCAtExposure"),
             ),
         ],
@@ -424,6 +424,9 @@ def fuse_photogrammetry_metadata(
             "ellipsoid_m": ellipsoid_m,
             "relative_m": relative_m,
             "gps_altitude_m": gps_altitude_m,
+            "gps_altitude_semantics": (
+                "generic_file_altitude" if gps_altitude_m is not None else None
+            ),
         },
         "orientation": orientation,
         "time": {
