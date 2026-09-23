@@ -113,13 +113,33 @@ Phase 2A — **in Entwicklung** (#79):
 - PLY ohne `Classification` bleibt gültig; Classification wird nur angefordert,
   wenn die Dimension vorhanden ist
 
-Phase 2B folgt separat:
+Phase 2B — **in Entwicklung** (#84):
 
-- COPC-Ausgabe
-- Reprojection
+Stufe B1 fixiert zuerst einen deterministischen Reprojection-Vertrag:
+
+- Input ausschließlich LAS/LAZ/COPC-LAZ
+- Output immer als neues LAZ-Artefakt
+- kein In-place-Overwrite
+- explizites Source- und Target-CRS
+- Source darf horizontal-geographisch oder horizontal-projiziert sein
+- Target muss 2D, projiziert und metrisch sein
+- 3D-/Compound-/Vertikal-CRS werden blockiert
+- keine implizite vertikale Transformation
+- PDAL `filters.reprojection`
+- Writer mit `forward=header,vlr`, aber **ohne** alte Scale/Offsets
+- neue Millimeter-Scale als Standard (`0.001 m`)
+- automatische neue Offsets
+- Pipeline-JSON ist Bestandteil der späteren Artefakt-Provenienz
+
+Stufe B2 folgt nach erfolgreichem B1-Gate:
+
 - Ground/SMRF
 - HAG
+
+Stufe B3:
+
 - Outlier-/Density-QA
+- COPC-Ausgabe
 - neue Processing-Artefakte für ODM/MicMac/OpenMVS
 
 ## PGM-GEOMETRY — GSD, Footprint, Overlap
