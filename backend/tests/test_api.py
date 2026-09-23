@@ -240,7 +240,7 @@ def test_mapping_qa_reports_dji_metadata_coverage(client):
             "camera": {"make": "DJI", "model": "M3E"},
             "gps": {"latitude": 49.1, "longitude": 8.5, "altitude": 120.0},
             "dji": {
-                "rtk_flag": 1,
+                "rtk_flag": 50,
                 "flight_yaw": 1.0,
                 "flight_pitch": 2.0,
                 "flight_roll": 3.0,
@@ -266,6 +266,7 @@ def test_mapping_qa_reports_dji_metadata_coverage(client):
     assert mapping["geotagged_images"] == 1
     assert mapping["missing_gps"] == 1
     assert mapping["rtk_metadata_images"] == 1
+    assert mapping["rtk_fixed_images"] == 1
     assert mapping["orientation_metadata_images"] == 1
 
 
