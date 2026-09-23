@@ -177,14 +177,14 @@ def _build_handoff(dataset_id: str, job_id: str, job_root: Path) -> tuple[Path, 
         if "WIDE" in items and "THERMAL" in items
     ]
     if not complete:
-        raise ValueError("No complete WIDE+THERMAL capture groups found.")
+        raise ValueError("Keine vollständigen WIDE+THERMAL-Aufnahmegruppen gefunden.")
     if len(platforms) != 1:
         raise ValueError(
-            "Thermal job requires exactly one confirmed platform (M3T or M4T)."
+            "Thermal-Verarbeitung erfordert genau eine bestätigte Plattform (M3T oder M4T)."
         )
     platform = next(iter(platforms))
     if platform not in {"M3T", "M4T"}:
-        raise ValueError(f"Unsupported thermal platform: {platform}")
+        raise ValueError(f"Nicht unterstützte Thermal-Plattform: {platform}")
 
     handoff = {
         "schema_version": 4,
@@ -232,7 +232,7 @@ def _collect_artifacts(result_dir: Path) -> list[dict[str, Any]]:
     for path in sorted(result_dir.rglob("*")):
         if not path.is_file():
             continue
-        Artefakten.append({
+        artifacts.append({
             "type": _artifact_kind(path),
             "name": path.name,
             "relative_path": path.relative_to(DATA_ROOT).as_posix(),
@@ -313,8 +313,9 @@ def handle(payload: dict) -> None:
             progress=100,
             phase="cancelled",
             message=(
-                "Cancellation was received during DIRP processing; current "
-                "capture batch finished and generated artifacts were retained."
+                "Während der DIRP-Verarbeitung wurde ein Abbruch angefordert; "
+                "der aktuelle Aufnahmeblock wurde beendet und erzeugte Artefakte "
+                "wurden beibehalten."
             ),
             artifacts=artifacts,
         )
@@ -326,8 +327,8 @@ def handle(payload: dict) -> None:
         progress=100,
         phase="completed",
         message=(
-            f"Thermal-Verarbeitung abgeschlossen für {group_count} {platform} "
-            f"capture groups with {len(artifacts)} Artefakten."
+            f"Thermal-Verarbeitung abgeschlossen: {group_count} {platform}-"
+            f"Aufnahmegruppen, {len(artifacts)} Artefakte."
         ),
         artifacts=artifacts,
     )
