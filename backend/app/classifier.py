@@ -47,6 +47,20 @@ def _group_path(path: PurePosixPath, base: str) -> str:
     return base if parent == "." else f"{parent}/{base}"
 
 
+def _capture_group(
+    path: PurePosixPath,
+    base: str | None,
+    metadata: dict[str, Any] | None,
+) -> str | None:
+    dji = (metadata or {}).get("dji") or {}
+    capture_uuid = dji.get("capture_uuid")
+    if isinstance(capture_uuid, str) and capture_uuid.strip():
+        return f"dji:{capture_uuid.strip()}"
+    if base:
+        return _group_path(path, base)
+    return None
+
+
 def _path_platform(path: PurePosixPath) -> str:
     for part in path.parts[:-1]:
         value = part.upper()
@@ -91,7 +105,7 @@ def classify_media(
         return MediaClassification(
             platform="M3M",
             media_kind=_M3M_BANDS[m3m.group("band")],
-            capture_group=_group_path(path, m3m.group("base")),
+            capture_group=_capture_group(path, m3m.group("base"), metadata),
         )
 
     patterns = (
@@ -106,7 +120,7 @@ def classify_media(
             return MediaClassification(
                 platform=platform,
                 media_kind=media_kind,
-                capture_group=_group_path(path, match.group("base")),
+                capture_group=_capture_group(path, match.group("base"), metadata),
             )
 
     generic = re.match(
@@ -121,7 +135,7 @@ def classify_media(
     return MediaClassification(
         platform=platform,
         media_kind=media_kind,
-        capture_group=_group_path(path, generic.group("base")) if generic else None,
+        capture_group=_capture_group(path, generic.group("base") if generic else None, metadata),
     )
 
 
