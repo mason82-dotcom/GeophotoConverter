@@ -118,6 +118,52 @@ Eigenschaften:
 
 Extrahiert EXIF-/XMP-/DJI-Metadaten über ExifTool und aktualisiert den Scanstatus.
 
+#### DJI M3E-Metadaten
+
+Für DJI Mavic 3 Enterprise werden die ExifTool-Family-1-Gruppen
+`IFD0`, `ExifIFD` und insbesondere `XMP-drone-dji` normalisiert.
+Bestehende Legacy-Aliase wie `XMP:AbsoluteAltitude` bleiben kompatibel.
+
+Relevante normalisierte Felder pro Datei:
+
+- `capture_time` – bestehender Aufnahmezeitpunkt, bevorzugt `DateTimeOriginal`
+- `utc_at_exposure` – DJI-`UTCAtExposure` separat und unverändert
+- `camera.serial` – `CameraSerialNumber`/EXIF-Seriennummer
+- `camera.lens_serial`
+- `camera.shutter_type`
+- `camera.shutter_count`
+- `gps.latitude`, `gps.longitude`, `gps.altitude`
+- `gps.status`
+- `gps.altitude_type`
+- `dji.absolute_altitude`, `dji.relative_altitude`
+- `dji.flight_yaw`, `dji.flight_pitch`, `dji.flight_roll`
+- `dji.flight_speed_x`, `dji.flight_speed_y`, `dji.flight_speed_z`
+- `dji.gimbal_yaw`, `dji.gimbal_pitch`, `dji.gimbal_roll`
+- `dji.rtk_flag`
+- `dji.rtk_status`: `none`, `single`, `float`, `fixed`, `gnss_plus` oder `unknown`
+- `dji.rtk_fixed`
+- `dji.rtk_std_lon`, `dji.rtk_std_lat`, `dji.rtk_std_hgt`
+- `dji.rtk_diff_age`
+- `dji.surveying_mode`
+- `dji.surveying_recommended`
+- `dji.dewarp_flag`
+- `dji.dewarp_data` – unveränderter DJI-Rohwert
+- `dji.dewarp_calibration` – soweit parsebar mit `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2`, `k3` und optional `calibration_date`
+- `dji.calibrated_focal_length`
+- `dji.calibrated_optical_center_x`, `dji.calibrated_optical_center_y`
+- `dji.drone_model`
+- `dji.drone_serial_number`
+
+RTK-Interpretation:
+- `0` → `none`
+- `16` → `single`
+- `34` → `float`
+- `50` → `fixed`
+- `52` → `gnss_plus`
+
+NTRIP-Host, Port und Mountpoint werden nicht in das normalisierte
+GeoPhotoConverter-Metadatenobjekt übernommen.
+
 ### GET /datasets/{dataset_id}/qa
 
 Liefert unter anderem:
