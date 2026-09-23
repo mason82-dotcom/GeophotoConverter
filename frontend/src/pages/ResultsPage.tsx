@@ -58,7 +58,7 @@ function artifactLabel(artifact: Artifact) {
   if (name.endsWith('.obj') || type.includes('mesh')) return { label: 'Mesh / OBJ', icon: Box }
   if (name.endsWith('.tif') || name.endsWith('.tiff') || type.includes('geotiff')) return { label: 'GeoTIFF', icon: Layers3 }
   if (type.includes('checkpoint') || /\.(ckpt|pt|pth)$/.test(name)) return { label: 'gsplat-Prüfpunkt', icon: FileArchive }
-  if (name.endsWith('.log') || type.includes('log')) return { label: 'Log', icon: ScrollText }
+  if (name.endsWith('.log') || type.includes('log')) return { label: 'Protokoll', icon: ScrollText }
   if (name.endsWith('.pdf')) return { label: 'Bericht', icon: FileText }
   return { label: artifact.type || 'Artefakt', icon: File }
 }
