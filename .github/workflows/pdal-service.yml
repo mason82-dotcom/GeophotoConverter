@@ -72,8 +72,17 @@ jobs:
           payload = json.load(open("/tmp/pdal-qa.json", encoding="utf-8"))
           assert payload["relative_path"] == "ci/fixture.ply"
           assert payload["summary"]["summary"]["num_points"] == 4
-          dimensions = payload["summary"]["summary"]["dimensions"]
-          assert all(name in dimensions for name in ("X", "Y", "Z"))
+          dimensions = {
+              name.strip().casefold()
+              for name in payload["summary"]["summary"]["dimensions"].split(",")
+          }
+          assert {"x", "y", "z"}.issubset(dimensions)
+          stats = payload["stats"]["stats"]["statistic"]
+          stat_names = {
+              item["name"].casefold()
+              for item in stats
+          }
+          assert {"x", "y", "z"}.issubset(stat_names)
           PY
 
       - name: Show logs
