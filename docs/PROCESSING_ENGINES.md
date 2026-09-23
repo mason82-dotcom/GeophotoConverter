@@ -1,5 +1,16 @@
 # Verarbeitungs-Engines
 
+## Workflow-Semantik
+
+- `mapping`: georeferenzierte RGB/WIDE-Photogrammetrie mit ODM oder MicMac
+- `reconstruction`: visuelle 3D-Rekonstruktion mit gsplat
+- `multispectral`: kalibriertes M3M-Multispektral-Mapping mit ODM
+- `thermal`: radiometrische M3T/M4T-Thermalverarbeitung
+- `rgb`: Legacy-Identifier; wird von der API engine-spezifisch auf `mapping` oder `reconstruction` normalisiert
+
+`preview`, `standard` und `high` bleiben davon getrennte Qualitäts-/Ressourcenprofile. Für `mapping` bewertet die Dataset-QA zusätzlich GPS-Abdeckung und vorhandene DJI RTK-/Flight-/Gimbal-Metadaten; RTK ist Diagnoseinformation und keine generelle Mapping-Pflicht.
+
+
 ## OpenDroneMap / ODM
 
 Container-Basis: `opendronemap/odm:3.6.2`.
