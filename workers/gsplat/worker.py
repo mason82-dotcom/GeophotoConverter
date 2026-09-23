@@ -65,7 +65,7 @@ def _colmap_match_command(database: Path, matcher: str) -> list[str]:
 
 def _verify_colmap_runtime(log_path: Path) -> None:
     version = subprocess.run(
-        ["colmap", "-h"],
+        ["colmap", "version"],
         check=False,
         capture_output=True,
         text=True,
