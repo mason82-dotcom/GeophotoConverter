@@ -12,6 +12,7 @@ def test_normalize_m3e_family1_metadata():
         "ExifIFD:ISO": 100,
         "ExifIFD:FNumber": 5.6,
         "ExifIFD:FocalLength": 12.29,
+        "ExifIFD:FocalLengthIn35mmFormat": 24,
         "ExifIFD:ExposureTime": 0.001,
         "File:ImageWidth": 5280,
         "File:ImageHeight": 3956,
@@ -66,6 +67,8 @@ def test_normalize_m3e_family1_metadata():
     assert metadata["camera"]["lens_serial"] == "LENS-M3E-001"
     assert metadata["camera"]["shutter_type"] == "Mechanical"
     assert metadata["camera"]["shutter_count"] == 12345
+    assert metadata["image"]["focal_length"] == 12.29
+    assert metadata["image"]["focal_length_35mm"] == 24
 
     assert metadata["gps"]["latitude"] == 49.123456
     assert metadata["gps"]["longitude"] == 8.456789
