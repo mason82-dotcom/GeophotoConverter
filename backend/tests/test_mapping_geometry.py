@@ -20,6 +20,7 @@ def _metadata(
     focal_length_35mm: float | None = 20.0,
     gimbal_pitch: float | None = -90.0,
     gimbal_yaw: float | None = 0.0,
+    flight_yaw: float | None = 0.0,
     relative_altitude: float | None = 100.0,
 ) -> dict:
     image = {
@@ -32,11 +33,12 @@ def _metadata(
         image["focal_length_35mm"] = focal_length_35mm
 
     dji: dict[str, float] = {
-        "flight_yaw": 0.0,
         "flight_pitch": 0.0,
         "flight_roll": 0.0,
         "gimbal_roll": 0.0,
     }
+    if flight_yaw is not None:
+        dji["flight_yaw"] = flight_yaw
     if gimbal_pitch is not None:
         dji["gimbal_pitch"] = gimbal_pitch
     if gimbal_yaw is not None:
@@ -137,6 +139,7 @@ def test_overlap_is_unavailable_without_required_sequence_context() -> None:
                 "metadata": _metadata(
                     capture_time="",
                     gimbal_yaw=None,
+                    flight_yaw=None,
                 ),
             },
             {
