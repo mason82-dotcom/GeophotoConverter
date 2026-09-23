@@ -8,3 +8,4 @@ numpy==2.5.3
 laspy==2.7.0
 lazrs==0.8.2
 pyproj==3.8.0
+rasterio==1.5.1
