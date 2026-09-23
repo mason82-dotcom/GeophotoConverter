@@ -61,12 +61,15 @@ Verarbeitungs- und Zusatzdienste werden über Compose-Profile aktiviert:
 
 ```powershell
 docker compose --profile odm up -d
+docker compose --profile odm-gpu up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
 docker compose --profile thermal up -d
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
+
+Für ODM stehen zwei alternative Workerprofile zur Verfügung: `odm` (CPU) und `odm-gpu` (NVIDIA CUDA/SIFT). Beide konsumieren dieselbe ODM-Queue und dürfen daher nicht gleichzeitig betrieben werden. Der GPU-Pfad benötigt NVIDIA-Treiber und NVIDIA Container Toolkit.
 
 ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
 
