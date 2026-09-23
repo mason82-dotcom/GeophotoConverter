@@ -97,6 +97,40 @@ Mögliche Artefakte:
 - LAZ-Punktwolke
 - OBJ-Mesh
 - PDF-Bericht
+- `geophoto-input-manifest.json`
+- optional `geo.txt`
+- `geophoto-odm-evidence.json`
+
+#### Kanonische Georeferenzierung
+
+Für den RGB/WIDE-Mapping-Workflow wird die PGM-1-Metadatenfusion auch im
+ODM-Worker angewendet. Der Worker liest dafür Datei-Metadaten und optionales
+`fh2_media`.
+
+Wenn **alle tatsächlich gestagten Bilder** eine gültige kanonische Position
+besitzen, erzeugt GeoPhotoConverter im ODM-Projektroot eine `geo.txt` und
+übergibt sie explizit mit `--geo`.
+
+Vertrag:
+
+- Projektion: `EPSG:4326`
+- Zeilen referenzieren ausschließlich die gestagten `prepared_name`-Dateien
+- X = Longitude, Y = Latitude
+- Z wird nur geschrieben, wenn **jedes** gestagte Bild ein kanonisches
+  `height.ellipsoid_m` besitzt
+- `height.relative_m` und generisches `gps.altitude` werden niemals als
+  absolutes Z hochgestuft
+- bei unvollständiger kanonischer Positionsabdeckung wird kein partieller
+  Override erzeugt; ODM fällt auf eingebettete Bildmetadaten zurück
+- Provenienz, RTK-Abdeckung und PGM-1-Konflikte bleiben pro gestagtem Bild im
+  Input-Manifest nachvollziehbar
+
+Nach dem ODM-Lauf erzeugt der Worker `geophoto-odm-evidence.json`.
+GeoTIFF-Georeferenzierung gilt nur dann als verifiziert, wenn `gdalinfo`
+sowohl ein CRS als auch einen nichtdegenerierten GeoTransform meldet.
+Fehlende oder fehlschlagende Inspektionswerkzeuge werden als
+`unavailable/error` dokumentiert und niemals als erfolgreiche
+Georeferenzierung interpretiert.
 
 ### Workflow `multispectral` — DJI M3M
 

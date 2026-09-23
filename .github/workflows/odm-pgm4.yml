@@ -1,0 +1,46 @@
+name: ODM PGM-4
+
+on:
+  pull_request:
+    paths:
+      - "workers/odm/**"
+      - "workers/common/georeferencing.py"
+      - "workers/common/images.py"
+      - "backend/app/photogrammetry.py"
+      - "backend/tests/test_odm_georeferencing.py"
+      - ".github/workflows/odm-pgm4.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  odm-pgm4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ODM worker image
+        run: docker build -f workers/odm/Dockerfile -t geophoto-odm:pgm4 .
+
+      - name: Verify canonical fusion imports
+        run: |
+          docker run --rm             --entrypoint python3             geophoto-odm:pgm4             -c "import app.photogrammetry; import common.images; import common.georeferencing; print('PGM-4 imports OK')"
+
+      - name: Verify GDAL inspection runtime
+        run: |
+          docker run --rm             --entrypoint gdalinfo             geophoto-odm:pgm4             --version
+
+      - name: Verify ODM geo option
+        run: |
+          docker run --rm             --entrypoint python3             geophoto-odm:pgm4             /code/run.py --help             | grep -q -- "--geo"
+
+      - name: Report PDAL availability
+        run: |
+          if docker run --rm             --entrypoint sh             geophoto-odm:pgm4             -c 'command -v pdal >/dev/null && pdal --version'; then
+            echo "PDAL available in ODM image; LAZ CRS evidence can be inspected in-worker."
+          else
+            echo "PDAL is not available in ODM image; LAZ evidence will correctly report inspection_status=unavailable."
+          fi
