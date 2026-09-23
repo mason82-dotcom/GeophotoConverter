@@ -721,12 +721,6 @@ def reproject_pointcloud(
             detail=f"Source-CRS ist nicht belastbar verfügbar: {exc}",
         ) from exc
 
-    if not redis_ping():
-        raise HTTPException(
-            status_code=503,
-            detail="Pointcloud-Processing-Warteschlange ist nicht verfügbar.",
-        )
-
     processing_job_id = store.new_id()
     source_relative = str(artifact.get("relative_path") or "")
     output_relative = (
@@ -755,6 +749,11 @@ def reproject_pointcloud(
         "contract": contract,
         "provenance": provenance,
     }
+    if not redis_ping():
+        raise HTTPException(
+            status_code=503,
+            detail="Pointcloud-Processing-Warteschlange ist nicht verfügbar.",
+        )
     processing_job = store.create_job(
         source_job["dataset_id"],
         _PDAL_PROCESSING_ENGINE,
