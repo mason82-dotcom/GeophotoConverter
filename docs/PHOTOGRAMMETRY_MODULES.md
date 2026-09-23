@@ -104,7 +104,7 @@ nicht.
 Phase 2A (#79):
 
 - optionales Compose-Profil `pdal`
-- gekapselter Sidecar auf `pdal/pdal:2.10.2`
+- gekapselter Sidecar auf `condaforge/miniforge3:26.7.2-0` mit isolierter Conda-Umgebung `pdal` und exakt `pdal=2.10.2`
 - Container-Dateisystem read-only; `/data` wird read-only eingebunden
 - PROJ-Netzwerkzugriffe sind deaktiviert
 - `GET /health`
