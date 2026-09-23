@@ -29,6 +29,7 @@ from .dronedb import router as dronedb_router
 from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
+from .photogrammetry import fuse_photogrammetry_metadata
 from .pointcloud import router as pointcloud_router
 from .qa import dataset_qa
 from .services import external_services
@@ -57,6 +58,17 @@ class JobCreate(BaseModel):
     profile: str = "standard"
     workflow: str = "rgb"
     options: dict[str, object] = Field(default_factory=dict)
+
+
+class Fh2MediaUpdate(BaseModel):
+    media: dict[str, object] | None
+
+
+def _canonical_photogrammetry(item: dict) -> dict:
+    return fuse_photogrammetry_metadata(
+        item.get("metadata"),
+        item.get("fh2_media"),
+    )
 
 
 def _canonical_workflow(engine: str, workflow: str) -> str:
@@ -171,13 +183,17 @@ def get_dataset(dataset_id: str) -> dict:
     dataset = _dataset_or_404(dataset_id)
     files = store.list_files(dataset_id)
     total = len(files)
-    tagged = sum(
-        1
-        for item in files
-        if (item.get("metadata") or {}).get("gps", {}).get("latitude") is not None
-    )
     qa = dataset_qa(files)
+    tagged = 0
     for item in files:
+        photogrammetry = _canonical_photogrammetry(item)
+        position = photogrammetry["position"]
+        if (
+            position["latitude_deg"] is not None
+            and position["longitude_deg"] is not None
+        ):
+            tagged += 1
+        item["photogrammetry"] = photogrammetry
         item["classification"] = qa["classifications"].get(item["relative_path"])
         item["preview_url"] = (
             f"/api/v1/datasets/{dataset_id}/files/{item['id']}/preview"
@@ -205,8 +221,10 @@ def dataset_geojson(dataset_id: str) -> dict:
     for item in store.list_files(dataset_id):
         metadata = item.get("metadata") or {}
         gps = metadata.get("gps") or {}
-        latitude = gps.get("latitude")
-        longitude = gps.get("longitude")
+        photogrammetry = _canonical_photogrammetry(item)
+        position = photogrammetry["position"]
+        latitude = position["latitude_deg"]
+        longitude = position["longitude_deg"]
         if latitude is None or longitude is None:
             continue
 
@@ -222,9 +240,16 @@ def dataset_geojson(dataset_id: str) -> dict:
                     "file_id": item["id"],
                     "relative_path": item["relative_path"],
                     "altitude": gps.get("altitude"),
+                    "ellipsoid_height_m": photogrammetry["height"]["ellipsoid_m"],
+                    "relative_height_m": photogrammetry["height"]["relative_m"],
                     "capture_time": metadata.get("capture_time"),
+                    "utc_at_exposure_ms": photogrammetry["time"]["utc_at_exposure_ms"],
+                    "capture_uuid": photogrammetry["capture_uuid"],
+                    "rtk_fixed": photogrammetry["rtk"]["fixed"],
                     "camera": metadata.get("camera"),
                     "dji": metadata.get("dji"),
+                    "photogrammetry_provenance": photogrammetry["provenance"],
+                    "photogrammetry_conflicts": photogrammetry["conflicts"],
                 },
             }
         )
@@ -233,6 +258,24 @@ def dataset_geojson(dataset_id: str) -> dict:
         "type": "FeatureCollection",
         "features": features,
     }
+
+
+@app.put("/api/v1/datasets/{dataset_id}/files/{file_id}/fh2-media")
+def update_file_fh2_media(
+    dataset_id: str,
+    file_id: str,
+    body: Fh2MediaUpdate,
+) -> dict:
+    _dataset_or_404(dataset_id)
+    item = store.get_file(dataset_id, file_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+
+    store.update_file_fh2_media(file_id, body.media)
+    updated = store.get_file(dataset_id, file_id)
+    assert updated is not None
+    updated["photogrammetry"] = _canonical_photogrammetry(updated)
+    return updated
 
 
 @app.post("/api/v1/datasets/{dataset_id}/files")

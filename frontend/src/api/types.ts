@@ -42,6 +42,31 @@ export interface FileMetadata {
   dji?: DjiMetadata
 }
 
+export interface CanonicalPhotogrammetryMetadata {
+  position: {
+    latitude_deg: number | null
+    longitude_deg: number | null
+  }
+  height: {
+    ellipsoid_m: number | null
+    relative_m: number | null
+    gps_altitude_m: number | null
+    gps_altitude_semantics: string | null
+  }
+  orientation: Record<string, number | null>
+  time: {
+    utc_at_exposure_ms: number | null
+    capture_time: string | null
+  }
+  rtk: {
+    fixed: boolean | null
+    raw_flag: number | null
+  }
+  capture_uuid: string | null
+  provenance: Record<string, Record<string, unknown>>
+  conflicts: Array<Record<string, unknown>>
+}
+
 export interface Dataset {
   id: string
   name: string
@@ -74,6 +99,8 @@ export interface UploadedFileRecord {
   size_bytes: number
   media_type?: string | null
   metadata?: FileMetadata
+  fh2_media?: Record<string, unknown>
+  photogrammetry?: CanonicalPhotogrammetryMetadata
   scan_error?: string | null
   classification?: MediaClassification | null
   sha256?: string | null
@@ -156,6 +183,16 @@ export interface DatasetQa {
     rtk_fixed_images: number
     orientation_metadata_images: number
     metadata_errors: number
+    photogrammetry: {
+      fh2_enriched_images: number
+      position_sources: Record<string, number>
+      ellipsoid_height_images: number
+      relative_height_images: number
+      capture_uuid_images: number
+      fusion_conflict_files: number
+      fusion_conflict_count: number
+      fusion_conflict_fields: Record<string, number>
+    }
     camera: {
       models: Record<string, number>
       model_count: number

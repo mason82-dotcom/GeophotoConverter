@@ -97,6 +97,8 @@ Liefert Datensatzdetails einschließlich:
 - `preview_url` pro Datei
 - Georeferenzierungsabdeckung
 - vollständiges `qa`-Objekt mit Engine-Readiness
+- optionales `fh2_media` pro Datei
+- kanonisches `photogrammetry`-Objekt pro Datei mit Position, Höhen, Pose, RTK, `CaptureUUID`, Provenienz und Konflikten
 
 ### POST /datasets/{dataset_id}/files
 
@@ -114,9 +116,42 @@ Eigenschaften:
 - doppelte Dateiinhalte im selben Datensatz werden abgelehnt
 - konfigurierbares Datei- und Datensatz-Größenlimit
 
+### PUT /datasets/{dataset_id}/files/{file_id}/fh2-media
+
+Persistiert optionale normalisierte FH2-/DJI-Media-Metadaten getrennt von den
+Datei-EXIF/XMP-Metadaten.
+
+Request:
+
+```json
+{
+  "media": {
+    "captureUuid": "capture-uuid",
+    "asset": {
+      "capture": {
+        "latitudeDeg": 49.1,
+        "longitudeDeg": 8.5,
+        "ellipsoidHeightM": 220.0,
+        "relativeHeightM": 80.0,
+        "rtkFixed": true
+      }
+    },
+    "sourceKeys": {
+      "GpsLatitude": "XMP-drone-dji:GpsLatitude"
+    }
+  }
+}
+```
+
+`media: null` löscht nur den FH2-Block; extrahierte Datei-Metadaten bleiben erhalten.
+Die Antwort enthält zusätzlich das aus PGM-1 fusionierte `photogrammetry`-Objekt.
+Bei widersprüchlichen Quellen gewinnt die feldspezifische PGM-1-Priorität, der
+Konflikt bleibt aber mit Provenienz sichtbar.
+
 ### POST /datasets/{dataset_id}/scan
 
 Extrahiert EXIF-/XMP-/DJI-Metadaten über ExifTool und aktualisiert den Scanstatus.
+Ein Scan verändert den separat gespeicherten `fh2_media`-Block nicht.
 
 #### DJI M3E-Metadaten
 
@@ -209,13 +244,19 @@ Liefert unter anderem:
 - Mapping-Geometrie diagnostiziert fehlende/ungültige GPS-Werte, eindeutige/duplizierte Positionen und die räumliche GPS-Ausdehnung
 - Mapping-Konsistenz diagnostiziert Kamera-/Bildgrößen-/Brennweitenmix, Absolute↔Relative-Höhenoffset, Nadirabweichung, Aufnahmezeiten und Metadatenfehler
 - RTK- und vollständige Lageinformationen werden ausgewiesen; ihr Fehlen allein blockiert normales Mapping nicht
+- `mapping.photogrammetry` weist FH2-angereicherte Bilder, Positionsquellen, kanonische Höhen-/CaptureUUID-Abdeckung und Fusionskonflikte aus
+- `MAPPING_METADATA_FUSION_CONFLICT` ist eine Warning; widersprüchliche Datei-/FH2-Werte werden nicht still überschrieben
 - `multispectral.classification_conflicts` zählt erkannte Konfliktcodes; `blocking_conflict_count` und `blocking_conflict_groups` markieren blockierende Konflikte in vollständigen M3M-Gruppen. Aktuell blockieren `band_metadata_filename_conflict` und `band_platform_conflict` den `odm_multispectral`-Workflow. Konflikte in unvollständigen, ohnehin nicht verarbeitbaren Gruppen werden diagnostiziert, blockieren zwei saubere vollständige Gruppen aber nicht zusätzlich.
 
 ### GET /datasets/{dataset_id}/geojson
 
 Liefert georeferenzierte Aufnahmezentren als GeoJSON-`FeatureCollection`.
 
-Die Punkte repräsentieren Bild-Capture-Positionen. Bei Thermal sind sie keine Georeferenzierung einzelner Temperaturpixel.
+Die Punkte repräsentieren Bild-Capture-Positionen. Die Geometrie verwendet die
+kanonische PGM-1-Position (FH2-Media vor Datei-Metadaten, jeweils mit
+Konfliktnachweis). Eigenschaften enthalten zusätzlich kanonische Höhen, RTK,
+CaptureUUID, Provenienz und Konflikte. Bei Thermal sind die Punkte keine
+Georeferenzierung einzelner Temperaturpixel.
 
 ### GET /datasets/{dataset_id}/files/{file_id}/preview?size=1024
 
