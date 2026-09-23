@@ -134,10 +134,10 @@ def test_gsplat_colmap_commands_use_cuda(monkeypatch):
         "exhaustive_matcher",
     )
 
-    assert feature[feature.index("--SiftExtraction.use_gpu") + 1] == "1"
-    assert feature[feature.index("--SiftExtraction.gpu_index") + 1] == "0"
-    assert matching[matching.index("--SiftMatching.use_gpu") + 1] == "1"
-    assert matching[matching.index("--SiftMatching.gpu_index") + 1] == "0"
+    assert feature[feature.index("--FeatureExtraction.use_gpu") + 1] == "1"
+    assert feature[feature.index("--FeatureExtraction.gpu_index") + 1] == "0"
+    assert matching[matching.index("--FeatureMatching.use_gpu") + 1] == "1"
+    assert matching[matching.index("--FeatureMatching.gpu_index") + 1] == "0"
 
 
 def test_gsplat_colmap_runtime_verifies_version_and_gpu(monkeypatch, tmp_path):
