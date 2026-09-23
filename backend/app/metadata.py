@@ -8,11 +8,9 @@ from typing import Any
 
 
 _RTK_STATUS = {
-    0: "none",
+    0: "failed",
     16: "single",
-    34: "float",
     50: "fixed",
-    52: "gnss_plus",
 }
 
 
@@ -43,6 +41,8 @@ def _rtk_status(value: Any) -> str | None:
     code = _int_code(value)
     if code is None:
         return None
+    if 32 <= code <= 49:
+        return "float"
     return _RTK_STATUS.get(code, "unknown")
 
 
