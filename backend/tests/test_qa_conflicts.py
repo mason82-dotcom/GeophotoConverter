@@ -69,10 +69,10 @@ def test_complete_m3m_group_with_band_conflict_blocks_readiness() -> None:
     warning = next(
         item
         for item in qa["warnings"]
-        if item["code"] == "M3M_CLASSIFICATION_CONFLICTS"
+        if item["code"] == "MULTISPECTRAL_CLASSIFICATION_CONFLICT"
     )
     assert warning == {
-        "code": "M3M_CLASSIFICATION_CONFLICTS",
+        "code": "MULTISPECTRAL_CLASSIFICATION_CONFLICT",
         "severity": "error",
         "count": 1,
     }
@@ -98,10 +98,16 @@ def test_conflict_in_incomplete_group_does_not_block_clean_complete_groups() -> 
     assert qa["multispectral"]["blocking_conflict_count"] == 0
     assert qa["multispectral"]["blocking_conflict_groups"] == []
     assert qa["readiness"]["odm_multispectral"]["ready"] is True
-    assert all(
-        item["code"] != "M3M_CLASSIFICATION_CONFLICTS"
+    warning = next(
+        item
         for item in qa["warnings"]
+        if item["code"] == "MULTISPECTRAL_CLASSIFICATION_CONFLICT"
     )
+    assert warning == {
+        "code": "MULTISPECTRAL_CLASSIFICATION_CONFLICT",
+        "severity": "warning",
+        "count": 1,
+    }
 
 
 
