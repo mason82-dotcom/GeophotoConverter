@@ -14,16 +14,26 @@ on:
 
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    services:
+      redis:
+        image: redis:7.4.11-alpine3.21
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       PYTHONPATH: backend
       GEOPHOTO_DATA_ROOT: /tmp/geophoto-ci
-      GEOPHOTO_REDIS_URL: redis://127.0.0.1:6399/15
+      GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
           cache: pip
@@ -41,3 +51,6 @@ jobs:
 
       - name: Run backend tests
         run: pytest -q backend/tests
+
+      - name: Build thermal worker image
+        run: docker build -f workers/thermal/Dockerfile -t geophoto-thermal-ci .
