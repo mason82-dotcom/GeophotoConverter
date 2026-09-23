@@ -9,6 +9,7 @@ from pyproj import CRS
 
 from app.config import DATA_ROOT
 from app.storage import store
+import app.pointcloud as pointcloud_module
 
 
 def _job_with_artifacts(artifacts: list[dict]) -> dict:
@@ -95,6 +96,7 @@ def test_pointcloud_list_excludes_gsplat_ply(client):
     assert len(items) == 1
     assert items[0]["artifact_index"] == 0
     assert items[0]["name"] == "cloud.las"
+    assert items[0]["qa_url"].endswith("/pointclouds/0/qa")
 
 
 def test_las_metadata_and_binary_preview(client):
@@ -122,6 +124,7 @@ def test_las_metadata_and_binary_preview(client):
     assert body["has_rgb"] is True
     assert body["bounds"]["min"] == [100.0, 200.0, 50.0]
     assert body["bounds"]["max"] == [107.0, 214.0, 57.0]
+    assert body["qa_url"].endswith("/pointclouds/0/qa")
 
     preview = client.get(
         f"/api/v1/jobs/{job['id']}/pointclouds/0/preview",
@@ -358,3 +361,95 @@ def test_las_crs_and_header_metadata(client):
     assert body["crs"]["projected"] is True
     assert len(body["scales"]) == 3
     assert len(body["offsets"]) == 3
+
+
+
+def test_pointcloud_qa_normalizes_pdal_response(client, monkeypatch):
+    root = DATA_ROOT / "jobs" / "pc-pdal-qa"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "cloud.las"
+    _las_file(path, compressed=False, crs_epsg=32632)
+
+    job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {
+                "summary": {
+                    "summary": {
+                        "num_points": 8,
+                        "bounds": {
+                            "minx": 100.0,
+                            "miny": 200.0,
+                            "minz": 50.0,
+                            "maxx": 107.0,
+                            "maxy": 214.0,
+                            "maxz": 57.0,
+                        },
+                        "dimensions": "X, Y, Z, Classification",
+                        "srs": {
+                            "wkt": "EPSG:32632",
+                            "units": {"horizontal": "metre"},
+                        },
+                    }
+                },
+                "stats": {
+                    "stats": {
+                        "statistic": [
+                            {"name": "X", "minimum": 100, "maximum": 107},
+                            {"name": "Y", "minimum": 200, "maximum": 214},
+                            {"name": "Z", "minimum": 50, "maximum": 57},
+                        ]
+                    }
+                },
+                "service": {
+                    "pdal_expected_version": "2.10.2",
+                    "timeout_seconds": 120,
+                },
+            }
+
+    def fake_post(url, *, json, timeout):
+        assert url.endswith("/qa")
+        assert json["relative_path"] == path.relative_to(DATA_ROOT).as_posix()
+        return FakeResponse()
+
+    monkeypatch.setattr(pointcloud_module.httpx, "post", fake_post)
+
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0/qa")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["status"] == "ready"
+    assert body["summary"]["srs"]["identifier"] == "EPSG:32632"
+    assert body["summary"]["density_unit"] == "points_per_square_metre"
+    assert body["stats"]["z_range"] == 7.0
+    assert body["service"]["pdal_expected_version"] == "2.10.2"
+
+
+def test_pointcloud_qa_reports_sidecar_unavailable(client, monkeypatch):
+    root = DATA_ROOT / "jobs" / "pc-pdal-offline"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "cloud.las"
+    _las_file(path, compressed=False)
+
+    job = _job_with_artifacts([{
+        "type": "point_cloud_laz",
+        "name": path.name,
+        "relative_path": path.relative_to(DATA_ROOT).as_posix(),
+        "size_bytes": path.stat().st_size,
+    }])
+
+    def offline(*args, **kwargs):
+        raise pointcloud_module.httpx.ConnectError("offline")
+
+    monkeypatch.setattr(pointcloud_module.httpx, "post", offline)
+
+    response = client.get(f"/api/v1/jobs/{job['id']}/pointclouds/0/qa")
+    assert response.status_code == 503
