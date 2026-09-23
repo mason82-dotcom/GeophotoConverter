@@ -29,12 +29,12 @@ Das Frontend darf Engine-Fähigkeiten nicht unabhängig davon hart codieren.
 Aktuell modelliert:
 
 - ODM
-  - `rgb`
+  - `mapping`
   - `multispectral`
 - MicMac
-  - `rgb`
+  - `mapping`
 - gsplat
-  - `rgb`
+  - `reconstruction`
 - Thermal
   - `thermal`
 - TeleSculptor
@@ -204,6 +204,7 @@ Liefert unter anderem:
 - Warnungen
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
+- zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
 
 ### GET /datasets/{dataset_id}/geojson
 
@@ -242,7 +243,7 @@ Allgemeines Beispiel:
   "dataset_id": "...",
   "engine": "odm",
   "profile": "standard",
-  "workflow": "rgb",
+  "workflow": "mapping",
   "options": {}
 }
 ```
@@ -258,9 +259,14 @@ Automatisierte Engines:
 
 Workflows:
 
-- `rgb`
+- `mapping` — ODM/MicMac
+- `reconstruction` — gsplat
 - `multispectral` — nur ODM
 - `thermal` — nur Thermal-Engine
+- `rgb` — Legacy-Eingabe; wird engine-spezifisch auf `mapping` oder `reconstruction` normalisiert
+
+Ältere Clients, die `workflow` weglassen, bleiben kompatibel: Der historische
+Default `rgb` wird erst nach Auswahl der Engine kanonisiert.
 
 Das Backend validiert vor dem Enqueue die jeweilige Datensatz-Readiness.
 

@@ -2,6 +2,20 @@
 
 Diese Datei beschreibt den tatsächlich implementierten Stand für GeoPhotoConverter V1.0.1.
 
+## Workflow-Semantik
+
+- `mapping`: RGB/WIDE-Photogrammetrie mit ODM oder MicMac
+- `reconstruction`: visuelle 3D-Rekonstruktion mit gsplat
+- `multispectral`: kalibriertes M3M-Multispektral-Mapping mit ODM
+- `thermal`: radiometrische M3T/M4T-Thermalverarbeitung
+- `rgb`: Legacy-Identifier; die API normalisiert ihn engine-spezifisch auf `mapping` oder `reconstruction`
+
+`preview`, `standard` und `high` sind davon getrennte Qualitäts-/Ressourcenprofile.
+Die allgemeine Mapping-Readiness beginnt bei zwei RGB/WIDE-Bildern entsprechend
+dem ODM-Minimum. MicMac verlangt weiterhin mindestens drei Bilder. Fehlendes RTK
+allein blockiert normales Mapping nicht.
+
+
 ## Gemeinsame Eingabeaufbereitung
 
 ODM, MicMac und gsplat verwenden eine gemeinsame joblokale Eingabeaufbereitung.
@@ -25,7 +39,7 @@ Container-Basis:
 
 `opendronemap/odm:3.6.2`
 
-### Workflow `rgb`
+### Workflow `mapping`
 
 Mindestanforderung: zwei geeignete RGB/WIDE-Bilder.
 
@@ -83,6 +97,8 @@ Auflösungen:
 
 ## MicMac
 
+Workflow: `mapping`
+
 Festgelegte Upstream-Version:
 
 `micmacIGN/micmac v1.2.0`
@@ -118,6 +134,8 @@ Aktuelle Artefakte:
 Die aktuelle MicMac-Pipeline erzeugt Punktwolken in lokalen Rekonstruktionskoordinaten; sie ist nicht als Ersatz für die georeferenzierten ODM-Orthofoto-/DEM-Produkte zu interpretieren.
 
 ## gsplat
+
+Workflow: `reconstruction`
 
 Festgelegter Upstream-Commit:
 

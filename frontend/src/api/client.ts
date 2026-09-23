@@ -116,7 +116,7 @@ export async function createJob(
   datasetId: string,
   engine: ProcessingEngine,
   profile: ProcessingProfile,
-  workflow: ProcessingWorkflow = 'rgb',
+  workflow: ProcessingWorkflow = 'mapping',
   options: Record<string, number> = {},
 ): Promise<Job> {
   const response = await fetch(`${API_BASE}/jobs`, {
