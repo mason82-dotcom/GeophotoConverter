@@ -361,12 +361,34 @@ export function ProcessingPage() {
             <span><strong>{qa.mapping.eligible_images}</strong> RGB/WIDE</span>
             <span><strong>{qa.mapping.geotagged_percent}%</strong> Mapping-GPS</span>
             <span>
+              <strong>{qa.mapping.unique_positions}</strong> eindeutige GPS-Positionen
+            </span>
+            <span>
+              <strong>{qa.mapping.position_extent_m == null ? '—' : `${qa.mapping.position_extent_m.toFixed(1)} m`}</strong> räumliche Ausdehnung
+            </span>
+            <span>
               <strong>{qa.mapping.rtk_fixed_images}</strong> RTK-Fix · {qa.mapping.rtk_metadata_images} mit RTK-Metadatum
             </span>
             <span>
               <strong>{qa.mapping.orientation_metadata_images}</strong> mit vollständiger DJI-Lage
             </span>
           </div>
+          {qa.mapping.issues.length > 0 && (
+            <div className="mapping-issue-list">
+              {qa.mapping.issues.map((issue) => (
+                <div
+                  className={`mapping-issue mapping-issue--${issue.severity}`}
+                  key={issue.code}
+                >
+                  <TriangleAlert size={16} />
+                  <div>
+                    <strong>{issue.code}</strong>
+                    <span>{issue.message}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

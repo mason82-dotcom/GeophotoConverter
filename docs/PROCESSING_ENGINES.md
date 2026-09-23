@@ -15,6 +15,23 @@ Die allgemeine Mapping-Readiness beginnt bei zwei RGB/WIDE-Bildern entsprechend
 dem ODM-Minimum. MicMac verlangt weiterhin mindestens drei Bilder. Fehlendes RTK
 allein blockiert normales Mapping nicht.
 
+Die fachliche Mapping-QA bewertet zusätzlich:
+- fehlende und ungültige GPS-Koordinaten getrennt;
+- eindeutige/duplizierte Capture-Positionen und räumliche GPS-Ausdehnung;
+- Kamera-, Bildgrößen- und Brennweitenkonsistenz;
+- Konsistenz von absoluter und relativer DJI-Höhe über den Takeoff-Offset;
+- nichtpositive relative Höhen;
+- Gimbal-Nadir-Plausibilität und vollständige Aircraft-/Gimbal-Lage;
+- Aufnahmezeit-Abdeckung und doppelte Zeitstempel;
+- RTK-Metadaten-/RTK-Fix-Abdeckung;
+- Scan-/Metadatenfehler.
+
+Diese Qualitätsbefunde ändern in PGM-2 nicht stillschweigend die bestehende
+Engine-Jobfreigabe. `mapping.ready` bleibt kompatibel zur Mindestbildzahl;
+`mapping.status` und `mapping.issues[]` transportieren die fachliche Qualität.
+Overlap/GSD werden erst mit belastbarer Kamerageometrie in einem separaten Block
+berechnet.
+
 
 ## Gemeinsame Eingabeaufbereitung
 
@@ -89,8 +106,14 @@ Eigenschaften:
   fehlenden/nicht stagebaren Quelldateien als `unstageable_m3m_capture_group`
   im Input-Manifest ausgewiesen.
 - `CaptureUUID` ist der bevorzugte Gruppenschlüssel, Dateinamen sind der Fallback.
-- Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation,
-  wird der Datensatz für ODM-Multispektral blockiert, bis der Konflikt geklärt ist.
+- Widerspricht ein authoritative DJI-`BandName` der Dateinamenklassifikation
+  in einer vollständigen Capture-Gruppe, blockiert dieser Konflikt den
+  ODM-Multispektralworkflow.
+- Konflikte in unvollständigen, ohnehin verworfenen Gruppen bleiben diagnostisch
+  im Input-Manifest sichtbar, blockieren zwei saubere vollständige Gruppen aber
+  nicht zusätzlich.
+- Der Worker prüft mindestens zwei vollständige, physisch stagebare Capture-Gruppen
+  und verwendet nicht mehr nur die rohe Zahl vorbereiteter Dateien als Gate.
 - `--radiometric-calibration camera` ist aktiviert.
 - `camera+sun` ist bewusst nicht Standard, da dieser Modus in ODM als experimentell behandelt wird.
 - 3D-Modell wird in den aktuellen Multispektralprofilen übersprungen.
