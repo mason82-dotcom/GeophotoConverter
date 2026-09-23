@@ -7,7 +7,7 @@ import os
 import struct
 import uuid
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 import laspy
 import httpx
