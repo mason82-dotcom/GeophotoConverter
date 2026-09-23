@@ -197,3 +197,30 @@ def test_missing_xyz_stat_dimension_is_warning():
         if issue["code"] == "POINTCLOUD_STATS_DIMENSION_MISSING"
     }
     assert missing == {"X", "Y"}
+
+
+
+def test_unparseable_srs_is_warning_not_ready():
+    result = parse_pdal_summary(
+        {
+            "summary": {
+                "bounds": {
+                    "minx": 0, "miny": 0, "minz": 0,
+                    "maxx": 10, "maxy": 10, "maxz": 5,
+                },
+                "num_points": 100,
+                "srs": {
+                    "wkt": "NOT_A_VALID_CRS",
+                    "units": {"horizontal": "metre"},
+                },
+            }
+        }
+    )
+
+    assert result["status"] == "warning"
+    assert result["srs"]["identifier"] is None
+    assert result["density_unit"] == "points_per_square_crs_unit"
+    assert any(
+        issue["code"] == "POINTCLOUD_CRS_UNRESOLVED"
+        for issue in result["issues"]
+    )
