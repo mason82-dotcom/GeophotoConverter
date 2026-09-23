@@ -402,3 +402,64 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 }
+
+export interface PointCloudSource {
+  job_id?: string
+  artifact_index: number
+  name: string
+  type: string
+  size_bytes?: number
+  metadata_url: string
+  preview_url: string
+  download_url: string
+}
+
+export interface PointCloudListResponse {
+  job_id: string
+  pointclouds: PointCloudSource[]
+}
+
+export interface PointCloudBounds {
+  min: [number, number, number]
+  max: [number, number, number]
+  center: [number, number, number]
+  extent: [number, number, number]
+}
+
+export interface PointCloudCrs {
+  name: string
+  epsg?: number | null
+  authority?: string | null
+  code?: string | null
+  projected: boolean
+  geographic: boolean
+}
+
+export interface PointCloudMetadata {
+  job_id: string
+  artifact_index: number
+  name: string
+  type: string
+  format: 'las' | 'laz' | 'ply'
+  ply_encoding?: string
+  point_count: number
+  has_rgb: boolean
+  dimensions: string[]
+  bounds: PointCloudBounds
+  source_size_bytes: number
+  las_version?: string
+  point_format?: number
+  scales?: [number, number, number]
+  offsets?: [number, number, number]
+  crs?: PointCloudCrs | null
+  preview_url: string
+  download_url: string
+}
+
+export interface PointCloudPreview {
+  buffer: ArrayBuffer
+  pointCount: number
+  stride: number
+  origin: [number, number, number]
+  hasRgb: boolean
+}

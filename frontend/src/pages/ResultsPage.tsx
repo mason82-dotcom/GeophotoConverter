@@ -63,7 +63,19 @@ function artifactLabel(artifact: Artifact) {
   return { label: artifact.type || 'Artefakt', icon: File }
 }
 
-export function ResultsPage() {
+interface ResultsPageProps {
+  onOpenPointCloud?: (selection: { jobId: string; artifactIndex: number }) => void
+}
+
+function isClassicPointCloud(artifact: Artifact) {
+  const type = artifact.type.toLowerCase()
+  const name = artifact.name.toLowerCase()
+  if (type.includes('gsplat') || type.includes('gaussian')) return false
+  if (name.endsWith('.las') || name.endsWith('.laz')) return true
+  return name.endsWith('.ply') && type.includes('point_cloud')
+}
+
+export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
   const [items, setItems] = useState<ResultJob[]>([])
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(true)
@@ -178,14 +190,29 @@ export function ResultsPage() {
                           <strong>{artifact.name}</strong>
                           <small>{formatBytes(artifact.size_bytes)}</small>
                         </div>
-                        {artifact.download_url ? (
-                          <a className="button artifact-download" href={artifact.download_url} download>
-                            <Download size={15} />
-                            Herunterladen
-                          </a>
-                        ) : (
-                          <span className="status-chip status-chip--neutral">Keine URL</span>
-                        )}
+                        <div className="artifact-actions">
+                          {isClassicPointCloud(artifact) && onOpenPointCloud && (
+                            <button
+                              className="button"
+                              type="button"
+                              onClick={() => onOpenPointCloud({
+                                jobId: job.id,
+                                artifactIndex: (job.artifacts ?? []).indexOf(artifact),
+                              })}
+                            >
+                              <ScanLine size={15} />
+                              Im Viewer öffnen
+                            </button>
+                          )}
+                          {artifact.download_url ? (
+                            <a className="button artifact-download" href={artifact.download_url} download>
+                              <Download size={15} />
+                              Herunterladen
+                            </a>
+                          ) : (
+                            <span className="status-chip status-chip--neutral">Keine URL</span>
+                          )}
+                        </div>
                       </article>
                     )
                   })}

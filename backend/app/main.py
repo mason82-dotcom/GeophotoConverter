@@ -30,6 +30,7 @@ from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
 from .photogrammetry import fuse_photogrammetry_metadata
+from .pointcloud import router as pointcloud_router
 from .qa import dataset_qa
 from .services import external_services
 from .storage import store
@@ -43,6 +44,7 @@ app = FastAPI(
 app.include_router(maps_router)
 app.include_router(previews_router)
 app.include_router(dronedb_router)
+app.include_router(pointcloud_router)
 
 
 class DatasetCreate(BaseModel):

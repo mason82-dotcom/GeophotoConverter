@@ -8,6 +8,7 @@ import {
   Menu,
   Orbit,
   PlaySquare,
+  ScanLine,
   Settings,
   UploadCloud,
   X,
@@ -21,6 +22,7 @@ export type NavKey =
   | 'map'
   | 'processing'
   | 'results'
+  | 'pointcloud'
   | 'dronedb'
   | 'assistant'
   | 'settings'
@@ -38,6 +40,7 @@ const navItems: NavItem[] = [
   { id: 'map', label: 'Karte', icon: Map },
   { id: 'processing', label: 'Verarbeitung', icon: PlaySquare },
   { id: 'results', label: 'Ergebnisse', icon: Boxes },
+  { id: 'pointcloud', label: 'Punktwolken', icon: ScanLine },
   { id: 'dronedb', label: 'DroneDB', icon: Database },
   { id: 'assistant', label: 'Assistent', icon: Bot },
   { id: 'settings', label: 'Einstellungen', icon: Settings },

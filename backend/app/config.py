@@ -8,6 +8,7 @@ DATA_ROOT = Path(os.getenv("GEOPHOTO_DATA_ROOT", "/data")).resolve()
 DATASETS_ROOT = DATA_ROOT / "datasets"
 MAPS_ROOT = DATA_ROOT / "maps"
 CACHE_ROOT = DATA_ROOT / "cache"
+POINTCLOUD_CACHE_ROOT = CACHE_ROOT / "pointcloud"
 DB_PATH = DATA_ROOT / "geophoto.db"
 REDIS_URL = os.getenv("GEOPHOTO_REDIS_URL", "redis://redis:6379/0")
 DRONEDB_BASE_URL = os.getenv("DRONEDB_BASE_URL", "http://dronedb:5000")
@@ -44,3 +45,4 @@ def ensure_directories() -> None:
     DATASETS_ROOT.mkdir(parents=True, exist_ok=True)
     MAPS_ROOT.mkdir(parents=True, exist_ok=True)
     CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+    POINTCLOUD_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
