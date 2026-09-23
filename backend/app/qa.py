@@ -36,6 +36,14 @@ def _range(values: list[float]) -> dict[str, float | int | None]:
     }
 
 
+def _percent(count: int, total: int) -> float:
+    return round(count * 100 / total, 1) if total else 0.0
+
+
+def _span(values: list[float]) -> float | None:
+    return max(values) - min(values) if values else None
+
+
 def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     classified = [
         (
@@ -62,6 +70,14 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     mapping_rtk_fixed = 0
     mapping_orientation_metadata = 0
     mapping_metadata_errors = 0
+    mapping_positions: list[tuple[float, float]] = []
+    mapping_camera_models: Counter[str] = Counter()
+    mapping_focal_lengths: list[float] = []
+    mapping_gimbal_pitches: list[float] = []
+    mapping_capture_times: list[datetime] = []
+    mapping_relative_altitudes: list[float] = []
+    mapping_absolute_altitudes: list[float] = []
+    mapping_altitude_offsets: list[float] = []
     classification_conflicts: Counter[str] = Counter()
     multispectral_conflict_files: list[str] = []
     multispectral_conflict_groups: set[str] = set()
@@ -109,6 +125,27 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             missing_gps += 1
         elif is_mapping_input:
             mapping_geotagged += 1
+            if (
+                isinstance(latitude, (int, float))
+                and not isinstance(latitude, bool)
+                and isinstance(longitude, (int, float))
+                and not isinstance(longitude, bool)
+            ):
+                mapping_positions.append(
+                    (float(latitude), float(longitude))
+                )
+
+        if is_mapping_input and camera_model:
+            mapping_camera_models[str(camera_model)] += 1
+
+        image = metadata.get("image") or {}
+        focal_length = image.get("focal_length")
+        if (
+            is_mapping_input
+            and isinstance(focal_length, (int, float))
+            and not isinstance(focal_length, bool)
+        ):
+            mapping_focal_lengths.append(float(focal_length))
 
         gps_altitude = gps.get("altitude")
         if isinstance(gps_altitude, (int, float)):
@@ -116,8 +153,32 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
 
         dji = metadata.get("dji") or {}
         relative_altitude = dji.get("relative_altitude")
-        if isinstance(relative_altitude, (int, float)):
+        if isinstance(relative_altitude, (int, float)) and not isinstance(
+            relative_altitude,
+            bool,
+        ):
             relative_altitudes.append(float(relative_altitude))
+            if is_mapping_input:
+                mapping_relative_altitudes.append(float(relative_altitude))
+
+        absolute_altitude = dji.get("absolute_altitude")
+        if (
+            is_mapping_input
+            and isinstance(absolute_altitude, (int, float))
+            and not isinstance(absolute_altitude, bool)
+        ):
+            mapping_absolute_altitudes.append(float(absolute_altitude))
+
+        if (
+            is_mapping_input
+            and isinstance(relative_altitude, (int, float))
+            and not isinstance(relative_altitude, bool)
+            and isinstance(absolute_altitude, (int, float))
+            and not isinstance(absolute_altitude, bool)
+        ):
+            mapping_altitude_offsets.append(
+                float(absolute_altitude) - float(relative_altitude)
+            )
 
         if is_mapping_input:
             if dji.get("rtk_flag") is not None:
@@ -128,6 +189,13 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                     and str(dji.get("rtk_flag")).strip() == "50"
                 ):
                     mapping_rtk_fixed += 1
+            gimbal_pitch = dji.get("gimbal_pitch")
+            if isinstance(gimbal_pitch, (int, float)) and not isinstance(
+                gimbal_pitch,
+                bool,
+            ):
+                mapping_gimbal_pitches.append(float(gimbal_pitch))
+
             orientation_values = (
                 dji.get("flight_yaw"),
                 dji.get("flight_pitch"),
@@ -139,9 +207,14 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             if all(value is not None for value in orientation_values):
                 mapping_orientation_metadata += 1
 
-        capture_time = _parse_time(metadata.get("capture_time"))
+        capture_time = _parse_time(
+            metadata.get("utc_at_exposure")
+            or metadata.get("capture_time")
+        )
         if capture_time is not None:
             times.append(capture_time)
+            if is_mapping_input:
+                mapping_capture_times.append(capture_time)
 
         if item.get("scan_error"):
             metadata_errors += 1
@@ -153,18 +226,273 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     mapping_inputs = media_counts.get("RGB", 0) + media_counts.get("WIDE", 0)
     mapping_missing_gps = max(mapping_inputs - mapping_geotagged, 0)
     mapping_ready = mapping_inputs >= 2
+
+    unique_positions = {
+        (round(latitude, 7), round(longitude, 7))
+        for latitude, longitude in mapping_positions
+    }
+    if len(mapping_positions) < 2:
+        gps_distribution_status = "unknown"
+    elif len(unique_positions) < 2:
+        gps_distribution_status = "warning"
+    else:
+        gps_distribution_status = "pass"
+
+    if not mapping_camera_models:
+        camera_status = "unknown"
+    elif len(mapping_camera_models) > 1:
+        camera_status = "warning"
+    else:
+        camera_status = "pass"
+
+    focal_span = _span(mapping_focal_lengths)
+    focal_mean = (
+        sum(mapping_focal_lengths) / len(mapping_focal_lengths)
+        if mapping_focal_lengths
+        else None
+    )
+    focal_tolerance = (
+        max(0.1, abs(focal_mean) * 0.02)
+        if focal_mean is not None
+        else None
+    )
+    if len(mapping_focal_lengths) < 2:
+        focal_status = "unknown"
+    elif focal_span is not None and focal_tolerance is not None and focal_span > focal_tolerance:
+        focal_status = "warning"
+    else:
+        focal_status = "pass"
+
+    nadir_tolerance_deg = 15.0
+    nadir_like_count = sum(
+        1
+        for pitch in mapping_gimbal_pitches
+        if abs(pitch + 90.0) <= nadir_tolerance_deg
+    )
+    nadir_like_percent = _percent(
+        nadir_like_count,
+        len(mapping_gimbal_pitches),
+    )
+    if not mapping_gimbal_pitches:
+        gimbal_status = "unknown"
+    elif nadir_like_percent < 80.0:
+        gimbal_status = "warning"
+    else:
+        gimbal_status = "pass"
+
+    capture_time_unique = len(set(mapping_capture_times))
+    if not mapping_capture_times:
+        capture_time_status = "unknown"
+    elif (
+        len(mapping_capture_times) < mapping_inputs
+        or capture_time_unique < len(mapping_capture_times)
+    ):
+        capture_time_status = "warning"
+    else:
+        capture_time_status = "pass"
+    try:
+        capture_time_span_seconds = (
+            (max(mapping_capture_times) - min(mapping_capture_times)).total_seconds()
+            if len(mapping_capture_times) >= 2
+            else None
+        )
+    except TypeError:
+        capture_time_span_seconds = None
+        capture_time_status = "unknown"
+
+    relative_altitude_span = _span(mapping_relative_altitudes)
+    relative_altitude_mean = (
+        sum(mapping_relative_altitudes) / len(mapping_relative_altitudes)
+        if mapping_relative_altitudes
+        else None
+    )
+    relative_altitude_tolerance = (
+        max(10.0, abs(relative_altitude_mean) * 0.25)
+        if relative_altitude_mean is not None
+        else None
+    )
+    if len(mapping_relative_altitudes) < 2:
+        relative_altitude_status = "unknown"
+    elif (
+        relative_altitude_span is not None
+        and relative_altitude_tolerance is not None
+        and relative_altitude_span > relative_altitude_tolerance
+    ):
+        relative_altitude_status = "warning"
+    else:
+        relative_altitude_status = "pass"
+
+    absolute_altitude_span = _span(mapping_absolute_altitudes)
+    if len(mapping_absolute_altitudes) < 2:
+        absolute_altitude_status = "unknown"
+    elif absolute_altitude_span is not None and absolute_altitude_span > 50.0:
+        absolute_altitude_status = "warning"
+    else:
+        absolute_altitude_status = "pass"
+
+    altitude_offset_span = _span(mapping_altitude_offsets)
+    if len(mapping_altitude_offsets) < 2:
+        altitude_offset_status = "unknown"
+    elif altitude_offset_span is not None and altitude_offset_span > 5.0:
+        altitude_offset_status = "warning"
+    else:
+        altitude_offset_status = "pass"
+
+    mapping_checks = {
+        "gps_distribution": {
+            "status": gps_distribution_status,
+            "known_positions": len(mapping_positions),
+            "unique_positions": len(unique_positions),
+            "coverage_percent": _percent(len(mapping_positions), mapping_inputs),
+        },
+        "camera_consistency": {
+            "status": camera_status,
+            "known_images": sum(mapping_camera_models.values()),
+            "models": dict(mapping_camera_models),
+            "coverage_percent": _percent(
+                sum(mapping_camera_models.values()),
+                mapping_inputs,
+            ),
+        },
+        "focal_length_consistency": {
+            "status": focal_status,
+            "known_images": len(mapping_focal_lengths),
+            "coverage_percent": _percent(
+                len(mapping_focal_lengths),
+                mapping_inputs,
+            ),
+            "range_mm": _range(mapping_focal_lengths),
+            "span_mm": focal_span,
+            "tolerance_mm": focal_tolerance,
+        },
+        "gimbal_nadir": {
+            "status": gimbal_status,
+            "known_images": len(mapping_gimbal_pitches),
+            "coverage_percent": _percent(
+                len(mapping_gimbal_pitches),
+                mapping_inputs,
+            ),
+            "nadir_like_images": nadir_like_count,
+            "nadir_like_percent": nadir_like_percent,
+            "tolerance_deg": nadir_tolerance_deg,
+            "pitch_range_deg": _range(mapping_gimbal_pitches),
+        },
+        "capture_time": {
+            "status": capture_time_status,
+            "known_images": len(mapping_capture_times),
+            "coverage_percent": _percent(
+                len(mapping_capture_times),
+                mapping_inputs,
+            ),
+            "unique_timestamps": capture_time_unique,
+            "span_seconds": capture_time_span_seconds,
+        },
+        "relative_altitude": {
+            "status": relative_altitude_status,
+            "known_images": len(mapping_relative_altitudes),
+            "coverage_percent": _percent(
+                len(mapping_relative_altitudes),
+                mapping_inputs,
+            ),
+            "range_m": _range(mapping_relative_altitudes),
+            "span_m": relative_altitude_span,
+            "tolerance_m": relative_altitude_tolerance,
+        },
+        "absolute_altitude": {
+            "status": absolute_altitude_status,
+            "known_images": len(mapping_absolute_altitudes),
+            "coverage_percent": _percent(
+                len(mapping_absolute_altitudes),
+                mapping_inputs,
+            ),
+            "range_m": _range(mapping_absolute_altitudes),
+            "span_m": absolute_altitude_span,
+            "warning_threshold_m": 50.0,
+        },
+        "altitude_offset_consistency": {
+            "status": altitude_offset_status,
+            "known_pairs": len(mapping_altitude_offsets),
+            "range_m": _range(mapping_altitude_offsets),
+            "span_m": altitude_offset_span,
+            "warning_threshold_m": 5.0,
+        },
+    }
+
+    mapping_reasons: list[dict[str, Any]] = []
+    if not mapping_ready:
+        mapping_reasons.append({
+            "code": "TOO_FEW_MAPPING_IMAGES",
+            "severity": "error",
+            "message": "Mindestens zwei RGB/WIDE-Bilder sind erforderlich.",
+        })
+    if mapping_missing_gps:
+        mapping_reasons.append({
+            "code": "MAPPING_GPS_INCOMPLETE",
+            "severity": "warning",
+            "message": f"{mapping_missing_gps} Mapping-Bild(er) ohne GPS-Koordinaten.",
+        })
+    if mapping_metadata_errors:
+        mapping_reasons.append({
+            "code": "MAPPING_METADATA_ERRORS",
+            "severity": "warning",
+            "message": f"{mapping_metadata_errors} Mapping-Bild(er) mit Metadatenfehlern.",
+        })
+
+    check_reason_specs = {
+        "gps_distribution": (
+            "MAPPING_GPS_DEGENERATE",
+            "GPS-Aufnahmezentren sind räumlich degeneriert oder identisch.",
+        ),
+        "camera_consistency": (
+            "MAPPING_MIXED_CAMERAS",
+            "Mehrere Kameramodelle sind im Mapping-Datensatz gemischt.",
+        ),
+        "focal_length_consistency": (
+            "MAPPING_FOCAL_LENGTH_VARIATION",
+            "Die Brennweite variiert stärker als die Mapping-Toleranz.",
+        ),
+        "gimbal_nadir": (
+            "MAPPING_NON_NADIR",
+            "Ein relevanter Anteil der bekannten Gimbal-Winkel ist nicht nadirnah.",
+        ),
+        "capture_time": (
+            "MAPPING_CAPTURE_TIME_INCONSISTENT",
+            "Aufnahmezeiten fehlen teilweise oder enthalten Duplikate.",
+        ),
+        "relative_altitude": (
+            "MAPPING_RELATIVE_ALTITUDE_VARIATION",
+            "Die relative Flughöhe variiert stärker als die Mapping-Heuristik.",
+        ),
+        "absolute_altitude": (
+            "MAPPING_ABSOLUTE_ALTITUDE_VARIATION",
+            "Die absolute Höhe variiert um mehr als 50 m.",
+        ),
+        "altitude_offset_consistency": (
+            "MAPPING_ALTITUDE_OFFSET_INCONSISTENT",
+            "Die Differenz zwischen absoluter und relativer Höhe ist nicht konsistent.",
+        ),
+    }
+    for check_name, (code, message) in check_reason_specs.items():
+        if mapping_checks[check_name]["status"] == "warning":
+            mapping_reasons.append({
+                "code": code,
+                "severity": "warning",
+                "message": message,
+                "check": check_name,
+            })
+
     if not mapping_ready:
         mapping_status = "blocked"
-        mapping_reason = "Mindestens zwei RGB/WIDE-Bilder sind erforderlich."
-    elif mapping_missing_gps:
+    elif any(
+        reason["severity"] == "warning"
+        for reason in mapping_reasons
+    ):
         mapping_status = "warning"
-        mapping_reason = f"{mapping_missing_gps} Mapping-Bild(er) ohne GPS-Koordinaten."
-    elif mapping_metadata_errors:
-        mapping_status = "warning"
-        mapping_reason = f"{mapping_metadata_errors} Mapping-Bild(er) mit Metadatenfehlern."
     else:
         mapping_status = "ready"
-        mapping_reason = None
+    mapping_reason = (
+        mapping_reasons[0]["message"] if mapping_reasons else None
+    )
     thermal_inputs = media_counts.get("THERMAL", 0)
     multispectral_inputs = sum(
         media_counts.get(kind, 0)
@@ -388,6 +716,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "rtk_fixed_images": mapping_rtk_fixed,
             "orientation_metadata_images": mapping_orientation_metadata,
             "metadata_errors": mapping_metadata_errors,
+            "checks": mapping_checks,
+            "reasons": mapping_reasons,
             "reason": mapping_reason,
         },
         "thermal": {
