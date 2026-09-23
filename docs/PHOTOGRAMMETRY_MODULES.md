@@ -52,15 +52,25 @@ Georeferenzierung, GCP/Checkpoints, Footprints, Overlap und räumliche QA.
 
 ## PGM-RASTER — Raster-QA
 
-Issue: #52
+Issue: #52  
+Status: **in Entwicklung**
 
-Geplant:
+Technischer Kern: `rasterio==1.5.1`.
 
-- GDAL/Rasterio
-- CRS, GeoTransform, Bounds, Pixelgröße und NoData
-- Band- und Datentypprüfung
-- Orthofoto/DSM/DTM-Konsistenz
-- später COG und Overviews
+Erster Vertrag:
+
+- GeoTIFF-/Raster-Inspektion ohne Engine-Abhängigkeit
+- CRS muss vorhanden sein; fehlendes CRS blockiert
+- nicht projizierte oder nicht metrische CRS werden als Warning ausgewiesen
+- GeoTransform, Bounds, Pixelauflösung, Bandzahl, Datentyp und NoData werden erfasst
+- Rotation/Shear wird explizit diagnostiziert
+- Rastersets (z. B. Orthofoto/DSM/DTM) werden auf gemeinsamen CRS geprüft
+- disjunkte Bounds innerhalb eines Produktsets blockieren die QA
+- unterschiedliche Pixelgrößen werden nicht pauschal als Fehler behandelt, weil Orthofoto und DEM absichtlich verschiedene Auflösungen haben dürfen
+- später: COG/Overviews, Statistik/NoData-Anteile und direkte ODM-Artefaktintegration
+
+Der Python-Pfad nutzt die Rasterio-Wheels; ein separater systemweiter GDAL-Source-Build
+im API-Container ist für diesen Modulblock nicht erforderlich.
 
 ## PGM-POINTCLOUD — Punktwolken-QA
 
