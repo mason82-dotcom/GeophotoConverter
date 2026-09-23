@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from app.config import DATA_ROOT
+from app.main import JobCreate, _canonical_workflow
 from app.storage import store
 
 
@@ -257,6 +258,89 @@ def test_m3m_multispectral_readiness_requires_complete_groups(client):
     assert body["readiness"]["odm_multispectral"]["eligible_images"] == 10
 
 
+def test_m3m_band_conflict_blocks_multispectral_readiness(client):
+    dataset = _dataset(client)
+    suffixes = [
+        ("D.JPG", "image/jpeg"),
+        ("MS_G.TIF", "image/tiff"),
+        ("MS_R.TIF", "image/tiff"),
+        ("MS_RE.TIF", "image/tiff"),
+        ("MS_NIR.TIF", "image/tiff"),
+    ]
+
+    for capture in ("DJI_6101", "DJI_6102"):
+        for index, (suffix, media_type) in enumerate(suffixes):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[
+                    (
+                        "files",
+                        (
+                            name,
+                            f"{capture}-{index}".encode(),
+                            media_type,
+                        ),
+                    )
+                ],
+                data={"relative_paths": json.dumps([f"M3M/{name}"])},
+            )
+            assert response.status_code == 200
+
+    conflict_name = "DJI_6101_MS_G.TIFF"
+    conflict_upload = client.post(
+        f"/api/v1/datasets/{dataset['id']}/files",
+        files=[
+            (
+                "files",
+                (conflict_name, b"conflicting-green-copy", "image/tiff"),
+            )
+        ],
+        data={"relative_paths": json.dumps([f"M3M/{conflict_name}"])},
+    )
+    assert conflict_upload.status_code == 200
+    conflict_file_id = conflict_upload.json()["accepted"][0]["id"]
+    store.update_file_scan(
+        conflict_file_id,
+        {
+            "camera": {"make": "DJI", "model": "Mavic 3 Multispectral"},
+            "gps": {"latitude": 49.0, "longitude": 8.0},
+            "dji": {
+                "band_name": "Red",
+                "product_name": "Mavic 3 Multispectral",
+            },
+        },
+        None,
+    )
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["multispectral"]["complete_groups"] == 2
+    assert body["multispectral"]["conflict_file_count"] == 1
+    assert body["multispectral"]["conflict_group_count"] == 1
+    assert body["multispectral"]["conflict_groups"] == ["M3M/DJI_6101"]
+    assert body["multispectral"]["classification_conflicts"] == {
+        "band_metadata_filename_conflict": 1
+    }
+    assert body["readiness"]["odm_multispectral"]["ready"] is False
+    assert body["readiness"]["odm_multispectral"]["classification_conflict_files"] == 1
+    assert any(
+        warning["code"] == "MULTISPECTRAL_CLASSIFICATION_CONFLICT"
+        and warning["severity"] == "error"
+        for warning in body["warnings"]
+    )
+
+    detail = client.get(f"/api/v1/datasets/{dataset['id']}")
+    classifications = {
+        item["relative_path"]: item["classification"]
+        for item in detail.json()["files"]
+    }
+    assert classifications[f"M3M/{conflict_name}"]["conflicts"] == [
+        "band_metadata_filename_conflict"
+    ]
+
+
 def test_m3m_multispectral_readiness_rejects_incomplete_groups(client):
     dataset = _dataset(client)
     for index, suffix in enumerate(("D.JPG", "MS_G.TIF", "MS_NIR.TIF")):
@@ -330,6 +414,8 @@ def test_processing_profile_catalog_exposes_specialized_workflows(client):
         item["key"]: item
         for item in engines["odm"]["workflows"]
     }
+    assert "mapping" in odm_workflows
+    assert odm_workflows["mapping"]["eligible_media_kinds"] == ["RGB", "WIDE"]
     assert odm_workflows["multispectral"]["platforms"] == ["M3M"]
     assert odm_workflows["multispectral"]["radiometric_calibration"] == "camera"
 
@@ -339,6 +425,16 @@ def test_processing_profile_catalog_exposes_specialized_workflows(client):
     assert thermal_workflow["temperature_space"] == "sensor_pixel"
     assert thermal_workflow["wide_thermal_coregistered"] is False
 
+    micmac_workflows = {
+        item["key"]: item
+        for item in engines["micmac"]["workflows"]
+    }
+    gsplat_workflows = {
+        item["key"]: item
+        for item in engines["gsplat"]["workflows"]
+    }
+    assert "mapping" in micmac_workflows
+    assert "reconstruction" in gsplat_workflows
     assert engines["gsplat"]["requires_gpu"] is True
     assert engines["telesculptor"]["automated"] is False
 
@@ -349,5 +445,73 @@ def test_processing_catalog_user_text_is_german(client):
     engines = {item["key"]: item for item in response.json()["engines"]}
     odm_workflows = {item["key"]: item for item in engines["odm"]["workflows"]}
     assert "Multispektral" in odm_workflows["multispectral"]["title"]
-    assert "Schnelle Prüfung" in odm_workflows["rgb"]["profiles"]["preview"]["purpose"]
+    assert "Schnelle Prüfung" in odm_workflows["mapping"]["profiles"]["preview"]["purpose"]
     assert "Thermografie" in engines["thermal"]["title"]
+
+
+
+def test_legacy_rgb_workflow_is_canonicalized_by_engine():
+    assert JobCreate(dataset_id="legacy", engine="gsplat").workflow == "rgb"
+    assert _canonical_workflow("odm", "rgb") == "mapping"
+    assert _canonical_workflow("micmac", "rgb") == "mapping"
+    assert _canonical_workflow("gsplat", "rgb") == "reconstruction"
+    assert _canonical_workflow("thermal", "thermal") == "thermal"
+
+
+def test_mapping_qa_reports_gps_rtk_and_orientation_coverage(client):
+    dataset = _dataset(client)
+    file_ids = []
+    for index in range(2):
+        response = client.post(
+            f"/api/v1/datasets/{dataset['id']}/files",
+            files=[
+                (
+                    "files",
+                    (f"DJI_700{index}.JPG", f"mapping-{index}".encode(), "image/jpeg"),
+                )
+            ],
+        )
+        assert response.status_code == 200
+        file_ids.append(response.json()["accepted"][0]["id"])
+
+    store.update_file_scan(
+        file_ids[0],
+        {
+            "camera": {"make": "DJI", "model": "M3E"},
+            "gps": {"latitude": 49.1, "longitude": 8.5, "altitude": 120.0},
+            "dji": {
+                "rtk_flag": 50,
+                "rtk_fixed": True,
+                "flight_yaw": 1.0,
+                "flight_pitch": 2.0,
+                "flight_roll": 3.0,
+                "gimbal_yaw": 4.0,
+                "gimbal_pitch": -90.0,
+                "gimbal_roll": 0.0,
+            },
+        },
+        None,
+    )
+    store.update_file_scan(
+        file_ids[1],
+        {
+            "camera": {"make": "DJI", "model": "M3E"},
+            "gps": {},
+            "dji": {},
+        },
+        None,
+    )
+
+    response = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert response.status_code == 200
+    mapping = response.json()["mapping"]
+    assert mapping["ready"] is True
+    assert mapping["status"] == "warning"
+    assert mapping["minimum_images"] == 2
+    assert mapping["eligible_images"] == 2
+    assert mapping["geotagged_images"] == 1
+    assert mapping["geotagged_percent"] == 50.0
+    assert mapping["missing_gps"] == 1
+    assert mapping["rtk_metadata_images"] == 1
+    assert mapping["rtk_fixed_images"] == 1
+    assert mapping["orientation_metadata_images"] == 1

@@ -89,6 +89,8 @@ export interface EngineReadiness {
   eligible_images: number
   complete_groups?: number
   platform?: string | null
+  classification_conflict_files?: number
+  classification_conflict_groups?: number
   reason: string | null
 }
 
@@ -121,8 +123,23 @@ export interface DatasetQa {
     multispectral: number
     multispectral_groups: number
     complete_multispectral_groups: number
+    multispectral_classification_conflicts: number
     thermal_groups: number
     complete_thermal_groups: number
+  }
+  mapping: {
+    status: 'ready' | 'warning' | 'blocked'
+    ready: boolean
+    minimum_images: number
+    eligible_images: number
+    geotagged_images: number
+    geotagged_percent: number
+    missing_gps: number
+    rtk_metadata_images: number
+    rtk_fixed_images: number
+    orientation_metadata_images: number
+    metadata_errors: number
+    reason: string | null
   }
   thermal: {
     group_count: number
@@ -133,6 +150,11 @@ export interface DatasetQa {
     required_media_kinds: string[]
     group_count: number
     complete_groups: number
+    classification_conflicts: Record<string, number>
+    conflict_file_count: number
+    conflict_files: string[]
+    conflict_group_count: number
+    conflict_groups: string[]
   }
   readiness: {
     odm: EngineReadiness
@@ -187,7 +209,7 @@ export interface MapCatalog {
 
 export type ProcessingEngine = 'odm' | 'micmac' | 'gsplat' | 'thermal' | 'telesculptor'
 export type ProcessingProfile = 'preview' | 'standard' | 'high'
-export type ProcessingWorkflow = 'rgb' | 'multispectral' | 'thermal'
+export type ProcessingWorkflow = 'mapping' | 'reconstruction' | 'rgb' | 'multispectral' | 'thermal'
 
 export interface ProcessingProfileDefinition {
   purpose?: string

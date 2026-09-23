@@ -29,12 +29,12 @@ Das Frontend darf Engine-Fähigkeiten nicht unabhängig davon hart codieren.
 Aktuell modelliert:
 
 - ODM
-  - `rgb`
+  - `mapping`
   - `multispectral`
 - MicMac
-  - `rgb`
+  - `mapping`
 - gsplat
-  - `rgb`
+  - `reconstruction`
 - Thermal
   - `thermal`
 - TeleSculptor
@@ -118,6 +118,79 @@ Eigenschaften:
 
 Extrahiert EXIF-/XMP-/DJI-Metadaten über ExifTool und aktualisiert den Scanstatus.
 
+#### DJI M3E-Metadaten
+
+Für DJI Mavic 3 Enterprise werden die ExifTool-Family-1-Gruppen
+`IFD0`, `ExifIFD` und insbesondere `XMP-drone-dji` normalisiert.
+Bestehende Legacy-Aliase wie `XMP:AbsoluteAltitude` bleiben kompatibel.
+
+Relevante normalisierte Felder pro Datei:
+
+- `capture_time` – bestehender Aufnahmezeitpunkt, bevorzugt `DateTimeOriginal`
+- `utc_at_exposure` – DJI-`UTCAtExposure` separat und unverändert
+- `camera.serial` – `CameraSerialNumber`/EXIF-Seriennummer
+- `camera.lens_serial`
+- `camera.shutter_type`
+- `camera.shutter_count`
+- `gps.latitude`, `gps.longitude`, `gps.altitude`
+- `gps.status`
+- `gps.altitude_type`
+- `dji.absolute_altitude`, `dji.relative_altitude`
+- `dji.flight_yaw`, `dji.flight_pitch`, `dji.flight_roll`
+- `dji.flight_speed_x`, `dji.flight_speed_y`, `dji.flight_speed_z`
+- `dji.capture_uuid` – DJI Capture UUID; bei M3E gespeichert, bei M3M als bevorzugter Capture-Set-Schlüssel nutzbar
+- `dji.gimbal_reverse`
+- `dji.gimbal_yaw`, `dji.gimbal_pitch`, `dji.gimbal_roll`
+- `dji.rtk_flag`
+- `dji.rtk_status`: `failed`, `single`, `float`, `fixed` oder `unknown`
+- `dji.rtk_fixed`
+- `dji.rtk_std_lon`, `dji.rtk_std_lat`, `dji.rtk_std_hgt`
+- `dji.rtk_diff_age`
+- `dji.surveying_mode`
+- `dji.surveying_recommended`
+- `dji.dewarp_flag`
+- `dji.dewarp_data` – unveränderter DJI-Rohwert
+- `dji.dewarp_calibration` – soweit parsebar mit `fx`, `fy`, `cx`, `cy`, `k1`, `k2`, `p1`, `p2`, `k3` und optional `calibration_date`
+- `dji.calibrated_focal_length`
+- `dji.calibrated_optical_center_x`, `dji.calibrated_optical_center_y`
+- `dji.drone_model`
+- `dji.drone_serial_number`
+
+RTK-Interpretation:
+- `0` → `failed`
+- `16` → `single`
+- `32–49` → `float`
+- `50` → `fixed`
+- andere Werte → `unknown`
+
+NTRIP-Host, Port und Mountpoint werden nicht in das normalisierte
+GeoPhotoConverter-Metadatenobjekt übernommen.
+
+#### DJI M3M-Metadaten
+
+Zusätzlich werden für Mavic 3 Multispectral folgende DJI-XMP-Felder normalisiert:
+
+- `dji.image_source`
+- `dji.band_name`
+- `dji.band_frequency`
+- `dji.central_wavelength_nm`
+- `dji.sensor_index`
+- `dji.radiometry.irradiance`
+- `dji.radiometry.sunlight_sensor_status`
+- `dji.radiometry.raw_sunlight_sensor`
+- `dji.radiometry.sensor_gain`
+- `dji.radiometry.sensor_gain_adjustment`
+- `dji.radiometry.exposure_time`
+- `dji.radiometry.black_level`
+- `dji.radiometry.vignetting_data`
+- `dji.radiometry.calibrated_h_matrix`
+- `dji.source_keys` für die tatsächlich verwendeten M3M-Rohschlüssel
+
+`BandName` ist für M3M die authoritative Bandquelle. Bei Widerspruch zum
+Dateinamen wird der Metadatenwert verwendet und ein Klassifikationskonflikt
+ausgewiesen. Fehlt `BandName`, bleibt die Dateinamenklassifikation der
+Fallback. `CaptureUUID` bleibt der bevorzugte Capture-Gruppierungsschlüssel.
+
 ### GET /datasets/{dataset_id}/qa
 
 Liefert unter anderem:
@@ -131,6 +204,8 @@ Liefert unter anderem:
 - Warnungen
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
+- zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
+- M3M-Klassifikationskonflikte mit Konfliktcodes, betroffenen Dateien und Capture-Gruppen; solche Konflikte blockieren `odm_multispectral`
 
 ### GET /datasets/{dataset_id}/geojson
 
@@ -169,7 +244,7 @@ Allgemeines Beispiel:
   "dataset_id": "...",
   "engine": "odm",
   "profile": "standard",
-  "workflow": "rgb",
+  "workflow": "mapping",
   "options": {}
 }
 ```
@@ -185,9 +260,14 @@ Automatisierte Engines:
 
 Workflows:
 
-- `rgb`
+- `mapping` — ODM/MicMac
+- `reconstruction` — gsplat
 - `multispectral` — nur ODM
 - `thermal` — nur Thermal-Engine
+- `rgb` — Legacy-Eingabe; wird engine-spezifisch auf `mapping` oder `reconstruction` normalisiert
+
+Ältere Clients, die `workflow` weglassen, bleiben kompatibel: Der historische
+Default `rgb` wird erst nach Auswahl der Engine kanonisiert.
 
 Das Backend validiert vor dem Enqueue die jeweilige Datensatz-Readiness.
 
