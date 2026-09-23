@@ -1,0 +1,28 @@
+FROM condaforge/miniforge3:26.7.2-0
+
+ENV GEOPHOTO_DATA_ROOT=/data \
+    GEOPHOTO_REDIS_URL=redis://redis:6379/0 \
+    GEOPHOTO_PDAL_TIMEOUT_SECONDS=120 \
+    PROJ_NETWORK=OFF \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN conda create -y -n geophoto-pdal-worker -c conda-forge \
+        "python=3.13" \
+        "pdal=2.10.2" \
+        "pyproj=3.8.0" \
+        pip \
+    && /opt/conda/envs/geophoto-pdal-worker/bin/pip install \
+        --no-cache-dir redis==7.4.1 \
+    && conda clean --all --yes \
+    && /opt/conda/envs/geophoto-pdal-worker/bin/pdal --version 2>&1 \
+        | grep -q "2.10.2"
+
+ENV PATH="/opt/conda/envs/geophoto-pdal-worker/bin:${PATH}"
+
+COPY backend/app/__init__.py backend/app/pointcloud_processing.py /worker/app/
+COPY workers/common /worker/common
+COPY workers/pdal/worker.py /worker/worker.py
+
+WORKDIR /worker
+ENTRYPOINT ["/opt/conda/envs/geophoto-pdal-worker/bin/python", "/worker/worker.py"]
