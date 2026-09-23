@@ -205,7 +205,7 @@ Liefert unter anderem:
 - Engine-Eingabezahlen
 - Readiness für ODM, MicMac, gsplat, Thermal und ODM-Multispektral
 - zusätzliches `mapping`-Objekt mit `ready|warning|blocked`, Mapping-GPS-Abdeckung, RTK-Metadaten-/RTK-Fix-Anzahl und DJI-Lageabdeckung
-- M3M-Klassifikationskonflikte mit Konfliktcodes, betroffenen Dateien und Capture-Gruppen; solche Konflikte blockieren `odm_multispectral`
+- `multispectral.classification_conflicts` zählt erkannte Konfliktcodes; `blocking_conflict_count` und `blocking_conflict_groups` markieren blockierende Konflikte in vollständigen M3M-Gruppen. Aktuell blockieren `band_metadata_filename_conflict` und `band_platform_conflict` den `odm_multispectral`-Workflow. Konflikte in unvollständigen, ohnehin nicht verarbeitbaren Gruppen werden diagnostiziert, blockieren zwei saubere vollständige Gruppen aber nicht zusätzlich.
 
 ### GET /datasets/{dataset_id}/geojson
 
