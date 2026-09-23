@@ -13,6 +13,14 @@ _M3M_BANDS = {
     "NIR": "MS_NIR",
 }
 
+_DJI_BAND_NAMES = {
+    "GREEN": "MS_GREEN",
+    "RED": "MS_RED",
+    "REDEDGE": "MS_RED_EDGE",
+    "RED EDGE": "MS_RED_EDGE",
+    "NIR": "MS_NIR",
+}
+
 _PLATFORM_TOKENS = (
     ("MAVIC 3 MULTISPECTRAL", "M3M"),
     ("MAVIC 3 THERMAL", "M3T"),
@@ -33,12 +41,18 @@ class MediaClassification:
     platform: str
     media_kind: str
     capture_group: str | None
+    media_kind_source: str = "heuristic"
+    capture_group_source: str = "heuristic"
+    conflicts: tuple[str, ...] = ()
 
-    def as_dict(self) -> dict[str, str | None]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "platform": self.platform,
             "media_kind": self.media_kind,
             "capture_group": self.capture_group,
+            "media_kind_source": self.media_kind_source,
+            "capture_group_source": self.capture_group_source,
+            "conflicts": list(self.conflicts),
         }
 
 
@@ -47,18 +61,34 @@ def _group_path(path: PurePosixPath, base: str) -> str:
     return base if parent == "." else f"{parent}/{base}"
 
 
+def _capture_uuid(metadata: dict[str, Any] | None) -> str | None:
+    dji = (metadata or {}).get("dji") or {}
+    value = dji.get("capture_uuid")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 def _capture_group(
     path: PurePosixPath,
     base: str | None,
     metadata: dict[str, Any] | None,
 ) -> str | None:
-    dji = (metadata or {}).get("dji") or {}
-    capture_uuid = dji.get("capture_uuid")
-    if isinstance(capture_uuid, str) and capture_uuid.strip():
-        return f"dji:{capture_uuid.strip()}"
+    capture_uuid = _capture_uuid(metadata)
+    if capture_uuid:
+        return f"dji:{capture_uuid}"
     if base:
         return _group_path(path, base)
     return None
+
+
+def _metadata_band_kind(metadata: dict[str, Any] | None) -> str | None:
+    dji = (metadata or {}).get("dji") or {}
+    value = dji.get("band_name")
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().upper().replace("_", " ")
+    return _DJI_BAND_NAMES.get(normalized)
 
 
 def _path_platform(path: PurePosixPath) -> str:
@@ -101,11 +131,37 @@ def classify_media(
         r"^(?P<base>.+)_MS_(?P<band>G|R|RE|NIR)\.(?:TIF|TIFF)$",
         upper,
     )
+    metadata_band = _metadata_band_kind(metadata)
+    if metadata_band:
+        conflicts: list[str] = []
+        if platform not in {"UNKNOWN", "M3M"}:
+            conflicts.append("band_platform_conflict")
+        if m3m:
+            filename_kind = _M3M_BANDS[m3m.group("band")]
+            if filename_kind != metadata_band:
+                conflicts.append("band_metadata_filename_conflict")
+        base = m3m.group("base") if m3m else path.stem
+        return MediaClassification(
+            platform="M3M",
+            media_kind=metadata_band,
+            capture_group=_capture_group(path, base, metadata),
+            media_kind_source="authoritative",
+            capture_group_source=(
+                "authoritative" if _capture_uuid(metadata) else "heuristic"
+            ),
+            conflicts=tuple(conflicts),
+        )
     if m3m:
         return MediaClassification(
             platform="M3M",
             media_kind=_M3M_BANDS[m3m.group("band")],
             capture_group=_capture_group(path, m3m.group("base"), metadata),
+            media_kind_source="heuristic",
+            capture_group_source=(
+                "authoritative"
+                if ((metadata or {}).get("dji") or {}).get("capture_uuid")
+                else "heuristic"
+            ),
         )
 
     patterns = (
@@ -121,6 +177,9 @@ def classify_media(
                 platform=platform,
                 media_kind=media_kind,
                 capture_group=_capture_group(path, match.group("base"), metadata),
+                capture_group_source=(
+                    "authoritative" if _capture_uuid(metadata) else "heuristic"
+                ),
             )
 
     generic = re.match(
@@ -136,6 +195,11 @@ def classify_media(
         platform=platform,
         media_kind=media_kind,
         capture_group=_capture_group(path, generic.group("base") if generic else None, metadata),
+        capture_group_source=(
+            "authoritative"
+            if _capture_uuid(metadata)
+            else ("heuristic" if generic else "unavailable")
+        ),
     )
 
 
@@ -155,5 +219,8 @@ def reconcile_group_platforms(
             platform=group_platform or item.platform,
             media_kind=item.media_kind,
             capture_group=item.capture_group,
+            media_kind_source=item.media_kind_source,
+            capture_group_source=item.capture_group_source,
+            conflicts=item.conflicts,
         )
     return result
