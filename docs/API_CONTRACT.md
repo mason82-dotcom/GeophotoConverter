@@ -138,6 +138,7 @@ Relevante normalisierte Felder pro Datei:
 - `dji.absolute_altitude`, `dji.relative_altitude`
 - `dji.flight_yaw`, `dji.flight_pitch`, `dji.flight_roll`
 - `dji.flight_speed_x`, `dji.flight_speed_y`, `dji.flight_speed_z`
+- `dji.capture_uuid` – DJI Capture UUID; bei M3E gespeichert, bei M3M bevorzugter Capture-Set-Schlüssel
 - `dji.gimbal_reverse`
 - `dji.gimbal_yaw`, `dji.gimbal_pitch`, `dji.gimbal_roll`
 - `dji.rtk_flag`
@@ -188,8 +189,8 @@ herstellerseitig dokumentierten Multispektralvertrag:
 
 Für M3M gilt `BandName` als authoritative Bandquelle. Ein widersprechender
 Dateiname überschreibt diese Identität nicht; die Klassifikation meldet einen
-Konflikt. Die Capture-Gruppierung bleibt dateinamenbasiert.
-Fehlt ein authoritative Bandfeld, bleibt die bestehende Dateinamenerkennung
+Konflikt. `CaptureUUID` hat bei M3M Vorrang vor der dateinamenbasierten
+Capture-Gruppierung. Fehlt ein authoritative Bandfeld, bleibt die bestehende Dateinamenerkennung
 ausdrücklich heuristisch.
 
 ### GET /datasets/{dataset_id}/qa
