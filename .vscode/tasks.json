@@ -55,7 +55,7 @@
       "type": "process",
       "command": "npm",
       "args": [
-        "install"
+        "ci"
       ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
