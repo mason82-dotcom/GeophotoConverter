@@ -152,10 +152,19 @@ def _qa(relative_path: Any) -> dict[str, Any]:
     relative, target = _resolve_relative_path(relative_path)
 
     summary = _run_pdal_json(["info", "--summary", str(target)])
-    dimensions = set(_summary_dimensions(summary))
-    requested = [name for name in ("X", "Y", "Z") if name in dimensions]
-    if "Classification" in dimensions:
-        requested.append("Classification")
+    dimensions = _summary_dimensions(summary)
+    by_casefold = {
+        name.casefold(): name
+        for name in dimensions
+    }
+    requested = [
+        by_casefold[name]
+        for name in ("x", "y", "z")
+        if name in by_casefold
+    ]
+    classification = by_casefold.get("classification")
+    if classification:
+        requested.append(classification)
 
     stats: dict[str, Any]
     if requested:
@@ -164,8 +173,8 @@ def _qa(relative_path: Any) -> dict[str, Any]:
             "--stats",
             f"--dimensions={','.join(requested)}",
         ]
-        if "Classification" in requested:
-            command.append("--enumerate=Classification")
+        if classification:
+            command.append(f"--enumerate={classification}")
         command.append(str(target))
         stats = _run_pdal_json(command)
     else:
