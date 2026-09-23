@@ -36,7 +36,7 @@ SUPPORTED_EXTENSIONS = {
 
 ENGINE_NAMES = {"odm", "micmac", "gsplat", "thermal", "telesculptor"}
 PROFILE_NAMES = {"preview", "standard", "high"}
-WORKFLOW_NAMES = {"rgb", "multispectral", "thermal"}
+WORKFLOW_NAMES = {"mapping", "reconstruction", "rgb", "multispectral", "thermal"}
 
 
 def ensure_directories() -> None:
