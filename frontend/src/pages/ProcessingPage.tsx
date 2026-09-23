@@ -138,7 +138,7 @@ export function ProcessingPage() {
   const [qaLoading, setQaLoading] = useState(false)
   const [engine, setEngine] = useState<ProcessingEngine>('odm')
   const [profile, setProfile] = useState<ProcessingProfile>('standard')
-  const [workflow, setWorkflow] = useState<ProcessingWorkflow>('rgb')
+  const [workflow, setWorkflow] = useState<ProcessingWorkflow>('mapping')
   const [optionValues, setOptionValues] = useState<Record<string, string>>({})
   const [createdJob, setCreatedJob] = useState<Job>()
   const [loading, setLoading] = useState(true)
@@ -181,7 +181,7 @@ export function ProcessingPage() {
       return
     }
     if (!currentEngine.workflows.some((item) => item.key === workflow)) {
-      setWorkflow(currentEngine.workflows[0]?.key ?? 'rgb')
+      setWorkflow(currentEngine.workflows[0]?.key ?? 'mapping')
     }
     if (!catalog.profiles.includes(profile)) {
       setProfile(catalog.profiles[0] ?? 'standard')
@@ -274,7 +274,7 @@ export function ProcessingPage() {
   function selectEngine(next: ProcessingEngine) {
     setEngine(next)
     const definition = catalog?.engines.find((item) => item.key === next)
-    setWorkflow(definition?.workflows[0]?.key ?? 'rgb')
+    setWorkflow(definition?.workflows[0]?.key ?? 'mapping')
   }
 
   if (loading) {
@@ -338,6 +338,24 @@ export function ProcessingPage() {
           </div>
         )}
       </section>
+
+      {workflow === 'mapping' && qa?.mapping && (
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Mapping-Readiness</p>
+              <h3>{qa.mapping.status === 'ready' ? 'Bereit' : qa.mapping.status === 'warning' ? 'Bereit mit Warnung' : 'Blockiert'}</h3>
+              <p>{qa.mapping.reason ?? 'GPS- und Mapping-Metadaten sind für die Verarbeitung ausreichend.'}</p>
+            </div>
+          </div>
+          <div className="processing-dataset-summary">
+            <span><strong>{qa.mapping.eligible_images}</strong> RGB/WIDE</span>
+            <span><strong>{qa.mapping.geotagged_percent}%</strong> Mapping-GPS</span>
+            <span><strong>{qa.mapping.rtk_metadata_images}</strong> mit RTK-Metadatum</span>
+            <span><strong>{qa.mapping.orientation_metadata_images}</strong> mit vollständiger DJI-Lage</span>
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <div className="panel-heading">
