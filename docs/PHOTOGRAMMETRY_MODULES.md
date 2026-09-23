@@ -135,6 +135,18 @@ Stufe B1 fixiert zuerst einen deterministischen Reprojection-Vertrag:
 - Provenienz bindet Source-Job, Artifact-Index, optionalen SHA-256, Source-/Target-CRS und PDAL-2.10.2-Vertrag
 - Vertikalreferenz bleibt explizit `unchanged_unspecified`
 
+B1-Ausführung:
+
+- eigener interner Redis-Stream `pdal-processing`, nicht in `ENGINE_NAMES`
+- vorhandene Job-/Cancel-/Recovery-Infrastruktur wird wiederverwendet
+- API erzeugt Derived-Jobs ausschließlich aus bestehenden LAS/LAZ/COPC-Artefakten
+- Source-CRS wird aus dem Artefakt gelesen und nie vom Client überschrieben
+- Output liegt ausschließlich unter `jobs/<processing-job-id>/derived/`
+- QA-Sidecar bleibt read-only; schreibender Worker ist ein separates Compose-Profil
+- Vorher/Nachher-QA prüft Punktzahl, Bounds und Ziel-SRS
+- Pipeline, Source-/Output-SHA256 und QA werden in Provenienz archiviert
+- Fehler, Pointcount-Drift und Timeout hinterlassen kein registriertes Teil-Artefakt
+
 Stufe B2 folgt nach erfolgreichem B1-Gate:
 
 - Ground/SMRF

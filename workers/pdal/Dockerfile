@@ -11,10 +11,13 @@ ENV GEOPHOTO_DATA_ROOT=/data \
 RUN mamba create -y -n pdal -c conda-forge \
         "python=3.13" \
         "pdal=2.10.2" \
+    && /opt/conda/envs/pdal/bin/python -m pip install --no-cache-dir "redis==7.4.1" \
     && /opt/conda/envs/pdal/bin/pdal --version 2>&1 | grep -q "2.10.2" \
     && mamba clean --all --yes
 
 COPY workers/pdal/service.py /service/service.py
+COPY workers/common /worker/common
+COPY workers/pdal/worker.py /worker/worker.py
 
 EXPOSE 8090
 ENTRYPOINT ["/opt/conda/envs/pdal/bin/python", "/service/service.py"]
