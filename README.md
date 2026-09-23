@@ -64,11 +64,12 @@ docker compose --profile odm up -d
 docker compose --profile micmac up -d
 docker compose --profile gsplat up -d
 docker compose --profile thermal up -d
+docker compose --profile pdal up -d
 docker compose --profile dronedb up -d
 docker compose --profile ai up -d
 ```
 
-ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
+ODM, MicMac, gsplat und Thermal beziehen Aufträge aus Redis und verwenden dasselbe Datenverzeichnis wie die API. Das optionale `pdal`-Profil stellt die read-only Punktwolken-QA für vorhandene LAS/LAZ/PLY-Artefakte bereit; es ist keine eigene Dataset-Job-Engine. Der Thermal-Worker benötigt ein lokal bereitgestelltes DJI Thermal SDK unter dem in `.env` konfigurierten `DJI_TSDK_HOST_PATH`; das proprietäre SDK wird nicht mit dem Repository ausgeliefert. DroneDB und Open WebUI bleiben optional.
 
 ## VS Code
 
