@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from common.georeferencing import build_odm_result_evidence
+from common.georeferencing import build_odm_result_evidence, odm_geo_arguments
 from common.images import (
     prepare_multispectral_images,
     prepare_photogrammetry_images,
@@ -157,16 +157,10 @@ def handle(payload: dict) -> None:
         input_label = "RGB/WIDE"
 
     georeferencing = manifest.get("georeferencing") or {}
-    run_options = [*options]
-    if (
-        workflow == "mapping"
-        and georeferencing.get("mode") == "geo_override"
-        and georeferencing.get("path")
-    ):
-        run_options.extend([
-            "--geo",
-            str(project_dir / str(georeferencing["path"])),
-        ])
+    run_options = [
+        *options,
+        *odm_geo_arguments(project_dir, workflow, manifest),
+    ]
 
     update_job(
         job_id,
