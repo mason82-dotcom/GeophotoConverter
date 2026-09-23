@@ -90,6 +90,9 @@ RUN apt-get update \
         cmake \
         ffmpeg \
         git \
+        libboost-graph1.83.0 \
+        libboost-program-options1.83.0 \
+        libboost-system1.83.0 \
         libc6 \
         libceres4t64 \
         libcurl4 \
