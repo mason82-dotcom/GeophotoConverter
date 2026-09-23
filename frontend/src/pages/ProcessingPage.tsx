@@ -366,7 +366,25 @@ export function ProcessingPage() {
             <span>
               <strong>{qa.mapping.orientation_metadata_images}</strong> mit vollständiger DJI-Lage
             </span>
+            <span>
+              <strong>
+                {Object.values(qa.mapping.checks).filter((check) => check.status === 'warning').length}
+              </strong>{' '}
+              fachliche QA-Warnungen
+            </span>
+            <span>
+              <strong>
+                {Object.values(qa.mapping.checks).filter((check) => check.status === 'unknown').length}
+              </strong>{' '}
+              Checks nicht bestimmbar
+            </span>
           </div>
+          {qa.mapping.reasons.map((reason) => (
+            <p className="warning-copy" key={reason.code}>
+              <TriangleAlert size={16} />
+              {reason.message}
+            </p>
+          ))}
         </section>
       )}
 
