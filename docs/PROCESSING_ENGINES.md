@@ -15,6 +15,23 @@ Die allgemeine Mapping-Readiness beginnt bei zwei RGB/WIDE-Bildern entsprechend
 dem ODM-Minimum. MicMac verlangt weiterhin mindestens drei Bilder. Fehlendes RTK
 allein blockiert normales Mapping nicht.
 
+Die fachliche Mapping-QA bewertet zusätzlich:
+- fehlende und ungültige GPS-Koordinaten getrennt;
+- eindeutige/duplizierte Capture-Positionen und räumliche GPS-Ausdehnung;
+- Kamera-, Bildgrößen- und Brennweitenkonsistenz;
+- Konsistenz von absoluter und relativer DJI-Höhe über den Takeoff-Offset;
+- nichtpositive relative Höhen;
+- Gimbal-Nadir-Plausibilität und vollständige Aircraft-/Gimbal-Lage;
+- Aufnahmezeit-Abdeckung und doppelte Zeitstempel;
+- RTK-Metadaten-/RTK-Fix-Abdeckung;
+- Scan-/Metadatenfehler.
+
+Diese Qualitätsbefunde ändern in PGM-2 nicht stillschweigend die bestehende
+Engine-Jobfreigabe. `mapping.ready` bleibt kompatibel zur Mindestbildzahl;
+`mapping.status` und `mapping.issues[]` transportieren die fachliche Qualität.
+Overlap/GSD werden erst mit belastbarer Kamerageometrie in einem separaten Block
+berechnet.
+
 
 ## Gemeinsame Eingabeaufbereitung
 
