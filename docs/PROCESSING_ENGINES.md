@@ -29,8 +29,21 @@ Die fachliche Mapping-QA bewertet zusätzlich:
 Diese Qualitätsbefunde ändern in PGM-2 nicht stillschweigend die bestehende
 Engine-Jobfreigabe. `mapping.ready` bleibt kompatibel zur Mindestbildzahl;
 `mapping.status` und `mapping.issues[]` transportieren die fachliche Qualität.
-Overlap/GSD werden erst mit belastbarer Kamerageometrie in einem separaten Block
-berechnet.
+PGM-3 ergänzt eine rein diagnostische Aufnahmegeometrie. Sie wird nur berechnet,
+wenn die Datei Bildabmessungen, physische Brennweite, EXIF-35-mm-Äquivalent,
+positive kanonische `RelativeHeight` und eine nadirnahe Gimbal-Lage liefert.
+
+Dabei gilt:
+
+- Sensordiagonale wird aus physischer und 35-mm-äquivalenter Brennweite geschätzt;
+- Sensorbreite/-höhe werden aus dem Bildseitenverhältnis abgeleitet;
+- daraus folgen horizontaler/vertikaler Boden-Footprint und GSD;
+- zeitlich benachbarte Captures mit GPS und Heading erhalten eine Along-/Cross-track-
+  Zerlegung und geschätzte Vorwärts-/Seitenüberdeckung;
+- `RelativeHeight` ist relativ zum Takeoff und **keine Terrain-AGL-Höhe**;
+- Methode: `exif_35mm_equivalent`, Confidence: `estimated`;
+- fehlende oder ungeeignete Parameter ergeben `unavailable` statt erfundener Werte;
+- PGM-3 verändert keine Jobfreigabe und keine ODM/MicMac-Processingparameter.
 
 
 ## Gemeinsame Eingabeaufbereitung

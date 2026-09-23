@@ -167,6 +167,8 @@ Relevante normalisierte Felder pro Datei:
 - `camera.lens_serial`
 - `camera.shutter_type`
 - `camera.shutter_count`
+- `image.focal_length`
+- `image.focal_length_35mm` – EXIF `FocalLengthIn35mmFormat`, soweit vorhanden
 - `gps.latitude`, `gps.longitude`, `gps.altitude`
 - `gps.status`
 - `gps.altitude_type`
@@ -246,6 +248,13 @@ Liefert unter anderem:
 - RTK- und vollständige Lageinformationen werden ausgewiesen; ihr Fehlen allein blockiert normales Mapping nicht
 - `mapping.photogrammetry` weist FH2-angereicherte Bilder, Positionsquellen, kanonische Höhen-/CaptureUUID-Abdeckung und Fusionskonflikte aus
 - `MAPPING_METADATA_FUSION_CONFLICT` ist eine Warning; widersprüchliche Datei-/FH2-Werte werden nicht still überschrieben
+- `mapping.geometry` enthält die nicht blockierende PGM-3-Aufnahmegeometrie: geschätzte Sensorabmessungen, Footprint, GSD und sequentielle Overlap-Plausibilisierung
+- Optische Parameter stammen aus der Bilddatei; Position, relative Höhe und Pose werden aus dem kanonischen PGM-1-Modell bezogen und können dadurch FH2-Media priorisieren
+- Geometrie wird nur berechnet, wenn Bildabmessungen, physische Brennweite, 35-mm-Äquivalent, positive kanonische RelativeHeight und nadirnahe Gimbal-Lage belastbar vorhanden sind
+- `mapping.geometry.status = unavailable` und maschinenlesbare `unavailable_reasons` verhindern Scheingenauigkeit bei fehlenden Parametern
+- `method = exif_35mm_equivalent`, `height_reference = relative_takeoff`, `confidence = estimated`; RelativeHeight wird ausdrücklich nicht als Terrain-AGL interpretiert
+- `mapping.geometry.overlap` sortiert auswertbare Captures zeitlich, zerlegt die kanonische Positionsverschiebung anhand des Gimbal-/Aircraft-Headings in Along-/Cross-track und meldet Median/Range der geschätzten Vorwärts-/Seitenüberdeckung
+- PGM-3 verändert weder `mapping.ready` noch die Engine-Jobfreigabe
 - `multispectral.classification_conflicts` zählt erkannte Konfliktcodes; `blocking_conflict_count` und `blocking_conflict_groups` markieren blockierende Konflikte in vollständigen M3M-Gruppen. Aktuell blockieren `band_metadata_filename_conflict` und `band_platform_conflict` den `odm_multispectral`-Workflow. Konflikte in unvollständigen, ohnehin nicht verarbeitbaren Gruppen werden diagnostiziert, blockieren zwei saubere vollständige Gruppen aber nicht zusätzlich.
 
 ### GET /datasets/{dataset_id}/geojson
