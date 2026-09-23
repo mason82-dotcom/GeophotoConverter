@@ -105,6 +105,14 @@ export interface DatasetQaWarning {
   count: number
 }
 
+export interface MappingQaIssue {
+  code: string
+  severity: 'info' | 'warning' | 'error'
+  count: number
+  message: string
+  [key: string]: unknown
+}
+
 export interface DatasetQa {
   image_count: number
   geotagged_count: number
@@ -140,10 +148,41 @@ export interface DatasetQa {
     geotagged_images: number
     geotagged_percent: number
     missing_gps: number
+    invalid_gps: number
+    unique_positions: number
+    duplicate_position_images: number
+    position_extent_m: number | null
     rtk_metadata_images: number
     rtk_fixed_images: number
     orientation_metadata_images: number
     metadata_errors: number
+    camera: {
+      models: Record<string, number>
+      model_count: number
+      dimensions: Record<string, number>
+      dimension_variants: number
+      focal_length_mm: QaRange & { spread_percent: number | null }
+    }
+    altitude_consistency: {
+      paired_absolute_relative: number
+      takeoff_offset_m: QaRange
+      takeoff_offset_spread_m: number | null
+      nonpositive_relative_altitudes: number
+    }
+    orientation: {
+      gimbal_pitch_images: number
+      near_nadir_images: number
+      oblique_images: number
+      strongly_oblique_images: number
+      max_nadir_deviation_deg: number | null
+    }
+    capture_time: {
+      count: number
+      missing: number
+      duplicate_count: number
+      span_seconds: number | null
+    }
+    issues: MappingQaIssue[]
     reason: string | null
   }
   thermal: {
