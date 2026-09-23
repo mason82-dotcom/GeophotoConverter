@@ -6,6 +6,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir redis==7.4.1
 
+COPY backend/app/__init__.py backend/app/classifier.py /worker/app/
 COPY workers/common /worker/common
 COPY workers/odm/worker.py /worker/worker.py
 
