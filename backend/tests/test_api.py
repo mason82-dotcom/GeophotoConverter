@@ -258,6 +258,89 @@ def test_m3m_multispectral_readiness_requires_complete_groups(client):
     assert body["readiness"]["odm_multispectral"]["eligible_images"] == 10
 
 
+def test_m3m_band_conflict_blocks_multispectral_readiness(client):
+    dataset = _dataset(client)
+    suffixes = [
+        ("D.JPG", "image/jpeg"),
+        ("MS_G.TIF", "image/tiff"),
+        ("MS_R.TIF", "image/tiff"),
+        ("MS_RE.TIF", "image/tiff"),
+        ("MS_NIR.TIF", "image/tiff"),
+    ]
+
+    for capture in ("DJI_6101", "DJI_6102"):
+        for index, (suffix, media_type) in enumerate(suffixes):
+            name = f"{capture}_{suffix}"
+            response = client.post(
+                f"/api/v1/datasets/{dataset['id']}/files",
+                files=[
+                    (
+                        "files",
+                        (
+                            name,
+                            f"{capture}-{index}".encode(),
+                            media_type,
+                        ),
+                    )
+                ],
+                data={"relative_paths": json.dumps([f"M3M/{name}"])},
+            )
+            assert response.status_code == 200
+
+    conflict_name = "DJI_6101_MS_G.TIFF"
+    conflict_upload = client.post(
+        f"/api/v1/datasets/{dataset['id']}/files",
+        files=[
+            (
+                "files",
+                (conflict_name, b"conflicting-green-copy", "image/tiff"),
+            )
+        ],
+        data={"relative_paths": json.dumps([f"M3M/{conflict_name}"])},
+    )
+    assert conflict_upload.status_code == 200
+    conflict_file_id = conflict_upload.json()["accepted"][0]["id"]
+    store.update_file_scan(
+        conflict_file_id,
+        {
+            "camera": {"make": "DJI", "model": "Mavic 3 Multispectral"},
+            "gps": {"latitude": 49.0, "longitude": 8.0},
+            "dji": {
+                "band_name": "Red",
+                "product_name": "Mavic 3 Multispectral",
+            },
+        },
+        None,
+    )
+
+    qa = client.get(f"/api/v1/datasets/{dataset['id']}/qa")
+    assert qa.status_code == 200
+    body = qa.json()
+    assert body["multispectral"]["complete_groups"] == 2
+    assert body["multispectral"]["conflict_file_count"] == 1
+    assert body["multispectral"]["conflict_group_count"] == 1
+    assert body["multispectral"]["conflict_groups"] == ["M3M/DJI_6101"]
+    assert body["multispectral"]["classification_conflicts"] == {
+        "band_metadata_filename_conflict": 1
+    }
+    assert body["readiness"]["odm_multispectral"]["ready"] is False
+    assert body["readiness"]["odm_multispectral"]["classification_conflict_files"] == 1
+    assert any(
+        warning["code"] == "MULTISPECTRAL_CLASSIFICATION_CONFLICT"
+        and warning["severity"] == "error"
+        for warning in body["warnings"]
+    )
+
+    detail = client.get(f"/api/v1/datasets/{dataset['id']}")
+    classifications = {
+        item["relative_path"]: item["classification"]
+        for item in detail.json()["files"]
+    }
+    assert classifications[f"M3M/{conflict_name}"]["conflicts"] == [
+        "band_metadata_filename_conflict"
+    ]
+
+
 def test_m3m_multispectral_readiness_rejects_incomplete_groups(client):
     dataset = _dataset(client)
     for index, suffix in enumerate(("D.JPG", "MS_G.TIF", "MS_NIR.TIF")):
