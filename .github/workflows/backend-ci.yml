@@ -28,7 +28,7 @@ jobs:
     env:
       PYTHONPATH: backend
       GEOPHOTO_DATA_ROOT: /tmp/geophoto-ci
-      GEOPHOTO_REDIS_URL: redis://127.0.0.1:6399/15
+      GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
 
     steps:
       - uses: actions/checkout@v4
