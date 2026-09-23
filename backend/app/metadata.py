@@ -36,11 +36,12 @@ def normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
         return value
 
     utc_at_exposure = dji("UTCAtExposure")
-    dji_latitude = dji("GpsLatitude")
-    dji_longitude = dji("GpsLongitude")
+    dji_latitude = dji("GpsLatitude", "GPSLatitude")
+    dji_longitude = dji("GpsLongitude", "GPSLongitude")
     absolute_altitude = dji("AbsoluteAltitude")
     relative_altitude = dji("RelativeAltitude")
     camera_serial = dji("CameraSerialNumber")
+    rtk_flag = dji("RtkFlag", "RTKFlag")
 
     latitude = _first(
         raw,
@@ -112,8 +113,9 @@ def normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             "gimbal_yaw": dji("GimbalYawDegree"),
             "gimbal_pitch": dji("GimbalPitchDegree"),
             "gimbal_roll": dji("GimbalRollDegree"),
-            "rtk_flag": dji("RtkFlag", "RTKFlag"),
-            "gps_status": dji("GpsStatus"),
+            "rtk_flag": rtk_flag,
+            "rtk_fixed": rtk_flag == 50 if rtk_flag is not None else None,
+            "gps_status": dji("GpsStatus", "GPSStatus"),
             "capture_uuid": dji("CaptureUUID"),
             "image_source": dji("ImageSource"),
             "band_name": dji("BandName"),
