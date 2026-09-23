@@ -213,13 +213,36 @@ def _platform_hint(record: dict[str, Any]) -> str:
 def prepare_multispectral_images(
     dataset_id: str,
     target_dir: Path,
+    *,
+    selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     target_dir.mkdir(parents=True, exist_ok=True)
     prepared: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
 
+    selected_paths: set[str] | None = None
+    selected_capture_groups: list[str] = []
+    exclusion_by_path: dict[str, dict[str, Any]] = {}
+    if selection is not None:
+        selected_paths = {
+            str(path)
+            for path in selection.get("selected_relative_paths", [])
+            if path
+        }
+        selected_capture_groups = [
+            str(group)
+            for group in selection.get("selected_capture_groups", [])
+            if group
+        ]
+        for item in selection.get("excluded", []):
+            if isinstance(item, dict) and item.get("relative_path"):
+                exclusion_by_path[str(item["relative_path"])] = item
+
+    seen_dataset_paths: set[str] = set()
+
     for record in _dataset_files(dataset_id):
         relative_path = record["relative_path"]
+        seen_dataset_paths.add(relative_path)
         source = Path(record["stored_path"])
         kind = media_kind(relative_path)
         platform = _platform_hint(record)
@@ -234,6 +257,25 @@ def prepare_multispectral_images(
                 "reason": "not_m3m_multispectral_input",
             })
             continue
+
+        if selected_paths is not None and relative_path not in selected_paths:
+            exclusion = exclusion_by_path.get(relative_path, {})
+            skipped_item = {
+                "relative_path": relative_path,
+                "media_kind": kind,
+                "platform": platform,
+                "capture_group": exclusion.get("capture_group"),
+                "reason": exclusion.get(
+                    "reason",
+                    "capture_group_not_selected",
+                ),
+            }
+            missing = exclusion.get("missing_media_kinds")
+            if isinstance(missing, list):
+                skipped_item["missing_media_kinds"] = missing
+            skipped.append(skipped_item)
+            continue
+
         if not source.is_file():
             skipped.append({
                 "relative_path": relative_path,
@@ -272,9 +314,18 @@ def prepare_multispectral_images(
             "sha256": record.get("sha256"),
         })
 
+    missing_selected_paths = (
+        sorted(selected_paths - seen_dataset_paths)
+        if selected_paths is not None
+        else []
+    )
     manifest = {
         "dataset_id": dataset_id,
         "workflow": "multispectral",
+        "selection_mode": "qa" if selected_paths is not None else "legacy",
+        "selected_capture_groups": selected_capture_groups,
+        "selected_path_count": len(selected_paths) if selected_paths is not None else None,
+        "missing_selected_paths": missing_selected_paths,
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
         "prepared": prepared,
