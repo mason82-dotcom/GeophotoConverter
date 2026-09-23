@@ -121,6 +121,9 @@ services:
       GEOPHOTO_CUDA_REQUIRED: "1"
       GEOPHOTO_CUDA_PROBE: "1"
       GEOPHOTO_CUDA_VERSION: "12.8.1"
+      GEOPHOTO_COLMAP_CUDA: "1"
+      GEOPHOTO_COLMAP_VERSION: "4.2.0"
+      GEOPHOTO_CUDA_DEVICE: ${GEOPHOTO_CUDA_DEVICE:-0}
     volumes:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
       - geophoto-gsplat-cache:/root/.cache/torch_extensions
