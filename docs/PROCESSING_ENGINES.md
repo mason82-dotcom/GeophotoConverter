@@ -160,7 +160,7 @@ Laufzeitbasis:
 
 - NVIDIA CUDA 12.8.1 + cuDNN Development
 - PyTorch 2.9.1 / torchvision 0.24.1 mit CUDA-12.8-Wheels
-- COLMAP für Kamera-Posen und sparse Rekonstruktion
+- COLMAP 4.2.0 aus Source, gepinnt auf Commit `be5e29168d4aff238409d60424812df66aac919f`, für Kameraposen und sparse Rekonstruktion
 - NVIDIA Container Toolkit erforderlich
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
 - der zuverlässige Worker-Heartbeat meldet bei NVIDIA-Workern zusätzlich GPU-Gerätename, Treiberversion und VRAM, sofern `nvidia-smi` verfügbar ist
