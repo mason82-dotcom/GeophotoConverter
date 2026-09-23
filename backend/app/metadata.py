@@ -21,11 +21,44 @@ def _first(data: dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def _dji_first(data: dict[str, Any], *tags: str) -> Any:
-    keys: list[str] = []
+def _dji_first_with_key(
+    data: dict[str, Any],
+    *tags: str,
+) -> tuple[Any, str | None]:
     for tag in tags:
-        keys.extend((f"XMP-drone-dji:{tag}", f"XMP:{tag}"))
-    return _first(data, *keys)
+        for key in (f"XMP-drone-dji:{tag}", f"XMP:{tag}"):
+            if key in data and data[key] not in ("", None):
+                return data[key], key
+    return None, None
+
+
+def _dji_first(data: dict[str, Any], *tags: str) -> Any:
+    value, _ = _dji_first_with_key(data, *tags)
+    return value
+
+
+def _numeric_list(value: Any) -> list[float] | None:
+    if isinstance(value, (list, tuple)):
+        try:
+            values = [float(item) for item in value]
+        except (TypeError, ValueError):
+            return None
+        return values or None
+
+    if not isinstance(value, str):
+        return None
+
+    parts = [
+        part
+        for part in re.split(r"[\s,;]+", value.strip())
+        if part
+    ]
+    if not parts:
+        return None
+    try:
+        return [float(part) for part in parts]
+    except ValueError:
+        return None
 
 
 def _int_code(value: Any) -> int | None:
@@ -158,6 +191,30 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
     drone_model = _dji_first(raw, "DroneModel")
     drone_serial = _dji_first(raw, "DroneSerialNumber", "DroneID")
 
+    source_keys: dict[str, str] = {}
+
+    def m3m_value(name: str, *aliases: str) -> Any:
+        value, source_key = _dji_first_with_key(raw, name, *aliases)
+        if source_key is not None:
+            source_keys[name] = source_key
+        return value
+
+    capture_uuid = m3m_value("CaptureUUID")
+    image_source = m3m_value("ImageSource")
+    band_name = m3m_value("BandName")
+    band_frequency = m3m_value("BandFreq")
+    central_wavelength_nm = m3m_value("CentralWavelength")
+    sensor_index = m3m_value("SensorIndex")
+    irradiance = m3m_value("Irradiance")
+    sunlight_sensor_status = m3m_value("LS_status")
+    raw_sunlight_sensor_raw = m3m_value("RawData")
+    sensor_gain = m3m_value("SensorGain")
+    sensor_gain_adjustment = m3m_value("SensorGainAdjustment")
+    multispectral_exposure_time = m3m_value("ExposureTime")
+    black_level = m3m_value("BlackLevel", "BlackCurrent")
+    vignetting_data = m3m_value("VignettingData")
+    calibrated_h_matrix = m3m_value("CalibratedHMatrix")
+
     return {
         "capture_time": _first(
             raw,
@@ -238,7 +295,12 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             "gimbal_roll": _dji_first(raw, "GimbalRollDegree"),
             "cam_reverse": _dji_first(raw, "CamReverse"),
             "gimbal_reverse": _dji_first(raw, "GimbalReverse"),
-            "capture_uuid": _dji_first(raw, "CaptureUUID"),
+            "capture_uuid": capture_uuid,
+            "image_source": image_source,
+            "band_name": band_name,
+            "band_frequency": band_frequency,
+            "central_wavelength_nm": central_wavelength_nm,
+            "sensor_index": sensor_index,
             "rtk_flag": rtk_flag,
             "rtk_status": _rtk_status(rtk_flag),
             "rtk_fixed": _rtk_status(rtk_flag) == "fixed" if rtk_flag is not None else None,
@@ -262,6 +324,18 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
                 raw,
                 "CalibratedOpticalCenterY",
             ),
+            "radiometry": {
+                "irradiance": irradiance,
+                "sunlight_sensor_status": sunlight_sensor_status,
+                "raw_sunlight_sensor": _numeric_list(raw_sunlight_sensor_raw),
+                "sensor_gain": sensor_gain,
+                "sensor_gain_adjustment": sensor_gain_adjustment,
+                "exposure_time": multispectral_exposure_time,
+                "black_level": black_level,
+                "vignetting_data": vignetting_data,
+                "calibrated_h_matrix": calibrated_h_matrix,
+            },
+            "source_keys": source_keys,
             "product_name": _dji_first(raw, "ProductName", "AircraftType", "DroneModel")
             or _first(raw, "MakerNotes:AircraftType"),
             "aircraft_type": _dji_first(raw, "AircraftType", "DroneModel")
