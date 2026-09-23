@@ -1,0 +1,42 @@
+name: Generate frontend lockfile
+
+on:
+  push:
+    branches:
+      - agent/v1.0.1-stabilization
+    paths:
+      - "frontend/package.json"
+      - ".github/workflows/generate-frontend-lockfile.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/v1.0.1-stabilization
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Generate deterministic package lock
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commit package-lock.json
+        shell: bash
+        run: |
+          if git diff --quiet -- frontend/package-lock.json && git ls-files --error-unmatch frontend/package-lock.json >/dev/null 2>&1; then
+            echo "package-lock.json already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "chore: lock frontend dependencies"
+          git push origin HEAD:agent/v1.0.1-stabilization
