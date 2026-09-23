@@ -165,6 +165,34 @@ RTK-Interpretation:
 NTRIP-Host, Port und Mountpoint werden nicht in das normalisierte
 GeoPhotoConverter-Metadatenobjekt übernommen.
 
+#### DJI M3M-Metadaten
+
+Für Mavic 3 Multispectral ergänzt derselbe `XMP-drone-dji`-Parser den
+herstellerseitig dokumentierten Multispektralvertrag:
+
+- `dji.capture_uuid`
+- `dji.image_source`
+- `dji.band_name`
+- `dji.band_frequency`
+- `dji.central_wavelength_nm`
+- `dji.sensor_index`
+- `dji.radiometry.irradiance`
+- `dji.radiometry.sunlight_sensor_status`
+- `dji.radiometry.raw_sunlight_sensor`
+- `dji.radiometry.sensor_gain`
+- `dji.radiometry.sensor_gain_adjustment`
+- `dji.radiometry.exposure_time`
+- `dji.radiometry.black_level`
+- `dji.radiometry.vignetting_data`
+- `dji.radiometry.calibrated_h_matrix`
+- `dji.source_keys` für die tatsächlich verwendeten M3M-XMP-Rohschlüssel
+
+Für M3M gilt `BandName` als authoritative Bandquelle. Ein widersprechender
+Dateiname überschreibt diese Identität nicht; die Klassifikation meldet einen
+Konflikt. `dji.capture_uuid` wird aus `XMP-drone-dji:CaptureUUID` normalisiert und ist der bevorzugte Capture-Gruppierungsschlüssel. Fehlt die UUID, fällt die Gruppierung auf den bisherigen Dateinamen zurück.
+Fehlt ein authoritative Bandfeld, bleibt die bestehende Dateinamenerkennung
+ausdrücklich heuristisch.
+
 ### GET /datasets/{dataset_id}/qa
 
 Liefert unter anderem:
