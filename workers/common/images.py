@@ -7,13 +7,12 @@ import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from app.classifier import classify_media
-
 from .runtime import DB_PATH
 
 PHOTOGRAMMETRY_KINDS = {"RGB", "WIDE"}
 _DIRECT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 _M3M_REQUIRED_KINDS = {"RGB", "MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR"}
+
 
 def media_kind(relative_path: str) -> str:
     path = PurePosixPath(relative_path)
@@ -197,8 +196,9 @@ def _record_metadata(record: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-
 def _m3m_record_info(record: dict[str, Any]) -> dict[str, Any] | None:
+    from app.classifier import classify_media
+
     relative_path = record["relative_path"]
     classification = classify_media(
         relative_path,
