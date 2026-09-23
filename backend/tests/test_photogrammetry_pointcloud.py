@@ -224,3 +224,47 @@ def test_unparseable_srs_is_warning_not_ready():
         issue["code"] == "POINTCLOUD_CRS_UNRESOLVED"
         for issue in result["issues"]
     )
+
+
+
+def test_invalid_xyz_stat_range_is_warning():
+    result = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "X", "minimum": 0, "maximum": 10},
+                    {"name": "Y", "minimum": 0, "maximum": 10},
+                    {"name": "Z", "minimum": 20, "maximum": 10},
+                ]
+            }
+        }
+    )
+
+    assert result["status"] == "warning"
+    assert result["z_range"] is None
+    assert any(
+        issue["code"] == "POINTCLOUD_STATS_DIMENSION_INVALID"
+        and issue["dimension"] == "Z"
+        for issue in result["issues"]
+    )
+
+
+def test_incomplete_xyz_stat_record_is_warning():
+    result = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "X", "minimum": 0, "maximum": 10},
+                    {"name": "Y", "average": 5},
+                    {"name": "Z", "minimum": 1, "maximum": 2},
+                ]
+            }
+        }
+    )
+
+    assert result["status"] == "warning"
+    assert any(
+        issue["code"] == "POINTCLOUD_STATS_DIMENSION_INVALID"
+        and issue["dimension"] == "Y"
+        for issue in result["issues"]
+    )
