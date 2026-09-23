@@ -34,7 +34,7 @@ Uploads werden zunächst in eine temporäre Datei gestreamt und nach erfolgreich
 Analysiert hochgeladene Bilddaten und extrahiert EXIF-/XMP-/GPS-Metadaten.
 
 ### GET /datasets/{dataset_id}/qa
-Liefert die Datensatz-QA einschließlich Georeferenzierungsabdeckung, Plattform-/Medienklassifikation, Kameramodellen, Höhenbereichen, Aufnahmezeitraum, Warnungen und Bereitschaft je Verarbeitungs-Engine.
+Liefert die Datensatz-QA einschließlich Georeferenzierungsabdeckung, Plattform-/Medienklassifikation, Kameramodellen, Höhenbereichen, Aufnahmezeitraum, Warnungen und Bereitschaft je Verarbeitungs-Engine. Das zusätzliche `mapping`-Objekt meldet `status` (`ready`, `warning`, `blocked`), Anzahl geeigneter RGB/WIDE-Bilder, Mapping-Geotag-Abdeckung, RTK-Metadatenabdeckung und Vollständigkeit der DJI Flight-/Gimbal-Lagefelder. Fehlendes RTK allein blockiert das Mapping nicht.
 
 ### GET /datasets/{dataset_id}/geojson
 Liefert die georeferenzierten Bildpositionen als GeoJSON-`FeatureCollection` für MapLibre.
