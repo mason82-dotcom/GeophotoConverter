@@ -160,11 +160,15 @@ Laufzeitbasis:
 
 - NVIDIA CUDA 12.8.1 + cuDNN Development
 - PyTorch 2.9.1 / torchvision 0.24.1 mit CUDA-12.8-Wheels
-- COLMAP für Kamera-Posen und sparse Rekonstruktion
+- COLMAP 4.2.0 aus Source, gepinnt auf Commit `be5e29168d4aff238409d60424812df66aac919f`, für Kameraposen und dünne Rekonstruktion
 - NVIDIA Container Toolkit erforderlich
 - gsplat-CUDA-Erweiterung wird bei erster GPU-Nutzung JIT-kompiliert und im persistenten Docker-Volume gecacht
 - der zuverlässige Worker-Heartbeat meldet bei NVIDIA-Workern zusätzlich GPU-Gerätename, Treiberversion und VRAM, sofern `nvidia-smi` verfügbar ist
-- COLMAP-SIFT bleibt in CUDA-1 noch CPU-seitig; CUDA-2 (#28 / PR #31) liefert den explizit verifizierten COLMAP-CUDA-Build
+- COLMAP wird explizit mit `CUDA_ENABLED=ON`, `HIP_ENABLED=OFF`, `CMAKE_CUDA_ARCHITECTURES=all-major` und Boost-Fallback gebaut
+- der Build ist headless/sparse-only (`GUI`, `OpenGL`, `MVS`, `ONNX`, `CGAL`, `LSD` aus)
+- SIFT-Feature-Extraktion und Matching verwenden `FeatureExtraction.use_gpu=1` bzw. `FeatureMatching.use_gpu=1`
+- `GEOPHOTO_CUDA_DEVICE` wird auf die COLMAP-GPU-Indizes abgebildet; Standard ist `0`
+- der Worker prüft COLMAP-Version und sichtbare NVIDIA-GPU vor dem ersten COLMAP-Schritt und protokolliert den Runtime-Vertrag
 
 Mindestanforderung: drei geeignete RGB/WIDE-Bilder.
 
