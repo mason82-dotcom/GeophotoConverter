@@ -300,3 +300,81 @@ def test_lowercase_ply_dimensions_are_canonicalized():
     assert stats["status"] == "ready"
     assert stats["z_range"] == 3.0
     assert set(stats["dimensions"]) == {"X", "Y", "Z"}
+
+
+def test_pdal_stats_normalizes_real_string_histogram_counts():
+    result = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "X", "minimum": 0, "maximum": 10},
+                    {"name": "Y", "minimum": 0, "maximum": 10},
+                    {"name": "Z", "minimum": 100, "maximum": 110},
+                    {
+                        "name": "Classification",
+                        "minimum": 1,
+                        "maximum": 2,
+                        "count": 444,
+                        "counts": [
+                            "1.000000/3",
+                            "2.000000/441",
+                        ],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert result["status"] == "ready"
+    assert result["classification_counts"] == [
+        {"value": 1, "count": 3},
+        {"value": 2, "count": 441},
+    ]
+
+
+def test_pdal_stats_normalizes_mapping_histogram_counts():
+    result = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "X", "minimum": 0, "maximum": 1},
+                    {"name": "Y", "minimum": 0, "maximum": 1},
+                    {"name": "Z", "minimum": 0, "maximum": 1},
+                    {
+                        "name": "Classification",
+                        "counts": {"2": 10, "7": 1},
+                    },
+                ]
+            }
+        }
+    )
+
+    assert result["classification_counts"] == [
+        {"value": 2, "count": 10},
+        {"value": 7, "count": 1},
+    ]
+
+
+def test_pdal_stats_ignores_malformed_histogram_entries():
+    result = parse_pdal_stats(
+        {
+            "stats": {
+                "statistic": [
+                    {"name": "X", "minimum": 0, "maximum": 1},
+                    {"name": "Y", "minimum": 0, "maximum": 1},
+                    {"name": "Z", "minimum": 0, "maximum": 1},
+                    {
+                        "name": "Classification",
+                        "counts": [
+                            "broken",
+                            "2.000000/not-a-count",
+                            {"value": 1, "count": -1},
+                            {"value": 2, "count": 4},
+                        ],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert result["classification_counts"] == [{"value": 2, "count": 4}]
