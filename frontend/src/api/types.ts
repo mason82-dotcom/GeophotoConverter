@@ -61,6 +61,9 @@ export interface MediaClassification {
   platform: string
   media_kind: string
   capture_group?: string | null
+  media_kind_source?: string
+  capture_group_source?: string
+  conflicts?: string[]
 }
 
 export interface UploadedFileRecord {
