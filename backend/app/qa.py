@@ -203,6 +203,57 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         if kinds.intersection(required_m3m_kinds - {"RGB"})
     )
 
+    multispectral_processable_groups = sorted(
+        group
+        for group in complete_multispectral_group_ids
+        if group not in multispectral_blocking_conflict_groups
+    )
+    multispectral_selected_paths: list[str] = []
+    multispectral_excluded: list[dict[str, Any]] = []
+    for item in files:
+        relative_path = item["relative_path"]
+        classification = reconciled[relative_path]
+        is_m3m_candidate = (
+            classification.platform == "M3M"
+            and classification.media_kind in required_m3m_kinds
+        )
+        if not is_m3m_candidate:
+            continue
+
+        group = classification.capture_group
+        if group in multispectral_processable_groups:
+            multispectral_selected_paths.append(relative_path)
+            continue
+
+        missing_kinds = sorted(
+            required_m3m_kinds - capture_groups.get(group or "", set())
+        )
+        if group is None:
+            reason = "capture_group_unavailable"
+        elif group in multispectral_blocking_conflict_groups:
+            reason = "classification_conflict"
+        else:
+            reason = "incomplete_capture_group"
+
+        multispectral_excluded.append(
+            {
+                "relative_path": relative_path,
+                "capture_group": group,
+                "reason": reason,
+                "missing_media_kinds": missing_kinds,
+            }
+        )
+
+    multispectral_selection = {
+        "selected_capture_groups": multispectral_processable_groups,
+        "selected_relative_paths": sorted(multispectral_selected_paths),
+        "selected_file_count": len(multispectral_selected_paths),
+        "excluded": sorted(
+            multispectral_excluded,
+            key=lambda item: item["relative_path"],
+        ),
+    }
+
     complete_thermal_group_ids = [
         group
         for group, kinds in capture_groups.items()
@@ -406,6 +457,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "conflict_groups": sorted(multispectral_conflict_groups),
             "blocking_conflict_count": multispectral_blocking_conflict_count,
             "blocking_conflict_groups": multispectral_blocking_conflict_groups,
+            "selection": multispectral_selection,
         },
         "readiness": readiness,
         "classifications": {
