@@ -162,6 +162,17 @@ export interface DatasetQa {
     conflict_groups: string[]
     blocking_conflict_count: number
     blocking_conflict_groups: string[]
+    selection: {
+      selected_capture_groups: string[]
+      selected_relative_paths: string[]
+      selected_file_count: number
+      excluded: Array<{
+        relative_path: string
+        capture_group: string | null
+        reason: string
+        missing_media_kinds: string[]
+      }>
+    }
   }
   readiness: {
     odm: EngineReadiness
