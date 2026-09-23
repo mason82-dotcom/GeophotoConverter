@@ -227,6 +227,22 @@ class ArtifactJobBackend:
                 ),
             )
 
+    def update_provenance(
+        self,
+        job_id: str,
+        provenance: dict[str, Any],
+    ) -> None:
+        with connect_db() as conn:
+            conn.execute(
+                """
+                UPDATE artifact_jobs
+                SET provenance_json=?,
+                    updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                WHERE id=?
+                """,
+                (json.dumps(provenance), job_id),
+            )
+
     def recovery_rows(self, worker_key: str) -> list[sqlite3.Row]:
         with connect_db() as conn:
             return conn.execute(
