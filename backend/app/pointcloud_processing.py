@@ -21,9 +21,9 @@ def _parse_crs(value: Any, *, role: str) -> CRS:
     except (CRSError, ValueError, TypeError) as exc:
         raise ValueError(f"{role}_crs is invalid.") from exc
 
-    if crs.is_compound or crs.is_vertical:
+    if crs.is_compound or crs.is_vertical or len(crs.axis_info) != 2:
         raise ValueError(
-            f"{role}_crs must be a horizontal CRS in reprojection contract v1."
+            f"{role}_crs must be a horizontal 2D CRS in reprojection contract v1."
         )
     if not (crs.is_geographic or crs.is_projected):
         raise ValueError(
