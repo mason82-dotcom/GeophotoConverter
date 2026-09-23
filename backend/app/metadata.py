@@ -265,6 +265,13 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
             "iso": _first(raw, "ExifIFD:ISO", "EXIF:ISO"),
             "f_number": _first(raw, "ExifIFD:FNumber", "EXIF:FNumber"),
             "focal_length": _first(raw, "ExifIFD:FocalLength", "EXIF:FocalLength"),
+            "focal_length_35mm": _first(
+                raw,
+                "ExifIFD:FocalLengthIn35mmFormat",
+                "EXIF:FocalLengthIn35mmFormat",
+                "ExifIFD:FocalLengthIn35mmFilm",
+                "EXIF:FocalLengthIn35mmFilm",
+            ),
             "exposure_time": _first(raw, "ExifIFD:ExposureTime", "EXIF:ExposureTime"),
         },
         "gps": {
