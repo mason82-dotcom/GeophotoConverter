@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any, Iterator
 
 import laspy
+import httpx
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from .config import DATA_ROOT, POINTCLOUD_CACHE_ROOT
+from .config import DATA_ROOT, PDAL_SERVICE_URL, POINTCLOUD_CACHE_ROOT
+from .photogrammetry_pointcloud import parse_pdal_stats, parse_pdal_summary
 from .storage import store
 
 router = APIRouter(prefix="/api/v1", tags=["pointcloud"])
@@ -599,6 +601,9 @@ def list_job_pointclouds(job_id: str) -> dict[str, Any]:
                 "preview_url": (
                     f"/api/v1/jobs/{job_id}/pointclouds/{index}/preview"
                 ),
+                "qa_url": (
+                    f"/api/v1/jobs/{job_id}/pointclouds/{index}/qa"
+                ),
                 "download_url": f"/api/v1/jobs/{job_id}/artifacts/{index}",
             }
         )
@@ -625,7 +630,80 @@ def pointcloud_metadata(job_id: str, artifact_index: int) -> dict[str, Any]:
         "preview_url": (
             f"/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/preview"
         ),
+        "qa_url": (
+            f"/api/v1/jobs/{job_id}/pointclouds/{artifact_index}/qa"
+        ),
         "download_url": f"/api/v1/jobs/{job_id}/artifacts/{artifact_index}",
+    }
+
+
+@router.get("/jobs/{job_id}/pointclouds/{artifact_index}/qa")
+def pointcloud_qa(job_id: str, artifact_index: int) -> dict[str, Any]:
+    artifact, _ = _artifact_or_404(job_id, artifact_index)
+    relative_path = artifact.get("relative_path")
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="Artefaktpfad ist nicht verfügbar")
+
+    try:
+        response = httpx.post(
+            f"{PDAL_SERVICE_URL}/qa",
+            json={"relative_path": str(relative_path)},
+            timeout=httpx.Timeout(130.0, connect=2.0),
+        )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(
+            status_code=504,
+            detail="PDAL-QA hat das Zeitlimit überschritten.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="PDAL-QA-Service ist nicht verfügbar.",
+        ) from exc
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="PDAL-QA-Service lieferte ungültiges JSON.",
+        ) from exc
+
+    if response.status_code >= 400:
+        detail = payload.get("detail") if isinstance(payload, dict) else None
+        if response.status_code == 504:
+            status = 504
+        elif response.status_code in {403, 404, 422}:
+            status = 422
+        else:
+            status = 502
+        raise HTTPException(
+            status_code=status,
+            detail=detail or "PDAL-QA fehlgeschlagen.",
+        )
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=502,
+            detail="PDAL-QA-Service lieferte kein JSON-Objekt.",
+        )
+
+    raw_summary = payload.get("summary")
+    raw_stats = payload.get("stats")
+    if not isinstance(raw_summary, dict) or not isinstance(raw_stats, dict):
+        raise HTTPException(
+            status_code=502,
+            detail="PDAL-QA-Service lieferte unvollständige QA-Daten.",
+        )
+
+    return {
+        "job_id": job_id,
+        "artifact_index": artifact_index,
+        "name": artifact.get("name"),
+        "type": artifact.get("type"),
+        "summary": parse_pdal_summary(raw_summary),
+        "stats": parse_pdal_stats(raw_stats),
+        "service": payload.get("service"),
     }
 
 
