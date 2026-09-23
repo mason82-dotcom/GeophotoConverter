@@ -38,6 +38,8 @@ jobs:
 
       - name: Verify COLMAP runtime in final image
         run: |
+          docker run --rm --entrypoint sh geophoto-gsplat-cuda:ci -lc \
+            'if ldd "$(command -v colmap)" | grep -q "not found"; then echo "missing shared libraries"; ldd "$(command -v colmap)"; exit 1; fi'
           docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci version
           docker run --rm --entrypoint colmap geophoto-gsplat-cuda:ci feature_extractor -h \
             | grep -q -- "--FeatureExtraction.use_gpu"
