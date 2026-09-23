@@ -8,6 +8,7 @@ from typing import Any, Iterable
 SCHEMA_VERSION = 1
 
 CANONICAL_FIELDS = (
+    "capture.capture_uuid",
     "capture.utc_at_exposure",
     "capture.date_time_original",
     "capture.image_source",
@@ -35,6 +36,7 @@ CANONICAL_FIELDS = (
 )
 
 _DJI_PRIMARY_FIELDS = {
+    "capture.capture_uuid",
     "capture.utc_at_exposure",
     "capture.image_source",
     "capture.surveying_mode",
@@ -266,6 +268,7 @@ def build_photogrammetry_metadata(
     result: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "capture": {
+            "capture_uuid": None,
             "utc_at_exposure": None,
             "date_time_original": None,
             "image_source": None,
