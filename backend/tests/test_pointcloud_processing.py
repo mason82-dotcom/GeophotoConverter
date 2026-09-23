@@ -127,3 +127,13 @@ def test_provenance_archives_pipeline_and_source_identity():
         "version_contract": "2.10.2",
     }
     assert provenance["pipeline"] == contract["pipeline"]
+
+
+def test_geographic_3d_crs_is_rejected():
+    with pytest.raises(ValueError, match="horizontal 2D CRS"):
+        build_reprojection_pipeline(
+            "source.laz",
+            "target.laz",
+            source_crs="EPSG:4979",
+            target_crs="EPSG:32632",
+        )
