@@ -11,6 +11,33 @@ from .runtime import DB_PATH
 
 PHOTOGRAMMETRY_KINDS = {"RGB", "WIDE"}
 _DIRECT_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+_M3M_REQUIRED_KINDS = {"RGB", "MS_GREEN", "MS_RED", "MS_RED_EDGE", "MS_NIR"}
+_M3M_FILENAME_BANDS = {
+    "G": "MS_GREEN",
+    "R": "MS_RED",
+    "RE": "MS_RED_EDGE",
+    "NIR": "MS_NIR",
+}
+_DJI_BAND_NAMES = {
+    "GREEN": "MS_GREEN",
+    "RED": "MS_RED",
+    "REDEDGE": "MS_RED_EDGE",
+    "RED EDGE": "MS_RED_EDGE",
+    "NIR": "MS_NIR",
+}
+_PLATFORM_TOKENS = (
+    ("MAVIC 3 MULTISPECTRAL", "M3M"),
+    ("MAVIC 3 THERMAL", "M3T"),
+    ("MAVIC 3 ENTERPRISE", "M3E"),
+    ("MATRICE 4 THERMAL", "M4T"),
+    ("MATRICE 4T", "M4T"),
+    ("MATRICE 4E", "M4E"),
+    ("M3M", "M3M"),
+    ("M3T", "M3T"),
+    ("M3E", "M3E"),
+    ("M4T", "M4T"),
+    ("M4E", "M4E"),
+)
 
 
 def media_kind(relative_path: str) -> str:
@@ -182,32 +209,174 @@ def prepare_photogrammetry_images(
     return manifest
 
 
-def _platform_hint(record: dict[str, Any]) -> str:
-    path = PurePosixPath(record["relative_path"])
-    for part in path.parts[:-1]:
-        if part.upper() == "M3M":
-            return "M3M"
-
+def _record_metadata(record: dict[str, Any]) -> dict[str, Any]:
     raw = record.get("metadata_json")
+    if isinstance(raw, dict):
+        return raw
     if raw:
         try:
-            metadata = json.loads(raw)
+            parsed = json.loads(raw)
         except (TypeError, json.JSONDecodeError):
-            metadata = {}
-        camera = metadata.get("camera") or {}
-        dji = metadata.get("dji") or {}
-        haystack = " | ".join(
-            str(value).upper()
-            for value in (
-                camera.get("model"),
-                dji.get("product_name"),
-                dji.get("aircraft_type"),
-            )
-            if value
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _metadata_platform(metadata: dict[str, Any]) -> str:
+    camera = metadata.get("camera") or {}
+    dji = metadata.get("dji") or {}
+    haystack = " | ".join(
+        str(value).upper()
+        for value in (
+            camera.get("model"),
+            camera.get("make"),
+            dji.get("product_name"),
+            dji.get("aircraft_type"),
+            dji.get("drone_model"),
         )
-        if "MAVIC 3 MULTISPECTRAL" in haystack or "M3M" in haystack:
-            return "M3M"
+        if value
+    )
+    for token, platform in _PLATFORM_TOKENS:
+        if token in haystack:
+            return platform
     return "UNKNOWN"
+
+
+def _path_platform(path: PurePosixPath) -> str:
+    for part in path.parts[:-1]:
+        value = part.upper()
+        if value in {"M3E", "M3T", "M3M", "M4T", "M4E"}:
+            return value
+    return "UNKNOWN"
+
+
+def _platform_hint(record: dict[str, Any]) -> str:
+    metadata_platform = _metadata_platform(_record_metadata(record))
+    if metadata_platform != "UNKNOWN":
+        return metadata_platform
+    return _path_platform(PurePosixPath(record["relative_path"]))
+
+
+def _capture_uuid(metadata: dict[str, Any]) -> str | None:
+    dji = metadata.get("dji") or {}
+    value = dji.get("capture_uuid")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _group_path(path: PurePosixPath, base: str) -> str:
+    parent = path.parent.as_posix()
+    return base if parent == "." else f"{parent}/{base}"
+
+
+def _metadata_band_kind(metadata: dict[str, Any]) -> str | None:
+    dji = metadata.get("dji") or {}
+    value = dji.get("band_name")
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().upper().replace("_", " ")
+    return _DJI_BAND_NAMES.get(normalized)
+
+
+def _m3m_record_info(record: dict[str, Any]) -> dict[str, Any] | None:
+    relative_path = record["relative_path"]
+    path = PurePosixPath(relative_path)
+    upper = path.name.upper()
+    metadata = _record_metadata(record)
+    platform = _metadata_platform(metadata)
+    if platform == "UNKNOWN":
+        platform = _path_platform(path)
+
+    filename_band = re.match(
+        r"^(?P<base>.+)_MS_(?P<band>G|R|RE|NIR)\.(?:TIF|TIFF)$",
+        upper,
+    )
+    metadata_band = _metadata_band_kind(metadata)
+    conflicts: list[str] = []
+
+    if metadata_band:
+        if platform not in {"UNKNOWN", "M3M"}:
+            conflicts.append("band_platform_conflict")
+        if filename_band:
+            filename_kind = _M3M_FILENAME_BANDS[filename_band.group("band")]
+            if filename_kind != metadata_band:
+                conflicts.append("band_metadata_filename_conflict")
+        media_kind_value = metadata_band
+        platform = "M3M"
+        base = filename_band.group("base") if filename_band else path.stem
+    elif filename_band:
+        media_kind_value = _M3M_FILENAME_BANDS[filename_band.group("band")]
+        platform = "M3M"
+        base = filename_band.group("base")
+    else:
+        if media_kind(relative_path) != "RGB" or platform != "M3M":
+            return None
+        rgb_match = re.match(
+            r"^(?P<base>.+)_D\.(?:JPG|JPEG|DNG)$",
+            upper,
+        )
+        generic = re.match(
+            r"^(?P<base>DJI_.+?)\.(?:JPG|JPEG|TIF|TIFF|DNG)$",
+            upper,
+        )
+        media_kind_value = "RGB"
+        base = (
+            rgb_match.group("base")
+            if rgb_match
+            else generic.group("base")
+            if generic
+            else path.stem
+        )
+
+    capture_uuid = _capture_uuid(metadata)
+    capture_group = (
+        f"dji:{capture_uuid}"
+        if capture_uuid
+        else _group_path(path, base)
+    )
+    return {
+        "relative_path": relative_path,
+        "media_kind": media_kind_value,
+        "platform": platform,
+        "capture_group": capture_group,
+        "conflicts": conflicts,
+    }
+
+
+def _multispectral_plan(records: list[dict[str, Any]]) -> dict[str, Any]:
+    classifications: dict[str, dict[str, Any]] = {}
+    group_kinds: dict[str, set[str]] = {}
+    conflicts: list[dict[str, Any]] = []
+
+    for record in records:
+        info = _m3m_record_info(record)
+        if info is None:
+            continue
+        classifications[record["relative_path"]] = info
+        group = info["capture_group"]
+        group_kinds.setdefault(group, set()).add(info["media_kind"])
+        if info["conflicts"]:
+            conflicts.append(
+                {
+                    "relative_path": record["relative_path"],
+                    "capture_group": group,
+                    "codes": list(info["conflicts"]),
+                }
+            )
+
+    complete_groups = {
+        group
+        for group, kinds in group_kinds.items()
+        if _M3M_REQUIRED_KINDS.issubset(kinds)
+    }
+    incomplete_groups = set(group_kinds) - complete_groups
+    return {
+        "classifications": classifications,
+        "complete_groups": sorted(complete_groups),
+        "incomplete_groups": sorted(incomplete_groups),
+        "conflicts": conflicts,
+    }
 
 
 def prepare_multispectral_images(
@@ -218,26 +387,46 @@ def prepare_multispectral_images(
     prepared: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
 
-    for record in _dataset_files(dataset_id):
+    records = _dataset_files(dataset_id)
+    plan = _multispectral_plan(records)
+    if plan["conflicts"]:
+        conflict = plan["conflicts"][0]
+        raise ValueError(
+            "M3M classification conflict for "
+            f"{conflict['relative_path']}: {', '.join(conflict['codes'])}"
+        )
+
+    classifications = plan["classifications"]
+    complete_groups = set(plan["complete_groups"])
+
+    for record in records:
         relative_path = record["relative_path"]
         source = Path(record["stored_path"])
-        kind = media_kind(relative_path)
-        platform = _platform_hint(record)
+        info = classifications.get(relative_path)
 
-        include = kind == "MULTISPECTRAL" or (
-            kind == "RGB" and platform == "M3M"
-        )
-        if not include:
+        if info is None:
             skipped.append({
                 "relative_path": relative_path,
-                "media_kind": kind,
+                "media_kind": media_kind(relative_path),
                 "reason": "not_m3m_multispectral_input",
             })
             continue
+
+        capture_group = info["capture_group"]
+        if capture_group not in complete_groups:
+            skipped.append({
+                "relative_path": relative_path,
+                "media_kind": info["media_kind"],
+                "capture_group": capture_group,
+                "reason": "incomplete_m3m_capture_group",
+            })
+            continue
+
         if not source.is_file():
             skipped.append({
                 "relative_path": relative_path,
-                "media_kind": kind,
+                "media_kind": info["media_kind"],
+                "capture_group": capture_group,
                 "reason": "source_missing",
             })
             continue
@@ -258,15 +447,17 @@ def prepare_multispectral_images(
         else:
             skipped.append({
                 "relative_path": relative_path,
-                "media_kind": kind,
+                "media_kind": info["media_kind"],
+                "capture_group": capture_group,
                 "reason": "unsupported_extension",
             })
             continue
 
         prepared.append({
             "relative_path": relative_path,
-            "media_kind": kind,
-            "platform": platform,
+            "media_kind": info["media_kind"],
+            "platform": info["platform"],
+            "capture_group": capture_group,
             "prepared_name": target.name,
             "action": action,
             "sha256": record.get("sha256"),
@@ -275,6 +466,8 @@ def prepare_multispectral_images(
     manifest = {
         "dataset_id": dataset_id,
         "workflow": "multispectral",
+        "complete_capture_groups": plan["complete_groups"],
+        "incomplete_capture_groups": plan["incomplete_groups"],
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
         "prepared": prepared,
