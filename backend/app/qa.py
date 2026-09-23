@@ -55,6 +55,9 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     mapping_rtk_fixed = 0
     mapping_orientation_metadata = 0
     mapping_metadata_errors = 0
+    classification_conflicts: Counter[str] = Counter()
+    multispectral_conflict_files: list[str] = []
+    multispectral_conflict_groups: set[str] = set()
 
     for item in files:
         classification = reconciled[item["relative_path"]]
@@ -68,6 +71,18 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 classification.capture_group,
                 set(),
             ).add(classification.platform)
+
+        if classification.conflicts:
+            classification_conflicts.update(classification.conflicts)
+            if classification.media_kind in {
+                "MS_GREEN",
+                "MS_RED",
+                "MS_RED_EDGE",
+                "MS_NIR",
+            }:
+                multispectral_conflict_files.append(item["relative_path"])
+                if classification.capture_group:
+                    multispectral_conflict_groups.add(classification.capture_group)
 
         metadata = item.get("metadata") or {}
         camera = metadata.get("camera") or {}
@@ -228,6 +243,32 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 "count": len(cameras),
             }
         )
+    if multispectral_conflict_files:
+        warnings.append(
+            {
+                "code": "MULTISPECTRAL_CLASSIFICATION_CONFLICT",
+                "severity": "error",
+                "count": len(multispectral_conflict_files),
+            }
+        )
+
+    multispectral_ready = (
+        complete_multispectral_groups >= 2
+        and not multispectral_conflict_files
+    )
+    if multispectral_conflict_files:
+        multispectral_reason = (
+            "DJI-M3M-Bandmetadaten widersprechen der Dateinamenklassifikation "
+            "bei mindestens einem Multispektralbild. Konflikte müssen vor der "
+            "ODM-Verarbeitung geklärt werden."
+        )
+    elif complete_multispectral_groups < 2:
+        multispectral_reason = (
+            "Mindestens zwei vollständige M3M-Aufnahmegruppen sind erforderlich "
+            "(RGB + Grün + Rot + Red Edge + NIR)."
+        )
+    else:
+        multispectral_reason = None
 
     readiness = {
         "odm": {
@@ -260,19 +301,14 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             ),
         },
         "odm_multispectral": {
-            "ready": complete_multispectral_groups >= 2,
+            "ready": multispectral_ready,
             "eligible_images": (
                 complete_multispectral_groups * len(required_m3m_kinds)
             ),
             "complete_groups": complete_multispectral_groups,
-            "reason": (
-                None
-                if complete_multispectral_groups >= 2
-                else (
-                    "Mindestens zwei vollständige M3M-Aufnahmegruppen sind erforderlich "
-                    "(RGB + Grün + Rot + Red Edge + NIR)."
-                )
-            ),
+            "classification_conflict_files": len(multispectral_conflict_files),
+            "classification_conflict_groups": len(multispectral_conflict_groups),
+            "reason": multispectral_reason,
         },
     }
 
@@ -299,6 +335,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "multispectral": multispectral_inputs,
             "multispectral_groups": multispectral_group_count,
             "complete_multispectral_groups": complete_multispectral_groups,
+            "multispectral_classification_conflicts": len(multispectral_conflict_files),
             "thermal_groups": thermal_group_count,
             "complete_thermal_groups": complete_thermal_groups,
         },
@@ -329,6 +366,11 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             "required_media_kinds": sorted(required_m3m_kinds),
             "group_count": multispectral_group_count,
             "complete_groups": complete_multispectral_groups,
+            "classification_conflicts": dict(classification_conflicts),
+            "conflict_file_count": len(multispectral_conflict_files),
+            "conflict_files": sorted(multispectral_conflict_files),
+            "conflict_group_count": len(multispectral_conflict_groups),
+            "conflict_groups": sorted(multispectral_conflict_groups),
         },
         "readiness": readiness,
         "classifications": {

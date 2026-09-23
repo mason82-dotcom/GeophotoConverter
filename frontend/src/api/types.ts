@@ -89,6 +89,8 @@ export interface EngineReadiness {
   eligible_images: number
   complete_groups?: number
   platform?: string | null
+  classification_conflict_files?: number
+  classification_conflict_groups?: number
   reason: string | null
 }
 
@@ -121,6 +123,7 @@ export interface DatasetQa {
     multispectral: number
     multispectral_groups: number
     complete_multispectral_groups: number
+    multispectral_classification_conflicts: number
     thermal_groups: number
     complete_thermal_groups: number
   }
@@ -147,6 +150,11 @@ export interface DatasetQa {
     required_media_kinds: string[]
     group_count: number
     complete_groups: number
+    classification_conflicts: Record<string, number>
+    conflict_file_count: number
+    conflict_files: string[]
+    conflict_group_count: number
+    conflict_groups: string[]
   }
   readiness: {
     odm: EngineReadiness
