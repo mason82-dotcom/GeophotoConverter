@@ -117,6 +117,14 @@ class Store:
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
             else:
                 data.pop(key, None)
+
+        options = data.get("options")
+        if isinstance(options, dict):
+            data["options"] = {
+                key: value
+                for key, value in options.items()
+                if not str(key).startswith("__")
+            }
         return data
 
     def create_dataset(self, name: str, description: str | None) -> dict[str, Any]:
