@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.mapping_readiness import evaluate_mapping_readiness
+from app.qa import dataset_qa
 
 
 def _mapping_file(
@@ -254,3 +255,49 @@ def test_duplicate_capture_times_and_metadata_errors_warn():
     assert "MAPPING_DUPLICATE_CAPTURE_TIME" in codes
     assert "MAPPING_METADATA_ERRORS" in codes
     assert result["status"] == "warning"
+
+
+
+def test_dataset_qa_applies_mapping_checks_only_to_rgb_wide_inputs():
+    files = [
+        _mapping_file(
+            "DJI_6001.JPG",
+            latitude=49.1,
+            longitude=8.5,
+            capture_time="2026:09:23 12:00:00",
+        ),
+        _mapping_file(
+            "DJI_6002.JPG",
+            latitude=49.1002,
+            longitude=8.5002,
+            capture_time="2026:09:23 12:00:01",
+        ),
+        {
+            **_mapping_file(
+                "M3T/DJI_6003_T.JPG",
+                latitude=None,
+                longitude=None,
+                capture_time="2026:09:23 12:00:02",
+            ),
+            "metadata": {
+                **_mapping_file(
+                    "M3T/DJI_6003_T.JPG",
+                    latitude=None,
+                    longitude=None,
+                )["metadata"],
+                "camera": {"make": "DJI", "model": "Mavic 3 Thermal"},
+                "dji": {
+                    "product_name": "Mavic 3 Thermal",
+                },
+            },
+        },
+    ]
+
+    qa = dataset_qa(files)
+
+    assert qa["engine_inputs"]["rgb_wide"] == 2
+    assert qa["engine_inputs"]["thermal"] == 1
+    assert qa["mapping"]["eligible_images"] == 2
+    assert qa["mapping"]["missing_gps"] == 0
+    assert qa["mapping"]["geotagged_images"] == 2
+    assert qa["mapping"]["status"] == "ready"
