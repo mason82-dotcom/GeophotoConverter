@@ -101,14 +101,26 @@ Der vorhandene Viewer bleibt für LAS/LAZ/PLY zuständig. PGM-POINTCLOUD ist die
 fachliche QA-/Processing-Schicht und dupliziert Sampling oder WebGL-Darstellung
 nicht.
 
-Folgephase:
+Phase 2A — **in Entwicklung** (#79):
 
-- eigener PDAL-Dienst/Worker mit gepinntem 2.10.2-Runtimevertrag
-- COPC
+- optionales Compose-Profil `pdal`
+- gekapselter `pdal/pdal:2.10.2`-Sidecar
+- `/data` read-only, kein Host-Pfad aus API-Eingaben
+- `GET /health` und internes `POST /qa`
+- Artifact-QA über `pdal info --summary` und dimensionsabhängige Stats
+- Backend-Endpunkt `/jobs/{job_id}/pointclouds/{artifact_index}/qa`
+- Service-Status unter `/api/v1/services`
+- PLY ohne `Classification` bleibt gültig; Classification wird nur angefordert,
+  wenn die Dimension vorhanden ist
+
+Phase 2B folgt separat:
+
+- COPC-Ausgabe
 - Reprojection
-- Ground/HAG
+- Ground/SMRF
+- HAG
 - Outlier-/Density-QA
-- ODM-/MicMac-/OpenMVS-Artefaktintegration
+- neue Processing-Artefakte für ODM/MicMac/OpenMVS
 
 ## PGM-GEOMETRY — GSD, Footprint, Overlap
 
