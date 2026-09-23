@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS files (
     media_type TEXT,
     sha256 TEXT,
     metadata_json TEXT,
+    fh2_media_json TEXT,
     scan_error TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE,
@@ -70,6 +71,8 @@ class Store:
             }
             if "sha256" not in columns:
                 conn.execute("ALTER TABLE files ADD COLUMN sha256 TEXT")
+            if "fh2_media_json" not in columns:
+                conn.execute("ALTER TABLE files ADD COLUMN fh2_media_json TEXT")
             job_columns = {
                 row["name"]
                 for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
@@ -109,6 +112,7 @@ class Store:
         data = dict(row)
         for key in (
             "metadata_json",
+            "fh2_media_json",
             "artifacts_json",
             "options_json",
             "publication_json",
@@ -135,7 +139,18 @@ class Store:
                 """
                 SELECT d.*,
                     COUNT(f.id) AS image_count,
-                    SUM(CASE WHEN json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL THEN 1 ELSE 0 END) AS geotagged_count
+                    SUM(
+                        CASE
+                            WHEN (
+                                json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL
+                                AND json_extract(f.metadata_json, '$.gps.longitude') IS NOT NULL
+                            ) OR (
+                                json_extract(f.fh2_media_json, '$.asset.capture.latitudeDeg') IS NOT NULL
+                                AND json_extract(f.fh2_media_json, '$.asset.capture.longitudeDeg') IS NOT NULL
+                            )
+                            THEN 1 ELSE 0
+                        END
+                    ) AS geotagged_count
                 FROM datasets d
                 LEFT JOIN files f ON f.dataset_id=d.id
                 GROUP BY d.id
@@ -150,7 +165,18 @@ class Store:
                 """
                 SELECT d.*,
                     COUNT(f.id) AS image_count,
-                    SUM(CASE WHEN json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL THEN 1 ELSE 0 END) AS geotagged_count
+                    SUM(
+                        CASE
+                            WHEN (
+                                json_extract(f.metadata_json, '$.gps.latitude') IS NOT NULL
+                                AND json_extract(f.metadata_json, '$.gps.longitude') IS NOT NULL
+                            ) OR (
+                                json_extract(f.fh2_media_json, '$.asset.capture.latitudeDeg') IS NOT NULL
+                                AND json_extract(f.fh2_media_json, '$.asset.capture.longitudeDeg') IS NOT NULL
+                            )
+                            THEN 1 ELSE 0
+                        END
+                    ) AS geotagged_count
                 FROM datasets d
                 LEFT JOIN files f ON f.dataset_id=d.id
                 WHERE d.id=?
@@ -246,6 +272,20 @@ class Store:
             conn.execute(
                 "UPDATE files SET metadata_json=?, scan_error=? WHERE id=?",
                 (json.dumps(metadata) if metadata else None, error, file_id),
+            )
+
+    def update_file_fh2_media(
+        self,
+        file_id: str,
+        fh2_media: dict[str, Any] | None,
+    ) -> None:
+        with self._lock, self.connect() as conn:
+            conn.execute(
+                "UPDATE files SET fh2_media_json=? WHERE id=?",
+                (
+                    json.dumps(fh2_media) if fh2_media is not None else None,
+                    file_id,
+                ),
             )
 
     def set_dataset_scan_status(self, dataset_id: str, status: str) -> None:

@@ -129,6 +129,14 @@ def evaluate_mapping_readiness(
     rtk_fixed_images = 0
     orientation_metadata_images = 0
     metadata_errors = 0
+    fh2_enriched_images = 0
+    capture_uuid_images = 0
+    ellipsoid_height_images = 0
+    relative_height_images = 0
+    fusion_conflict_files = 0
+    fusion_conflict_count = 0
+    fusion_conflict_fields: Counter[str] = Counter()
+    position_sources: Counter[str] = Counter()
 
     camera_models: Counter[str] = Counter()
     dimensions: Counter[str] = Counter()
@@ -146,22 +154,50 @@ def evaluate_mapping_readiness(
 
     for item in files:
         metadata = _mapping(item.get("metadata"))
+        fh2_media = _mapping(item.get("fh2_media"))
         gps = _mapping(metadata.get("gps"))
         camera = _mapping(metadata.get("camera"))
         image = _mapping(metadata.get("image"))
-        canonical = fuse_photogrammetry_metadata(metadata)
+        canonical = fuse_photogrammetry_metadata(
+            metadata,
+            fh2_media or None,
+        )
+
+        if fh2_media:
+            fh2_enriched_images += 1
 
         raw_latitude = gps.get("latitude")
         raw_longitude = gps.get("longitude")
+        fh2_capture = _mapping(_mapping(fh2_media.get("asset")).get("capture"))
+        fh2_latitude = fh2_capture.get("latitudeDeg")
+        fh2_longitude = fh2_capture.get("longitudeDeg")
         latitude = canonical["position"]["latitude_deg"]
         longitude = canonical["position"]["longitude_deg"]
 
-        if raw_latitude in (None, "") or raw_longitude in (None, ""):
-            missing_gps += 1
-        elif latitude is None or longitude is None:
-            invalid_gps += 1
+        has_complete_position_candidate = any(
+            left not in (None, "") and right not in (None, "")
+            for left, right in (
+                (raw_latitude, raw_longitude),
+                (fh2_latitude, fh2_longitude),
+            )
+        )
+        if latitude is None or longitude is None:
+            if has_complete_position_candidate:
+                invalid_gps += 1
+            else:
+                missing_gps += 1
         else:
             valid_positions.append((float(latitude), float(longitude)))
+            latitude_source = _mapping(
+                canonical["provenance"].get("position.latitude_deg")
+            ).get("source")
+            longitude_source = _mapping(
+                canonical["provenance"].get("position.longitude_deg")
+            ).get("source")
+            if latitude_source and latitude_source == longitude_source:
+                position_sources[str(latitude_source)] += 1
+            elif latitude_source or longitude_source:
+                position_sources["mixed"] += 1
 
         model = camera.get("model")
         if isinstance(model, str) and model.strip():
@@ -178,6 +214,23 @@ def evaluate_mapping_readiness(
 
         ellipsoid_m = canonical["height"]["ellipsoid_m"]
         relative_m = canonical["height"]["relative_m"]
+        if isinstance(ellipsoid_m, (int, float)):
+            ellipsoid_height_images += 1
+        if isinstance(relative_m, (int, float)):
+            relative_height_images += 1
+        if canonical["capture_uuid"] is not None:
+            capture_uuid_images += 1
+
+        conflicts = canonical["conflicts"]
+        if conflicts:
+            fusion_conflict_files += 1
+            fusion_conflict_count += len(conflicts)
+            fusion_conflict_fields.update(
+                str(conflict.get("field"))
+                for conflict in conflicts
+                if conflict.get("field")
+            )
+
         if isinstance(ellipsoid_m, (int, float)) and isinstance(
             relative_m,
             (int, float),
@@ -437,6 +490,19 @@ def evaluate_mapping_readiness(
             metadata_errors,
             f"{metadata_errors} Mapping-Bild(er) mit Scan-/Metadatenfehlern.",
         )
+    if fusion_conflict_count:
+        _issue(
+            issues,
+            "MAPPING_METADATA_FUSION_CONFLICT",
+            "warning",
+            fusion_conflict_count,
+            (
+                f"{fusion_conflict_count} Konflikt(e) zwischen FH2-Media- und "
+                "Dateimetadaten erkannt."
+            ),
+            conflict_files=fusion_conflict_files,
+            fields=dict(fusion_conflict_fields),
+        )
 
     hard_ready = eligible_images >= 2
     warning_issues = [
@@ -484,6 +550,16 @@ def evaluate_mapping_readiness(
         "rtk_fixed_images": rtk_fixed_images,
         "orientation_metadata_images": orientation_metadata_images,
         "metadata_errors": metadata_errors,
+        "photogrammetry": {
+            "fh2_enriched_images": fh2_enriched_images,
+            "position_sources": dict(position_sources),
+            "ellipsoid_height_images": ellipsoid_height_images,
+            "relative_height_images": relative_height_images,
+            "capture_uuid_images": capture_uuid_images,
+            "fusion_conflict_files": fusion_conflict_files,
+            "fusion_conflict_count": fusion_conflict_count,
+            "fusion_conflict_fields": dict(fusion_conflict_fields),
+        },
         "camera": {
             "models": dict(camera_models),
             "model_count": len(camera_models),

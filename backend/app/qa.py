@@ -6,6 +6,7 @@ from typing import Any
 
 from .classifier import classify_media, reconcile_group_platforms
 from .mapping_readiness import evaluate_mapping_readiness
+from .photogrammetry import fuse_photogrammetry_metadata
 
 
 _MULTISPECTRAL_BLOCKING_CONFLICTS = {
@@ -99,8 +100,12 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
             cameras[str(camera_model)] += 1
 
         gps = metadata.get("gps") or {}
-        latitude = gps.get("latitude")
-        longitude = gps.get("longitude")
+        canonical = fuse_photogrammetry_metadata(
+            metadata,
+            item.get("fh2_media"),
+        )
+        latitude = canonical["position"]["latitude_deg"]
+        longitude = canonical["position"]["longitude_deg"]
         is_mapping_input = classification.media_kind in {"RGB", "WIDE"}
         if latitude is None or longitude is None:
             missing_gps += 1
@@ -111,8 +116,7 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(gps_altitude, (int, float)):
             gps_altitudes.append(float(gps_altitude))
 
-        dji = metadata.get("dji") or {}
-        relative_altitude = dji.get("relative_altitude")
+        relative_altitude = canonical["height"]["relative_m"]
         if isinstance(relative_altitude, (int, float)):
             relative_altitudes.append(float(relative_altitude))
 
