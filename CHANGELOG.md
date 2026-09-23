@@ -38,3 +38,6 @@ Bewusst auf spätere Releases verschoben:
 - zusätzliche Authentifizierungs-/TLS-Härtung für Betrieb außerhalb eines vertrauenswürdigen LAN
 - FastAPI-Lifespan-Migration
 - Entkopplung der Worker von direktem SQLite-Zugriff
+- zuverlässige Redis-Queue mit ACK/Crash-Recovery
+- formale, versionierte Datenbankmigrationen
+- additive DJI-Metadaten-Normalisierung aus dem FH2-Metadatenvertrag

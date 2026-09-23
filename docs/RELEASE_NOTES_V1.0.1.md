@@ -67,3 +67,6 @@ Nicht release-blockierend für V1.0.1:
 - FastAPI `on_event` auf Lifespan migrieren
 - Sicherheitsmodell für Betrieb außerhalb vertrauenswürdiger LANs erweitern
 - Worker/SQLite-Kopplung vor höherer Parallelität neu bewerten
+- Redis-Queue um ACK/Crash-Recovery erweitern
+- versionierte Schema-Migrationen einführen
+- zusätzliche DJI-Metadatenfelder aus FH2 additiv normalisieren
