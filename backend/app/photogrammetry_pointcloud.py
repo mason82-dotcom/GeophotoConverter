@@ -119,6 +119,17 @@ def _metric_horizontal_srs(srs: Mapping[str, Any] | None) -> bool:
     return unit in {"metre", "meter", "metres", "meters", "m"}
 
 
+def _canonical_dimension_name(value: Any) -> str:
+    text = str(value).strip()
+    canonical = {
+        "x": "X",
+        "y": "Y",
+        "z": "Z",
+        "classification": "Classification",
+    }
+    return canonical.get(text.lower(), text)
+
+
 def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
     summary = payload.get("summary")
     source = summary if isinstance(summary, Mapping) else {}
@@ -138,15 +149,20 @@ def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     dimensions_raw = source.get("dimensions")
     if isinstance(dimensions_raw, str):
-        dimensions = [
+        raw_dimensions = [
             value.strip()
             for value in dimensions_raw.split(",")
             if value.strip()
         ]
     elif isinstance(dimensions_raw, list):
-        dimensions = [str(value) for value in dimensions_raw]
+        raw_dimensions = [
+            str(value).strip()
+            for value in dimensions_raw
+            if str(value).strip()
+        ]
     else:
-        dimensions = []
+        raw_dimensions = []
+    dimensions = [_canonical_dimension_name(value) for value in raw_dimensions]
 
     metadata = source.get("metadata")
     metadata_map = metadata if isinstance(metadata, Mapping) else {}
@@ -265,7 +281,7 @@ def parse_pdal_stats(payload: Mapping[str, Any]) -> dict[str, Any]:
         counts = _normalize_counts(item.get("counts"))
         if counts:
             record["counts"] = counts
-        by_name[name] = record
+        by_name[_canonical_dimension_name(name)] = record
 
     issues: list[dict[str, Any]] = []
     for required in ("X", "Y", "Z"):
