@@ -70,6 +70,27 @@ services:
       redis:
         condition: service_healthy
 
+  odm-gpu-worker:
+    build:
+      context: .
+      dockerfile: workers/odm/Dockerfile.gpu
+    profiles: ["odm-gpu"]
+    restart: unless-stopped
+    gpus: all
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      GEOPHOTO_ODM_CUDA: "1"
+      GEOPHOTO_ACCELERATOR: nvidia-cuda
+      GEOPHOTO_CUDA_REQUIRED: "1"
+      GEOPHOTO_CUDA_PROBE: "1"
+      GEOPHOTO_CUDA_VERSION: "12.9.1"
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
   micmac-worker:
     build:
       context: .
@@ -96,6 +117,10 @@ services:
       GEOPHOTO_DATA_ROOT: /data
       GEOPHOTO_REDIS_URL: redis://redis:6379/0
       TORCH_EXTENSIONS_DIR: /root/.cache/torch_extensions
+      GEOPHOTO_ACCELERATOR: nvidia-cuda
+      GEOPHOTO_CUDA_REQUIRED: "1"
+      GEOPHOTO_CUDA_PROBE: "1"
+      GEOPHOTO_CUDA_VERSION: "12.8.1"
     volumes:
       - ${GEOPHOTO_DATA_PATH:-./data}:/data
       - geophoto-gsplat-cache:/root/.cache/torch_extensions
