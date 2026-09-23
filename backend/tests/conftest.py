@@ -22,6 +22,7 @@ from app.storage import store
 @pytest.fixture(autouse=True)
 def clean_state():
     with store.connect() as conn:
+        conn.execute("DELETE FROM artifact_jobs")
         conn.execute("DELETE FROM jobs")
         conn.execute("DELETE FROM files")
         conn.execute("DELETE FROM datasets")
