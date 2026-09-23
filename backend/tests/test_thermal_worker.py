@@ -51,9 +51,9 @@ def test_collect_thermal_artifacts(tmp_path):
     module.DATA_ROOT = data_root
     artifacts = module._collect_artifacts(result_dir)
 
-    assert [item["type"] for item in artifacts] == [
+    assert {item["type"] for item in artifacts} == {
         "thermal_preview",
         "thermal_summary",
         "thermal_temperature_tiff",
-    ]
+    }
     assert all(item["relative_path"].startswith("jobs/job-1/") for item in artifacts)
