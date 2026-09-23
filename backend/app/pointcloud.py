@@ -13,7 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from .config import CACHE_ROOT, DATA_ROOT
+from .config import DATA_ROOT, POINTCLOUD_CACHE_ROOT
 from .storage import store
 
 router = APIRouter(prefix="/api/v1", tags=["pointcloud"])
@@ -105,7 +105,7 @@ def _source_signature(path: Path) -> str:
 
 
 def _cache_dir(path: Path) -> Path:
-    directory = CACHE_ROOT / "pointcloud" / _source_signature(path)
+    directory = POINTCLOUD_CACHE_ROOT / _source_signature(path)
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 

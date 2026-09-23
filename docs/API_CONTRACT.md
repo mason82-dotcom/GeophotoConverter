@@ -406,3 +406,70 @@ Das Frontend:
 - konstruiert Artefaktpfade nicht selbst
 - zeigt API-/Jobstatus an, implementiert aber keine eigene Processing-Logik
 - muss Lade-, Leer-, Fehler-, Upload-, Verarbeitungs-, Erfolgs- und Abbruchzustände darstellen
+
+
+## Punktwolken
+
+Das Punktwolkenmodul arbeitet direkt auf abgeschlossenen Job-Artefakten.
+
+Unterstützt:
+- LAS
+- LAZ
+- klassische PLY-Punktwolken
+
+Nicht als klassische Punktwolke behandelt:
+- gsplat/Gaussian-Splat-PLY
+
+### GET /jobs/{job_id}/pointclouds
+
+Listet unterstützte Punktwolken-Artefakte des Jobs.
+
+Jeder Eintrag enthält unter anderem:
+- `artifact_index`
+- `name`
+- `type`
+- `size_bytes`
+- `metadata_url`
+- `preview_url`
+- `download_url`
+
+### GET /jobs/{job_id}/pointclouds/{artifact_index}
+
+Liefert Punktwolken-Metadaten:
+- Format
+- Punktzahl
+- RGB vorhanden / nicht vorhanden
+- Dimensions-/Attributnamen
+- Bounding Box
+- Mittelpunkt
+- räumliche Ausdehnung
+- Quelldateigröße
+
+### GET /jobs/{job_id}/pointclouds/{artifact_index}/preview?max_points=100000
+
+Liefert eine serverseitig gesampelte, gecachte Binärvorschau.
+
+Grenzen:
+- mindestens 1.000 Punkte angefordert
+- maximal 500.000 Punkte
+- Originaldatei wird nicht vollständig an den Browser übertragen
+
+Binärformat pro Punkt, 16 Byte:
+- X: Float32 little endian
+- Y: Float32 little endian
+- Z: Float32 little endian
+- R: UInt8
+- G: UInt8
+- B: UInt8
+- A: UInt8
+
+XYZ werden relativ zum im Header `X-Point-Origin` gelieferten Mittelpunkt übertragen. Das reduziert Float32-Präzisionsprobleme bei georeferenzierten Koordinaten.
+
+Response-Header:
+- `X-Point-Count`
+- `X-Point-Stride`
+- `X-Point-Origin`
+- `X-Point-Has-RGB`
+- `ETag`
+
+Die Vorschau wird unter `/data/cache/pointcloud` gecacht.
