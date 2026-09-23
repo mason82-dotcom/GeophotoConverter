@@ -209,3 +209,14 @@ def test_prepare_multispectral_images_excludes_group_with_missing_source(
         and item["reason"] == "unstageable_m3m_capture_group"
         for item in manifest["skipped"]
     )
+
+
+
+def test_odm_worker_image_ships_canonical_media_classifier():
+    dockerfile = (REPO_ROOT / "workers" / "odm" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "COPY backend/app/__init__.py backend/app/classifier.py /worker/app/"
+        in dockerfile
+    )
