@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from math import cos, isfinite, radians, sqrt
+from math import cos, isfinite, radians, sin, sqrt
 from statistics import median
 from typing import Any
 
@@ -191,8 +191,8 @@ def _pair_overlap(
 
     north_m, east_m = _local_displacement_m(left_position, right_position)
     heading_rad = radians(float(heading))
-    along_m = north_m * cos(heading_rad) + east_m * __import__("math").sin(heading_rad)
-    cross_m = -north_m * __import__("math").sin(heading_rad) + east_m * cos(heading_rad)
+    along_m = north_m * cos(heading_rad) + east_m * sin(heading_rad)
+    cross_m = -north_m * sin(heading_rad) + east_m * cos(heading_rad)
 
     footprint_height_m = (
         left["geometry"]["footprint_height_m"]
