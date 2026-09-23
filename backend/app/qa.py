@@ -7,6 +7,12 @@ from typing import Any
 from .classifier import classify_media, reconcile_group_platforms
 
 
+_MULTISPECTRAL_BLOCKING_CONFLICTS = {
+    "band_metadata_filename_conflict",
+    "band_platform_conflict",
+}
+
+
 def _parse_time(value: Any) -> datetime | None:
     if not value:
         return None
@@ -44,6 +50,8 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
     media_counts: Counter[str] = Counter()
     capture_groups: dict[str, set[str]] = {}
     capture_group_platforms: dict[str, set[str]] = {}
+    capture_group_conflicts: dict[str, Counter[str]] = {}
+    classification_conflicts: Counter[str] = Counter()
     cameras: Counter[str] = Counter()
     gps_altitudes: list[float] = []
     relative_altitudes: list[float] = []
@@ -71,6 +79,14 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
                 classification.capture_group,
                 set(),
             ).add(classification.platform)
+
+        for conflict in classification.conflicts:
+            classification_conflicts[conflict] += 1
+            if classification.capture_group:
+                capture_group_conflicts.setdefault(
+                    classification.capture_group,
+                    Counter(),
+                )[conflict] += 1
 
         if classification.conflicts:
             classification_conflicts.update(classification.conflicts)
@@ -166,10 +182,25 @@ def dataset_qa(files: list[dict[str, Any]]) -> dict[str, Any]:
         "MS_RED_EDGE",
         "MS_NIR",
     }
-    complete_multispectral_groups = sum(
-        1
-        for kinds in capture_groups.values()
+    complete_multispectral_group_ids = [
+        group
+        for group, kinds in capture_groups.items()
         if required_m3m_kinds.issubset(kinds)
+    ]
+    complete_multispectral_groups = len(complete_multispectral_group_ids)
+    multispectral_blocking_conflict_groups = sorted(
+        group
+        for group in complete_multispectral_group_ids
+        if any(
+            code in _MULTISPECTRAL_BLOCKING_CONFLICTS
+            for code in capture_group_conflicts.get(group, {})
+        )
+    )
+    multispectral_blocking_conflict_count = sum(
+        count
+        for group in multispectral_blocking_conflict_groups
+        for code, count in capture_group_conflicts.get(group, {}).items()
+        if code in _MULTISPECTRAL_BLOCKING_CONFLICTS
     )
     multispectral_group_count = sum(
         1
