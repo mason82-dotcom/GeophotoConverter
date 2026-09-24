@@ -29,6 +29,7 @@ def clean_state():
 
     shutil.rmtree(DATASETS_ROOT, ignore_errors=True)
     shutil.rmtree(DATA_ROOT / "jobs", ignore_errors=True)
+    shutil.rmtree(DATA_ROOT / "artifact-jobs", ignore_errors=True)
     shutil.rmtree(MAPS_ROOT, ignore_errors=True)
     DATASETS_ROOT.mkdir(parents=True, exist_ok=True)
     MAPS_ROOT.mkdir(parents=True, exist_ok=True)

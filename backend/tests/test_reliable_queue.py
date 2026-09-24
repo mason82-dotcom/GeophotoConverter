@@ -187,3 +187,166 @@ def test_reconcile_requeues_job_missing_from_redis(redis_client):
     payload = json.loads(fields["payload"])
     assert payload["job_id"] == job["id"]
     assert payload["profile"] == "preview"
+
+
+def _artifact_source_job() -> dict:
+    dataset = store.create_dataset("Artifact Queue", None)
+    job = store.create_job(dataset["id"], "odm", "standard", "mapping", {})
+    store.update_job(
+        job["id"],
+        status="completed",
+        progress=100,
+        artifacts=[
+            {
+                "type": "point_cloud_laz",
+                "name": "cloud.laz",
+                "relative_path": "jobs/source/cloud.laz",
+                "size_bytes": 123,
+            }
+        ],
+    )
+    result = store.get_job(job["id"])
+    assert result is not None
+    return result
+
+
+def test_artifact_backend_uses_separate_stream_and_payload(monkeypatch):
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.DB_PATH = DB_PATH
+
+    source = _artifact_source_job()
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+        options={"target_crs": "EPSG:32633"},
+        status="queued",
+    )
+
+    backend = runtime.ArtifactJobBackend()
+    rows = backend.recovery_rows("pdal")
+    assert len(rows) == 1
+
+    payload = backend.payload(rows[0])
+    assert payload == {
+        "job_id": artifact_job["id"],
+        "artifact_job_id": artifact_job["id"],
+        "source_job_id": source["id"],
+        "source_artifact_index": 0,
+        "processor": "pdal",
+        "operation": "reproject",
+        "options": {"target_crs": "EPSG:32633"},
+    }
+    assert backend.stream_name("pdal") == "geophoto:stream:artifact:pdal"
+    assert backend.legacy_queue_name("pdal") is None
+    assert (
+        backend.worker_state_key("pdal")
+        == "geophoto:worker:artifact:pdal"
+    )
+    assert backend.log_path(artifact_job["id"]).parts[-3:] == (
+        "artifact-jobs",
+        artifact_job["id"],
+        "worker.log",
+    )
+
+
+def test_artifact_reconcile_requeues_only_artifact_jobs(
+    redis_client,
+):
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.QUEUE_GROUP = "geophoto-workers-artifact-test"
+    runtime.DB_PATH = DB_PATH
+
+    dataset = store.create_dataset("Dataset Queue Separation", None)
+    dataset_job = store.create_job(
+        dataset["id"],
+        "odm",
+        "preview",
+        "mapping",
+        {},
+    )
+    store.update_job(dataset_job["id"], status="running")
+
+    source = _artifact_source_job()
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+        options={"target_crs": "EPSG:32633"},
+        status="running",
+    )
+
+    backend = runtime.ArtifactJobBackend()
+    stream = backend.stream_name("pdal")
+    runtime._ensure_group(redis_client, stream)
+
+    assert runtime._reconcile_backend_jobs(
+        redis_client,
+        "pdal",
+        "artifact-worker",
+        backend,
+    ) == 1
+
+    assert redis_client.xlen(stream) == 1
+    assert redis_client.xlen(runtime.stream_name("odm")) == 0
+
+    _, fields = redis_client.xrange(stream, min="-", max="+")[0]
+    payload = json.loads(fields["payload"])
+    assert payload["job_id"] == artifact_job["id"]
+    assert payload["artifact_job_id"] == artifact_job["id"]
+    assert payload["source_job_id"] == source["id"]
+
+    updated_artifact = store.get_artifact_job(artifact_job["id"])
+    assert updated_artifact["status"] == "queued"
+    assert updated_artifact["phase"] == "recovery"
+
+    untouched_dataset = store.get_job(dataset_job["id"])
+    assert untouched_dataset["status"] == "running"
+
+
+def test_artifact_reconcile_confirms_prestart_cancel_without_enqueue(
+    redis_client,
+):
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    runtime.QUEUE_GROUP = "geophoto-workers-artifact-cancel-test"
+    runtime.DB_PATH = DB_PATH
+
+    source = _artifact_source_job()
+    artifact_job = store.create_artifact_job(
+        source["id"],
+        0,
+        "pdal",
+        "reproject",
+        status="cancel_requested",
+    )
+
+    backend = runtime.ArtifactJobBackend()
+    stream = backend.stream_name("pdal")
+    runtime._ensure_group(redis_client, stream)
+
+    assert runtime._reconcile_backend_jobs(
+        redis_client,
+        "pdal",
+        "artifact-worker",
+        backend,
+    ) == 0
+    assert redis_client.xlen(stream) == 0
+
+    cancelled = store.get_artifact_job(artifact_job["id"])
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["phase"] == "cancelled"
+
+
+def test_artifact_attempt_keys_cannot_collide_with_dataset_jobs():
+    runtime = _load_worker_runtime(Path(__file__).resolve().parents[2])
+    artifact = runtime.ArtifactJobBackend()
+
+    assert artifact.attempt_key("pdal", "1-0") == (
+        "geophoto:attempt:artifact:pdal:1-0"
+    )
+    assert artifact.attempt_key("pdal", "1-0") != runtime._attempt_key(
+        "pdal",
+        "1-0",
+    )
