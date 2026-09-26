@@ -56,6 +56,24 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at TEXT NOT NULL,
     FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS artifact_jobs (
+    id TEXT PRIMARY KEY,
+    source_job_id TEXT NOT NULL,
+    source_artifact_index INTEGER NOT NULL CHECK(source_artifact_index >= 0),
+    processor TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    options_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL,
+    progress REAL NOT NULL DEFAULT 0,
+    phase TEXT,
+    message TEXT,
+    artifacts_json TEXT,
+    provenance_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(source_job_id) REFERENCES jobs(id) ON DELETE CASCADE
+);
 """
 
 
@@ -91,10 +109,19 @@ class Store:
                 "CREATE INDEX IF NOT EXISTS idx_files_dataset_sha256 "
                 "ON files(dataset_id, sha256)"
             )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artifact_jobs_source_job "
+                "ON artifact_jobs(source_job_id, created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artifact_jobs_status "
+                "ON artifact_jobs(status, created_at)"
+            )
 
     def connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
     @staticmethod
@@ -116,6 +143,7 @@ class Store:
             "artifacts_json",
             "options_json",
             "publication_json",
+            "provenance_json",
         ):
             if data.get(key):
                 data[key.removesuffix("_json")] = json.loads(data.pop(key))
@@ -380,6 +408,141 @@ class Store:
                     ),
                     self.now(),
                     job_id,
+                ),
+            )
+
+
+    def create_artifact_job(
+        self,
+        source_job_id: str,
+        source_artifact_index: int,
+        processor: str,
+        operation: str,
+        *,
+        options: dict[str, Any] | None = None,
+        provenance: dict[str, Any] | None = None,
+        status: str = "prepared",
+    ) -> dict[str, Any]:
+        if source_artifact_index < 0:
+            raise ValueError("source_artifact_index must be non-negative.")
+        if not processor.strip():
+            raise ValueError("processor is required.")
+        if not operation.strip():
+            raise ValueError("operation is required.")
+
+        artifact_job_id = self.new_id()
+        now = self.now()
+        with self._lock, self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO artifact_jobs(
+                    id,source_job_id,source_artifact_index,processor,operation,
+                    options_json,status,progress,provenance_json,
+                    created_at,updated_at
+                )
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    artifact_job_id,
+                    source_job_id,
+                    int(source_artifact_index),
+                    processor.strip(),
+                    operation.strip(),
+                    json.dumps(options or {}),
+                    status,
+                    0.0,
+                    json.dumps(provenance) if provenance is not None else None,
+                    now,
+                    now,
+                ),
+            )
+        result = self.get_artifact_job(artifact_job_id)
+        assert result is not None
+        return result
+
+    def get_artifact_job(self, artifact_job_id: str) -> dict[str, Any] | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM artifact_jobs WHERE id=?",
+                (artifact_job_id,),
+            ).fetchone()
+        return self.row(row)
+
+    def list_artifact_jobs(
+        self,
+        *,
+        source_job_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            if source_job_id is None:
+                rows = conn.execute(
+                    "SELECT * FROM artifact_jobs ORDER BY created_at DESC"
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM artifact_jobs
+                    WHERE source_job_id=?
+                    ORDER BY created_at DESC
+                    """,
+                    (source_job_id,),
+                ).fetchall()
+        return [self.row(row) for row in rows]
+
+    def update_artifact_job(
+        self,
+        artifact_job_id: str,
+        *,
+        status: str | None = None,
+        progress: float | None = None,
+        phase: str | None = None,
+        message: str | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
+        provenance: dict[str, Any] | None = None,
+    ) -> None:
+        current = self.get_artifact_job(artifact_job_id)
+        if current is None:
+            return
+
+        next_progress = (
+            max(0.0, min(100.0, float(progress)))
+            if progress is not None
+            else current["progress"]
+        )
+        with self._lock, self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE artifact_jobs
+                SET status=?, progress=?, phase=?, message=?,
+                    artifacts_json=?, provenance_json=?, updated_at=?
+                WHERE id=?
+                """,
+                (
+                    status if status is not None else current["status"],
+                    next_progress,
+                    phase if phase is not None else current["phase"],
+                    message if message is not None else current["message"],
+                    (
+                        json.dumps(artifacts)
+                        if artifacts is not None
+                        else (
+                            json.dumps(current.get("artifacts"))
+                            if current.get("artifacts") is not None
+                            else None
+                        )
+                    ),
+                    (
+                        json.dumps(provenance)
+                        if provenance is not None
+                        else (
+                            json.dumps(current.get("provenance"))
+                            if current.get("provenance") is not None
+                            else None
+                        )
+                    ),
+                    self.now(),
+                    artifact_job_id,
                 ),
             )
 
