@@ -415,6 +415,14 @@ export interface ServiceState {
   status: string
   profile?: string
   gpu?: boolean
+  accelerator?: string
+  cuda_required?: boolean
+  cuda_probe?: string
+  cuda_version?: string
+  cuda_device?: string
+  cuda_driver?: string
+  cuda_memory_mb?: number
+  cuda_device_count?: number
   note?: string
   queue_depth?: number | null
   requires_dji_tsdk?: boolean
