@@ -5,6 +5,9 @@ from math import isfinite, sqrt
 from statistics import median
 from typing import Any, Iterable, Mapping
 
+from pyproj import CRS
+from pyproj.exceptions import CRSError
+
 
 def _finite(value: Any) -> float | None:
     if isinstance(value, bool) or value is None:
@@ -73,30 +76,54 @@ def validate_epoch_pair(
 
     ref_identifier = _text(reference_crs_map.get("identifier"))
     cmp_identifier = _text(comparison_crs_map.get("identifier"))
-    ref_metric = bool(reference_crs_map.get("metric"))
-    cmp_metric = bool(comparison_crs_map.get("metric"))
-    ref_projected = bool(reference_crs_map.get("projected"))
-    cmp_projected = bool(comparison_crs_map.get("projected"))
 
+    ref_crs = None
+    cmp_crs = None
     if not ref_identifier or not cmp_identifier:
         issues.append({"code": "EPOCH_CRS_MISSING", "severity": "error"})
-    elif ref_identifier != cmp_identifier:
-        issues.append(
-            {
-                "code": "EPOCH_CRS_MISMATCH",
-                "severity": "error",
-                "reference_crs": ref_identifier,
-                "comparison_crs": cmp_identifier,
-            }
-        )
+    else:
+        try:
+            ref_crs = CRS.from_user_input(ref_identifier)
+            cmp_crs = CRS.from_user_input(cmp_identifier)
+        except (CRSError, ValueError):
+            issues.append(
+                {
+                    "code": "EPOCH_CRS_INVALID",
+                    "severity": "error",
+                    "reference_crs": ref_identifier,
+                    "comparison_crs": cmp_identifier,
+                }
+            )
 
-    if not (ref_metric and cmp_metric and ref_projected and cmp_projected):
-        issues.append(
-            {
-                "code": "EPOCH_CRS_NOT_METRIC_PROJECTED",
-                "severity": "error",
-            }
-        )
+    if ref_crs is not None and cmp_crs is not None:
+        if not ref_crs.equals(cmp_crs):
+            issues.append(
+                {
+                    "code": "EPOCH_CRS_MISMATCH",
+                    "severity": "error",
+                    "reference_crs": ref_identifier,
+                    "comparison_crs": cmp_identifier,
+                }
+            )
+
+        metric_projected = True
+        for crs in (ref_crs, cmp_crs):
+            if not crs.is_projected or len(crs.axis_info) < 2:
+                metric_projected = False
+                break
+            if any(
+                axis.unit_name not in {"metre", "meter"}
+                for axis in crs.axis_info[:2]
+            ):
+                metric_projected = False
+                break
+        if not metric_projected:
+            issues.append(
+                {
+                    "code": "EPOCH_CRS_NOT_METRIC_PROJECTED",
+                    "severity": "error",
+                }
+            )
 
     status = (
         "blocked"
@@ -115,8 +142,14 @@ def validate_epoch_pair(
             comparison_time.isoformat() if comparison_time else None
         ),
         "crs_identifier": (
-            ref_identifier
-            if ref_identifier and ref_identifier == cmp_identifier
+            (
+                f"{ref_crs.to_authority()[0]}:{ref_crs.to_authority()[1]}"
+                if ref_crs is not None and ref_crs.to_authority()
+                else ref_identifier
+            )
+            if ref_crs is not None
+            and cmp_crs is not None
+            and ref_crs.equals(cmp_crs)
             else None
         ),
         "issues": issues,

@@ -296,7 +296,13 @@ def normalize_gcp_project(
             )
         )
 
-    status = "blocked" if any(item["severity"] == "blocked" for item in issues) else "ready"
+    status = (
+        "blocked"
+        if any(item["severity"] == "blocked" for item in issues)
+        else "warning"
+        if any(item["severity"] == "warning" for item in issues)
+        else "ready"
+    )
     return {
         "status": status,
         "crs": crs_info,
@@ -312,8 +318,8 @@ def normalize_gcp_project(
 
 
 def _require_ready(project: Mapping[str, Any]) -> None:
-    if project.get("status") != "ready":
-        raise ValueError("GCP project must be ready before adapter export.")
+    if project.get("status") not in {"ready", "warning"}:
+        raise ValueError("Blocked GCP project cannot be exported.")
     if not isinstance(project.get("points"), list):
         raise ValueError("GCP project has no normalized points.")
     if not isinstance(project.get("crs"), Mapping):
