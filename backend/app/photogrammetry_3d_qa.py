@@ -5,6 +5,8 @@ from pathlib import Path
 from statistics import median
 from typing import Any, Iterable, Mapping
 
+from .path_contracts import portable_absolute_path
+
 
 OPEN3D_VERSION = "0.20.0"
 
@@ -34,10 +36,7 @@ def _positive(value: Any, label: str) -> float:
 
 
 def _absolute_path(value: str | Path, label: str) -> str:
-    path = Path(value)
-    if not path.is_absolute():
-        raise ValueError(f"{label} must be an absolute path.")
-    return str(path)
+    return str(portable_absolute_path(value, label))
 
 
 def _percentile(values: list[float], fraction: float) -> float | None:
