@@ -1,0 +1,43 @@
+services:
+  web:
+    platform: linux/amd64
+
+  api:
+    platform: linux/amd64
+
+  redis:
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:${GEOPHOTO_REDIS_PORT:-6379}:6379"
+
+  odm-worker:
+    platform: linux/amd64
+
+  micmac-worker:
+    platform: linux/amd64
+
+  gsplat-worker:
+    platform: linux/amd64
+
+  thermal-worker:
+    platform: linux/amd64
+
+  raster-processing-worker:
+    platform: linux/amd64
+
+  raster-processing-gpu-worker:
+    platform: linux/amd64
+
+  pdal-processing-worker:
+    platform: linux/amd64
+
+  pdal-service:
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:${GEOPHOTO_PDAL_PORT:-8090}:8090"
+
+  dronedb:
+    platform: linux/amd64
+
+  open-webui:
+    platform: linux/amd64
