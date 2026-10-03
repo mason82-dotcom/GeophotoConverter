@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image
+
+import app.previews as previews_module
 
 
 def test_image_preview_returns_cached_webp(client):
@@ -59,3 +62,34 @@ def test_preview_rejects_unknown_file(client):
         f"/api/v1/datasets/{dataset['id']}/files/not-found/preview"
     )
     assert response.status_code == 404
+
+
+def test_dng_renderer_uses_configured_dcraw_binary(monkeypatch, tmp_path: Path):
+    source = tmp_path / "capture.dng"
+    source.write_bytes(b"dng")
+    work = tmp_path / "work"
+    work.mkdir()
+    seen = {}
+
+    class Result:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        target = Path(command[command.index("-Z") + 1])
+        target.write_bytes(b"decoded")
+        return Result()
+
+    monkeypatch.setattr(
+        previews_module,
+        "DCRAW_BIN",
+        r"C:\Tools\LibRaw\dcraw_emu.exe",
+    )
+    monkeypatch.setattr(previews_module.subprocess, "run", fake_run)
+
+    rendered = previews_module._render_dng(source, work)
+
+    assert seen["command"][0] == r"C:\Tools\LibRaw\dcraw_emu.exe"
+    assert rendered.is_file()
