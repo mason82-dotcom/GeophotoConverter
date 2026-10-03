@@ -6,11 +6,13 @@ on:
       - "workers/pdal/**"
       - "backend/app/photogrammetry_pointcloud.py"
       - "backend/app/photogrammetry_pdal_pipeline.py"
+      - "backend/app/photogrammetry_pdal_ground.py"
       - "backend/app/pointcloud.py"
       - "backend/tests/test_pdal_service.py"
       - "backend/tests/test_pdal_processing_worker.py"
       - "backend/tests/test_photogrammetry_pointcloud.py"
       - "backend/tests/test_photogrammetry_pdal_pipeline.py"
+      - "backend/tests/test_photogrammetry_pdal_ground.py"
       - "backend/tests/test_pointcloud.py"
       - "compose.yaml"
       - ".github/workflows/pdal-service.yml"
@@ -72,6 +74,103 @@ jobs:
                 "a_srs": "EPSG:4326",
                 "scale_x": 0.0000001,
                 "scale_y": 0.0000001,
+                "scale_z": 0.001,
+                "offset_x": "auto",
+                "offset_y": "auto",
+                "offset_z": "auto"
+              }
+            ]
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          target = Path("data/ci/ground.csv")
+          with target.open("w", encoding="utf-8") as handle:
+              handle.write("X,Y,Z,ReturnNumber,NumberOfReturns,Classification\n")
+              for ix in range(21):
+                  for iy in range(21):
+                      x = 500000.0 + ix
+                      y = 5420000.0 + iy
+                      z = 100.0 + ix * 0.01 + iy * 0.005
+                      handle.write(f"{x},{y},{z},1,1,9\n")
+              for ix, iy, height in (
+                  (5.5, 5.5, 4.0),
+                  (10.5, 10.5, 7.0),
+                  (15.5, 15.5, 10.0),
+              ):
+                  x = 500000.0 + ix
+                  y = 5420000.0 + iy
+                  ground = 100.0 + ix * 0.01 + iy * 0.005
+                  handle.write(f"{x},{y},{ground + height},1,1,9\n")
+          PY
+
+          cat > data/ci/make-ground-source.json <<'EOF'
+          {
+            "pipeline": [
+              {
+                "type": "readers.text",
+                "filename": "/data/ci/ground.csv",
+                "override_srs": "EPSG:32632"
+              },
+              {
+                "type": "writers.las",
+                "filename": "/data/ci/ground-source.laz",
+                "compression": true,
+                "minor_version": 4,
+                "a_srs": "EPSG:32632",
+                "scale_x": 0.001,
+                "scale_y": 0.001,
+                "scale_z": 0.001,
+                "offset_x": "auto",
+                "offset_y": "auto",
+                "offset_z": "auto"
+              }
+            ]
+          }
+          EOF
+
+          cat > data/ci/ground-hag.json <<'EOF'
+          {
+            "pipeline": [
+              {
+                "type": "readers.las",
+                "filename": "/data/ci/ground-source.laz"
+              },
+              {
+                "type": "filters.assign",
+                "value": "Classification=0"
+              },
+              {
+                "type": "filters.smrf",
+                "cell": 1.0,
+                "cut": 0.0,
+                "returns": "last,only",
+                "scalar": 1.25,
+                "slope": 0.15,
+                "threshold": 0.5,
+                "window": 18.0,
+                "ground_class": 2,
+                "other_class": 1,
+                "only_ground": false
+              },
+              {
+                "type": "filters.hag_nn",
+                "count": 1,
+                "allow_extrapolation": false,
+                "class": 2
+              },
+              {
+                "type": "writers.las",
+                "filename": "/data/ci/ground-hag.laz",
+                "a_srs": "EPSG:32632",
+                "compression": true,
+                "minor_version": 4,
+                "forward": "header,vlr",
+                "extra_dims": "all",
+                "scale_x": 0.001,
+                "scale_y": 0.001,
                 "scale_z": 0.001,
                 "offset_x": "auto",
                 "offset_y": "auto",
@@ -171,6 +270,72 @@ jobs:
           assert bounds["maxy"] > bounds["miny"] > 1000000
           srs = json.dumps(summary.get("srs", {}))
           assert "32632" in srs
+          PY
+
+      - name: Run real SMRF HAG pipeline
+        run: |
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data" \
+            geophoto-pdal:test \
+            pipeline /data/ci/make-ground-source.json
+
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data" \
+            geophoto-pdal:test \
+            pipeline /data/ci/ground-hag.json
+
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data:ro" \
+            geophoto-pdal:test \
+            info --summary /data/ci/ground-hag.laz \
+            > /tmp/ground-hag-summary.json
+
+          docker run --rm \
+            --entrypoint pdal \
+            -v "$PWD/data:/data:ro" \
+            geophoto-pdal:test \
+            info --stats \
+            --dimensions=Classification,HeightAboveGround \
+            --enumerate=Classification \
+            /data/ci/ground-hag.laz \
+            > /tmp/ground-hag-stats.json
+
+          python3 - <<'PY'
+          import json
+
+          summary = json.load(open("/tmp/ground-hag-summary.json", encoding="utf-8"))["summary"]
+          assert summary["num_points"] == 444
+          dimensions = summary["dimensions"]
+          if isinstance(dimensions, str):
+              dimensions = [part.strip() for part in dimensions.split(",") if part.strip()]
+          names = {str(name).lower() for name in dimensions}
+          assert "classification" in names
+          assert "heightaboveground" in names
+          assert "32632" in json.dumps(summary.get("srs", {}))
+
+          payload = json.load(open("/tmp/ground-hag-stats.json", encoding="utf-8"))
+          statistics = payload["stats"]["statistic"]
+          by_name = {
+              str(item.get("name", "")).lower(): item
+              for item in statistics
+              if isinstance(item, dict)
+          }
+          hag = by_name["heightaboveground"]
+          assert float(hag["maximum"]) > 1.0
+          assert float(hag["minimum"]) <= float(hag["maximum"])
+
+          classification = by_name["classification"]
+          counts = classification.get("counts", [])
+          classes = {
+              int(float(item["value"])): int(item["count"])
+              for item in counts
+              if isinstance(item, dict) and "value" in item and "count" in item
+          }
+          assert classes.get(2, 0) > 0
+          assert classes.get(1, 0) > 0
           PY
 
       - name: Run real PLY QA
