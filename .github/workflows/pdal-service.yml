@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "workers/pdal/**"
+      - "workers/common/**"
       - "backend/app/photogrammetry_pointcloud.py"
       - "backend/app/photogrammetry_pdal_pipeline.py"
       - "backend/app/pointcloud.py"
