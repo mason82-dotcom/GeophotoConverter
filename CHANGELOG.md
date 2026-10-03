@@ -2,6 +2,19 @@
 
 Alle wesentlichen Änderungen an GeoPhotoConverter werden hier dokumentiert.
 
+## Windows x64 Port — 2026-10-03
+
+- Windows x64/AMD64 als explizite Host-Plattform ergänzt
+- Docker-Desktop-Override erzwingt reproduzierbare linux/amd64-Toolchains für ODM, MicMac, PDAL, Thermal und GPU-Worker
+- Redis und PDAL werden im Windows-Hybridbetrieb ausschließlich an 127.0.0.1 veröffentlicht
+- FastAPI/Frontend können nativ unter Windows laufen; Standard-Datenpfad ist %LOCALAPPDATA%\GeoPhotoConverter\data
+- native Service-Defaults verwenden localhost statt Compose-DNS
+- ExifTool- und LibRaw-Binärpfade sind für native Windows-Installationen konfigurierbar
+- Worker-Prozessgruppen unterstützen Windows-Abbruchsemantik zusätzlich zur POSIX-Semantik
+- PowerShell-Manager und CMD-Launcher für Install/Start/Stop/Status/Verify/Dev ergänzt
+- dedizierte windows-latest-CI für Python x64, FastAPI, Backendtests, PowerShell-Syntax und Frontend-Build ergänzt
+- Windows-x64-Betrieb und Grenzen der Linux-Container-Engines separat dokumentiert
+
 ## Unreleased
 
 ### Photogrammetrie / Multispektral
