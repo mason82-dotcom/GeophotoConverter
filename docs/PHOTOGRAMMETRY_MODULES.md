@@ -90,12 +90,27 @@ Phase 2 — DroneDash_x64-Rasterkern:
 - die API kann ein vorhandenes ODM-`multiband_orthophoto` read-only
   inspizieren, ohne Verarbeitungsjobs im FastAPI-Prozess auszuführen
 
-Bewusste Grenze von Phase 2:
+Phase-2-Ausführung:
 
-- die rechenintensive Indexerzeugung ist noch nicht als synchroner
-  FastAPI-Endpunkt verdrahtet
-- die produktive Ausführung wird an den Derived-/Artifact-Job-Pfad gebunden,
-  damit Cancellation, Recovery und Worker-Isolation erhalten bleiben
+- eigener interner Redis-Stream `raster-processing`, nicht in
+  `ENGINE_NAMES`
+- Vegetationsindex-Jobs werden ausschließlich aus vorhandenen
+  `multiband_orthophoto`-Artefakten erzeugt
+- NDVI-Zonen werden ausschließlich aus abgeleiteten
+  `vegetation_index_ndvi`-Artefakten erzeugt
+- Outputs liegen ausschließlich unter
+  `jobs/<processing-job-id>/derived/`
+- Source-/Output-SHA-256, Backend, Bandmapping, Tilegröße, Indexstatistik bzw.
+  Klassenverteilung werden in Provenienz archiviert
+- Cancellation wird zwischen Tiles geprüft; Teil-GeoTIFFs werden nicht
+  veröffentlicht
+- Redis-Streams, Claim-Heartbeat, Crash-Recovery und Job-Reconciliation nutzen
+  denselben Runtime-Kern wie ODM/MicMac/PDAL-Processing
+- `raster-processing` ist der CPU-Worker
+- `raster-processing-gpu` verwendet denselben Worker mit
+  `cupy-cuda12x==14.2.0` und NVIDIA-GPU-Passthrough
+- beide Raster-Worker konsumieren denselben Stream und dürfen deshalb nicht
+  gleichzeitig betrieben werden
 
 Weitere Phasen:
 

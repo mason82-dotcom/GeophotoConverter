@@ -29,6 +29,7 @@ from .dronedb import router as dronedb_router
 from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
+from .raster_processing import router as raster_processing_router
 from .photogrammetry import fuse_photogrammetry_metadata
 from .pointcloud import router as pointcloud_router
 from .qa import dataset_qa
@@ -45,6 +46,7 @@ app.include_router(maps_router)
 app.include_router(previews_router)
 app.include_router(dronedb_router)
 app.include_router(pointcloud_router)
+app.include_router(raster_processing_router)
 
 
 class DatasetCreate(BaseModel):
@@ -169,10 +171,36 @@ def services(request: Request) -> dict:
         }
     )
 
+    if queue_ok:
+        try:
+            raster_processing = worker_state("raster-processing")
+        except Exception:
+            raster_processing = {
+                "engine": "raster-processing",
+                "status": "unknown",
+                "queue_depth": None,
+            }
+    else:
+        raster_processing = {
+            "engine": "raster-processing",
+            "status": "unavailable",
+            "queue_depth": None,
+        }
+    raster_processing.update(
+        {
+            "profile": "raster-processing",
+            "gpu_profile": "raster-processing-gpu",
+            "role": "derived_multispectral_raster_processing",
+            "selectable_as_dataset_engine": False,
+            "cuda_optional": True,
+        }
+    )
+
     return {
         "redis": {"status": "ok" if queue_ok else "unavailable"},
         **engines,
         "pointcloud_processing": pointcloud_processing,
+        "raster_processing": raster_processing,
         "telesculptor": {
             "status": "experimental",
             "profile": "experimental",

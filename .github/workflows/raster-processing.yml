@@ -1,0 +1,64 @@
+name: Raster Processing
+
+on:
+  push:
+    paths:
+      - "backend/app/photogrammetry_multispectral.py"
+      - "backend/app/raster_processing.py"
+      - "backend/tests/test_photogrammetry_multispectral.py"
+      - "backend/tests/test_raster_processing.py"
+      - "backend/tests/test_raster_processing_worker.py"
+      - "workers/common/**"
+      - "workers/raster/**"
+      - "compose.yaml"
+      - ".github/workflows/raster-processing.yml"
+  pull_request:
+    paths:
+      - "backend/app/photogrammetry_multispectral.py"
+      - "backend/app/raster_processing.py"
+      - "backend/tests/test_photogrammetry_multispectral.py"
+      - "backend/tests/test_raster_processing.py"
+      - "backend/tests/test_raster_processing_worker.py"
+      - "workers/common/**"
+      - "workers/raster/**"
+      - "compose.yaml"
+      - ".github/workflows/raster-processing.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  raster-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Validate raster Compose profiles
+        run: >-
+          docker compose
+          --profile raster-processing
+          --profile raster-processing-gpu
+          config >/dev/null
+
+      - name: Build CPU raster worker
+        run: >-
+          docker build
+          --target cpu
+          -f workers/raster/Dockerfile
+          -t geophoto-raster:cpu .
+
+      - name: Verify CPU raster runtime
+        run: |
+          docker run --rm --entrypoint python geophoto-raster:cpu -c             "import numpy,rasterio,redis; import sys; sys.path.insert(0,'/worker'); from app.photogrammetry_multispectral import probe_cupy; p=probe_cupy(); assert p['available'] is False"
+
+      - name: Build CUDA raster worker
+        run: >-
+          docker build
+          --target cuda
+          -f workers/raster/Dockerfile
+          -t geophoto-raster:cuda .
+
+      - name: Verify CUDA package contract
+        run: |
+          docker run --rm --entrypoint python geophoto-raster:cuda -c             "import cupy; assert cupy.__version__ == '14.2.0'"

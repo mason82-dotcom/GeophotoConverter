@@ -14,6 +14,11 @@ Alle wesentlichen Änderungen an GeoPhotoConverter werden hier dokumentiert.
 - NDVI-Scouting-Zonen mit fünf Klassen; Klasse 0 bleibt NoData
 - read-only API-Inspektion für ODM-`multiband_orthophoto`-Artefakte ergänzt
 - Tests für Bandzuordnung, Indizes, CUDA-Strictness, Georeferenzierung und Zonen ergänzt
+- interne `raster-processing`-Queue für asynchrone Derived-Jobs ergänzt
+- CPU- und NVIDIA/CuPy-Workerprofile mit gemeinsamem Recovery-/Cancellation-Vertrag ergänzt
+- Vegetationsindex- und NDVI-Zonen-Endpunkte erzeugen Derived-Jobs statt synchron im API-Prozess zu rechnen
+- SHA-256-Provenienz, Backend-/CUDA-Evidence und atomische Job-Artefakte ergänzt
+- separates CI-Gate baut CPU- und CUDA-Raster-Worker
 
 ## 1.0.1 — 2026-09-23
 
