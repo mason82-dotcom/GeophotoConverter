@@ -55,6 +55,23 @@ jobs:
         shell: pwsh
         run: python -m compileall backend/app workers
 
+      - name: Verify native Windows defaults
+        shell: pwsh
+        env:
+          PYTHONPATH: backend
+        run: |
+          Remove-Item Env:GEOPHOTO_DATA_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:GEOPHOTO_REDIS_URL -ErrorAction SilentlyContinue
+          Remove-Item Env:GEOPHOTO_PDAL_URL -ErrorAction SilentlyContinue
+          python -c "import os; from app.config import DATA_ROOT,REDIS_URL,PDAL_SERVICE_URL; assert os.name == 'nt'; assert 'GeoPhotoConverter' in str(DATA_ROOT); assert REDIS_URL == 'redis://127.0.0.1:6379/0'; assert PDAL_SERVICE_URL == 'http://127.0.0.1:8090'; print(DATA_ROOT)"
+
+      - name: Verify Windows worker process group
+        shell: pwsh
+        env:
+          PYTHONPATH: workers
+        run: |
+          python -c "import subprocess; from common.runtime import _process_group_kwargs; k=_process_group_kwargs(); assert k.get('creationflags') == subprocess.CREATE_NEW_PROCESS_GROUP; print(k)"
+
       - name: Import FastAPI natively
         shell: pwsh
         env:
