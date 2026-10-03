@@ -59,7 +59,7 @@ jobs:
         shell: pwsh
         env:
           PYTHONPATH: backend
-          GEOPHOTO_DATA_ROOT: \${{ runner.temp }}\geophoto-data
+          GEOPHOTO_DATA_ROOT: ${{ runner.temp }}\geophoto-data
           GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/0
           GEOPHOTO_PDAL_URL: http://127.0.0.1:8090
         run: |
@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         env:
           PYTHONPATH: backend
-          GEOPHOTO_DATA_ROOT: \${{ runner.temp }}\geophoto-data
+          GEOPHOTO_DATA_ROOT: ${{ runner.temp }}\geophoto-data
           GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
         run: python -m pytest backend/tests -q
 
