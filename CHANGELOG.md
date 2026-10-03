@@ -2,6 +2,19 @@
 
 Alle wesentlichen Änderungen an GeoPhotoConverter werden hier dokumentiert.
 
+## Unreleased
+
+### Photogrammetrie / Multispektral
+
+- DroneDash_x64-erprobten Rasteransatz als nativen GeoPhotoConverter-Kern übernommen
+- eindeutige Red/Green/NIR/Red-Edge-Bandzuordnung über Raster-Beschreibungen
+- expliziter, opt-in M3M-Vierband-Fallback statt stiller Bandannahmen
+- gekachelte NDVI-, NDRE- und GNDVI-Berechnung mit optionalem CuPy/CUDA und CPU-Fallback
+- GeoTIFF-Ausgaben übernehmen CRS und GeoTransform der ODM-Quelle und werden atomisch veröffentlicht
+- NDVI-Scouting-Zonen mit fünf Klassen; Klasse 0 bleibt NoData
+- read-only API-Inspektion für ODM-`multiband_orthophoto`-Artefakte ergänzt
+- Tests für Bandzuordnung, Indizes, CUDA-Strictness, Georeferenzierung und Zonen ergänzt
+
 ## 1.0.1 — 2026-09-23
 
 Patch-Release zur Stabilisierung von V1.0. Keine neuen Verarbeitungs-Engines oder Hauptworkflows.

@@ -503,6 +503,56 @@ def download_job_artifact(job_id: str, artifact_index: int) -> FileResponse:
     )
 
 
+@app.get("/api/v1/jobs/{job_id}/artifacts/{artifact_index}/multispectral")
+def inspect_job_multispectral_artifact(
+    job_id: str,
+    artifact_index: int,
+    allow_m3m_fallback: bool = Query(default=False),
+) -> dict:
+    job = get_job(job_id)
+    artifacts = job.get("artifacts") or []
+    if artifact_index < 0 or artifact_index >= len(artifacts):
+        raise HTTPException(status_code=404, detail="Artefakt nicht gefunden")
+
+    artifact = artifacts[artifact_index]
+    if artifact.get("type") != "multiband_orthophoto":
+        raise HTTPException(
+            status_code=409,
+            detail="Artefakt ist kein ODM-Multiband-Orthofoto.",
+        )
+
+    relative_path = artifact.get("relative_path")
+    if not relative_path:
+        raise HTTPException(status_code=404, detail="Artefaktpfad ist nicht verfügbar")
+
+    path = (DATA_ROOT / relative_path).resolve()
+    data_root = DATA_ROOT.resolve()
+    if data_root not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Artefaktdatei nicht gefunden")
+
+    try:
+        from .photogrammetry_multispectral import inspect_multispectral_orthophoto
+
+        inspection = inspect_multispectral_orthophoto(
+            path,
+            allow_m3m_fallback=allow_m3m_fallback,
+        )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Multispektrale Rasterunterstützung ist nicht verfügbar.",
+        ) from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {
+        "job_id": job_id,
+        "artifact_index": artifact_index,
+        "artifact_type": artifact.get("type"),
+        **inspection,
+    }
+
+
 @app.post("/api/v1/jobs", status_code=201)
 def create_job(body: JobCreate) -> dict:
     _dataset_or_404(body.dataset_id)

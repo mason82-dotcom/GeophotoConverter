@@ -69,7 +69,35 @@ Phase 1:
 - Produktsets prüfen gemeinsames CRS und räumliche Überdeckung
 - unterschiedliche Auflösungen allein gelten nicht als Fehler
 
-Spätere Phasen:
+Phase 2 — DroneDash_x64-Rasterkern:
+
+- ODM-Multiband-Orthomosaike erkennen Red, Green, NIR und Red Edge primär über
+  Raster-Bandbeschreibungen
+- M3M-Fallbackreihenfolge Red, Green, NIR, Red Edge ist nur nach explizitem
+  Opt-in und ausschließlich für Vierband-Raster zulässig
+- NDVI, NDRE und GNDVI werden gekachelt berechnet; vollständige Orthomosaike
+  müssen nicht in RAM oder VRAM geladen werden
+- `backend=auto|cpu|cuda`; CUDA nutzt optional CuPy und bleibt für CPU-only
+  Systeme vollständig optional
+- `auto` verwendet CUDA erst ab einer konfigurierbaren Pixel-Schwelle, um
+  Transfer-/Kernel-Overhead für kleine Raster zu vermeiden
+- Ausgaben sind Float32-GeoTIFFs mit geerbtem CRS/GeoTransform und atomischer
+  Veröffentlichung über temporäre Dateien
+- NDVI kann in fünf konfigurierbare Scouting-Zonen klassifiziert werden;
+  Zone 0 ist NoData
+- Ergebnis-Metadaten dokumentieren Backend, CUDA-Gerät, Bandzuordnung,
+  Tilegröße und Indexstatistik
+- die API kann ein vorhandenes ODM-`multiband_orthophoto` read-only
+  inspizieren, ohne Verarbeitungsjobs im FastAPI-Prozess auszuführen
+
+Bewusste Grenze von Phase 2:
+
+- die rechenintensive Indexerzeugung ist noch nicht als synchroner
+  FastAPI-Endpunkt verdrahtet
+- die produktive Ausführung wird an den Derived-/Artifact-Job-Pfad gebunden,
+  damit Cancellation, Recovery und Worker-Isolation erhalten bleiben
+
+Weitere Phasen:
 
 - ODM-Artefakt-QA direkt im Worker
 - quantitative NoData-/Histogramm-Prüfung
