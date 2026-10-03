@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from .path_contracts import portable_absolute_path
+
 
 OPENMVS_VERSION = "2.4.0"
 
@@ -13,11 +15,8 @@ _PROFILE_STAGES = {
 }
 
 
-def _absolute_path(value: str | Path, label: str) -> Path:
-    path = Path(value)
-    if not path.is_absolute():
-        raise ValueError(f"{label} must be an absolute path.")
-    return path
+def _absolute_path(value: str | Path, label: str):
+    return portable_absolute_path(value, label)
 
 
 def openmvs_capability() -> dict[str, Any]:
