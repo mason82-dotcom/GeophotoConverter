@@ -4,7 +4,7 @@ import os
 import tempfile
 from math import isfinite
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import rasterio
@@ -19,6 +19,10 @@ INDEX_BANDS: dict[str, tuple[str, str]] = {
 DEFAULT_CUDA_MIN_PIXELS = 1_048_576
 DEFAULT_TILE_SIZE = 1024
 OUTPUT_NODATA = -9999.0
+
+
+class RasterProcessingCancelled(RuntimeError):
+    """Raised when a long-running raster operation is cancelled safely."""
 
 
 def _normalize_band_name(value: str | None) -> str | None:
@@ -200,6 +204,17 @@ def _windows(width: int, height: int, tile_size: int):
             )
 
 
+def _tile_count(width: int, height: int, tile_size: int) -> int:
+    columns = (int(width) + tile_size - 1) // tile_size
+    rows = (int(height) + tile_size - 1) // tile_size
+    return max(1, columns * rows)
+
+
+def _check_cancel(cancel_check: Callable[[], bool] | None) -> None:
+    if cancel_check is not None and cancel_check():
+        raise RasterProcessingCancelled("raster processing cancelled")
+
+
 def _index_cpu(
     positive: np.ndarray,
     comparison: np.ndarray,
@@ -299,6 +314,8 @@ def compute_vegetation_index(
     tile_size: int | str = "auto",
     cuda_min_pixels: int = DEFAULT_CUDA_MIN_PIXELS,
     allow_m3m_fallback: bool = False,
+    progress_callback: Callable[[int, int], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Create a georeferenced NDVI/NDRE/GNDVI GeoTIFF with CPU/CUDA fallback."""
 
@@ -322,6 +339,7 @@ def compute_vegetation_index(
         cuda_min_pixels=cuda_min_pixels,
     )
     resolved_tile = _resolved_tile_size(tile_size, info["width"], info["height"])
+    total_tiles = _tile_count(info["width"], info["height"], resolved_tile)
 
     temp_path, _ = _atomic_raster_target(output)
     stats: dict[str, float | int] = {
@@ -341,7 +359,11 @@ def compute_vegetation_index(
             )
             with rasterio.open(temp_path, "w", **profile) as dst:
                 dst.set_band_description(1, index_key.upper())
-                for window in _windows(src.width, src.height, resolved_tile):
+                for tile_index, window in enumerate(
+                    _windows(src.width, src.height, resolved_tile),
+                    start=1,
+                ):
+                    _check_cancel(cancel_check)
                     positive = src.read(
                         positive_band,
                         window=window,
@@ -370,7 +392,10 @@ def compute_vegetation_index(
 
                     dst.write(values, 1, window=window)
                     _stats_update(values, nodata=OUTPUT_NODATA, state=stats)
+                    if progress_callback is not None:
+                        progress_callback(tile_index, total_tiles)
 
+        _check_cancel(cancel_check)
         if int(stats["valid_pixels"]) == 0:
             raise ValueError("vegetation index contains no valid pixels")
 
@@ -421,6 +446,8 @@ def classify_ndvi_zones(
     *,
     thresholds: tuple[float, float, float, float] = (0.20, 0.40, 0.60, 0.80),
     tile_size: int | str = "auto",
+    progress_callback: Callable[[int, int], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Classify an NDVI raster into five scouting zones; class 0 is NoData."""
 
@@ -432,6 +459,7 @@ def classify_ndvi_zones(
         if src.count != 1:
             raise ValueError("NDVI scouting zones require a single-band raster")
         resolved_tile = _resolved_tile_size(tile_size, src.width, src.height)
+        total_tiles = _tile_count(src.width, src.height, resolved_tile)
         temp_path, _ = _atomic_raster_target(output)
         counts = {str(index): 0 for index in range(6)}
 
@@ -444,7 +472,11 @@ def classify_ndvi_zones(
             )
             with rasterio.open(temp_path, "w", **profile) as dst:
                 dst.set_band_description(1, "NDVI_SCOUTING_ZONE")
-                for window in _windows(src.width, src.height, resolved_tile):
+                for tile_index, window in enumerate(
+                    _windows(src.width, src.height, resolved_tile),
+                    start=1,
+                ):
+                    _check_cancel(cancel_check)
                     values = src.read(
                         1,
                         window=window,
@@ -463,7 +495,10 @@ def classify_ndvi_zones(
                     unique, frequencies = np.unique(zones, return_counts=True)
                     for key, frequency in zip(unique, frequencies):
                         counts[str(int(key))] += int(frequency)
+                    if progress_callback is not None:
+                        progress_callback(tile_index, total_tiles)
 
+            _check_cancel(cancel_check)
             os.replace(temp_path, output)
         except Exception:
             try:
