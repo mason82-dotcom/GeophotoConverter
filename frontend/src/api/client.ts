@@ -107,6 +107,49 @@ export async function getJobLogs(jobId: string, tail = 200): Promise<JobLogs> {
   )
 }
 
+export type VegetationIndexType = 'ndvi' | 'ndre' | 'gndvi'
+export type RasterBackend = 'auto' | 'cpu' | 'cuda'
+
+export async function createVegetationIndexJob(
+  jobId: string,
+  artifactIndex: number,
+  indexType: VegetationIndexType,
+  backend: RasterBackend = 'auto',
+): Promise<Job> {
+  const response = await fetch(
+    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/artifacts/${artifactIndex}/vegetation-index`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        index_type: indexType,
+        backend,
+        tile_size: 'auto',
+      }),
+    },
+  )
+  return readJson<Job>(response)
+}
+
+export async function createNdviZonesJob(
+  jobId: string,
+  artifactIndex: number,
+  thresholds: [number, number, number, number] = [0.2, 0.4, 0.6, 0.8],
+): Promise<Job> {
+  const response = await fetch(
+    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/artifacts/${artifactIndex}/ndvi-zones`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        thresholds,
+        tile_size: 'auto',
+      }),
+    },
+  )
+  return readJson<Job>(response)
+}
+
 export async function cancelJob(jobId: string): Promise<Job> {
   return readJson<Job>(
     await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/cancel`, {
