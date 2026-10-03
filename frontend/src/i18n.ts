@@ -22,7 +22,7 @@ export function statusText(status?: string | null) {
 
 export function profileText(profile?: string | null) {
   if (!profile) return '—'
-  return ({ preview: 'Vorschau', standard: 'Standard', high: 'Hoch' } as Record<string, string>)[profile] ?? profile
+  return ({ preview: 'Vorschau', standard: 'Standard', high: 'Hoch', derived: 'Abgeleitet' } as Record<string, string>)[profile] ?? profile
 }
 
 export function readinessText(value?: string | boolean | null) {
@@ -37,5 +37,16 @@ export function readinessText(value?: string | boolean | null) {
 
 export function workflowText(workflow?: string | null) {
   if (!workflow) return '—'
-  return ({ mapping: 'Mapping', reconstruction: '3D-Rekonstruktion', rgb: 'RGB (Legacy)', multispectral: 'Multispektral', thermal: 'Thermal' } as Record<string, string>)[workflow] ?? workflow
+  return ({
+    mapping: 'Mapping',
+    reconstruction: '3D-Rekonstruktion',
+    rgb: 'RGB (Legacy)',
+    multispectral: 'Multispektral',
+    thermal: 'Thermal',
+    pointcloud_reprojection: 'Punktwolken-Reprojektion',
+    vegetation_index_ndvi: 'NDVI',
+    vegetation_index_ndre: 'NDRE',
+    vegetation_index_gndvi: 'GNDVI',
+    ndvi_scouting_zones: 'NDVI-Scouting-Zonen',
+  } as Record<string, string>)[workflow] ?? workflow
 }
