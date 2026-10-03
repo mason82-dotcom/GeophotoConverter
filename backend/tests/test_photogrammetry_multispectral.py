@@ -7,12 +7,14 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from app.config import DATA_ROOT
 from app.photogrammetry_multispectral import (
     OUTPUT_NODATA,
     classify_ndvi_zones,
     compute_vegetation_index,
     inspect_multispectral_orthophoto,
 )
+from app.storage import store
 
 
 def _write_multiband(path: Path, *, descriptions: bool = True) -> None:
@@ -225,3 +227,41 @@ def test_zone_thresholds_must_be_strictly_increasing(tmp_path: Path):
             thresholds=(0.2, 0.4, 0.4, 0.8),
             tile_size=128,
         )
+
+
+def test_api_inspects_multiband_orthophoto(client):
+    dataset = store.create_dataset("M3M result", None)
+    job = store.create_job(dataset["id"], "odm", "standard", "multispectral")
+
+    artifact_path = DATA_ROOT / "jobs" / job["id"] / "project" / "odm_orthophoto" / "odm_orthophoto.tif"
+    artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_multiband(artifact_path)
+
+    store.update_job(
+        job["id"],
+        status="completed",
+        progress=100,
+        artifacts=[
+            {
+                "type": "multiband_orthophoto",
+                "name": artifact_path.name,
+                "relative_path": str(artifact_path.relative_to(DATA_ROOT)).replace("\\", "/"),
+                "size_bytes": artifact_path.stat().st_size,
+            }
+        ],
+    )
+
+    response = client.get(
+        f"/api/v1/jobs/{job['id']}/artifacts/0/multispectral"
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["artifact_type"] == "multiband_orthophoto"
+    assert body["band_map"] == {
+        "red": 1,
+        "green": 2,
+        "nir": 3,
+        "rededge": 4,
+    }
+    assert body["mapping_source"] == "raster_band_descriptions"
