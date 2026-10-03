@@ -166,7 +166,7 @@ def plan_openmvs_pipeline(
     }
 
     ordered = [stages[name] for name in _PROFILE_STAGES[profile]]
-    final_scene = Path(ordered[-1]["output"])
+    final_scene = _absolute_path(ordered[-1]["output"], "final_scene")
 
     artifacts = [
         {
