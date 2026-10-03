@@ -156,3 +156,14 @@ def test_thresholds_are_explicitly_overridable() -> None:
 
 def test_version_contract_is_pinned() -> None:
     assert OPEN3D_VERSION == "0.20.0"
+
+
+def test_open3d_plan_accepts_windows_absolute_paths() -> None:
+    plan = build_open3d_plan(
+        source_path=r"C:\survey\source.laz",
+        target_path=r"C:\survey\target.laz",
+        icp_method="point_to_point",
+    )
+
+    assert plan["source_path"] == r"C:\survey\source.laz"
+    assert plan["target_path"] == r"C:\survey\target.laz"
