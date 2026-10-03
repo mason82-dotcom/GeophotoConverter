@@ -24,10 +24,16 @@ Das entspricht der späteren Bereitstellungstopologie am besten.
 
 Für schnelle UI- und API-Entwicklung.
 
-Redis starten:
+Redis starten. Unter Windows x64 muss der Windows-Override verwendet werden, damit Redis ausschließlich auf localhost für das native Backend veröffentlicht wird:
 
 ```powershell
-docker compose up -d redis
+docker compose -f compose.yaml -f compose.windows.yaml up -d redis
+```
+
+Einfacher ist der mitgelieferte Launcher:
+
+```powershell
+.\scripts\windows\GeoPhotoConverter.ps1 -Action Dev
 ```
 
 Virtuelle Python-Umgebung im Repository-Stammverzeichnis anlegen und aktivieren:
@@ -152,3 +158,7 @@ docker compose --profile thermal up -d --build thermal-worker
 ```
 
 Thermal-Ergebnisse bleiben im Sensor-Pixelraum. Die aktuellen Capture-GPS-Punkte stellen keine Georeferenzierung einzelner Temperaturpixel dar.
+
+## Windows x64
+
+Die vollständige Windows-x64-Topologie, Voraussetzungen und Befehle sind in `docs/WINDOWS_X64.md` dokumentiert.
