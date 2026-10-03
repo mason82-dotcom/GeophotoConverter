@@ -240,20 +240,43 @@ def parse_pdal_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_counts(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
-        return []
+    """Normalize PDAL histogram variants to [{"value": ..., "count": ...}].
+
+    PDAL releases/read paths have emitted enumeration counts as mapping objects,
+    object lists and strings such as "2.000000/441". Accept all three while
+    discarding malformed entries instead of inventing counts.
+    """
+
     result: list[dict[str, Any]] = []
+
+    def append_record(raw_value: Any, raw_count: Any) -> None:
+        numeric = _number(raw_value)
+        count = _int_number(raw_count)
+        if numeric is None or count is None or count < 0:
+            return
+        result.append(
+            {
+                "value": int(numeric) if numeric.is_integer() else numeric,
+                "count": count,
+            }
+        )
+
+    if isinstance(value, Mapping):
+        for raw_value, raw_count in value.items():
+            append_record(raw_value, raw_count)
+        return result
+
+    if not isinstance(value, list):
+        return result
+
     for item in value:
-        if not isinstance(item, Mapping):
+        if isinstance(item, Mapping):
+            append_record(item.get("value"), item.get("count"))
             continue
-        record = dict(item)
-        count = _int_number(record.get("count"))
-        if count is not None:
-            record["count"] = count
-        numeric = _number(record.get("value"))
-        if numeric is not None:
-            record["value"] = int(numeric) if numeric.is_integer() else numeric
-        result.append(record)
+        if isinstance(item, str) and "/" in item:
+            raw_value, raw_count = item.rsplit("/", 1)
+            append_record(raw_value.strip(), raw_count.strip())
+
     return result
 
 
