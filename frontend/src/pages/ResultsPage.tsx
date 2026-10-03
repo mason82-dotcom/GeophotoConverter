@@ -7,6 +7,7 @@ import {
   FileText,
   Flame,
   Layers3,
+  Leaf,
   LoaderCircle,
   MapPinned,
   Mountain,
@@ -17,7 +18,15 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getJob, getJobLogs, listDatasets, listJobs } from '../api/client'
+import {
+  createNdviZonesJob,
+  createVegetationIndexJob,
+  getJob,
+  getJobLogs,
+  listDatasets,
+  listJobs,
+} from '../api/client'
+import type { VegetationIndexType } from '../api/client'
 import type { Artifact, Dataset, Job, JobLogs } from '../api/types'
 import { profileText, workflowText } from '../i18n'
 
@@ -49,6 +58,11 @@ function artifactLabel(artifact: Artifact) {
   if (type === 'thermal_capture_points') return { label: 'Thermal-Aufnahmepunkte', icon: MapPinned }
   if (type === 'thermal_summary') return { label: 'Thermal-Zusammenfassung', icon: FileText }
   if (type === 'thermal_registration_audit') return { label: 'Registrierungsprüfung', icon: ScanLine }
+  if (type === 'vegetation_index_ndvi') return { label: 'NDVI', icon: Leaf }
+  if (type === 'vegetation_index_ndre') return { label: 'NDRE', icon: Leaf }
+  if (type === 'vegetation_index_gndvi') return { label: 'GNDVI', icon: Leaf }
+  if (type === 'ndvi_scouting_zones') return { label: 'NDVI-Scouting-Zonen', icon: Layers3 }
+  if (type === 'raster_processing_provenance') return { label: 'Raster-Provenienz', icon: FileText }
   if (type.includes('multiband_orthophoto')) return { label: 'Multiband-Orthophoto', icon: FileImage }
   if (type.includes('orthophoto')) return { label: 'Orthophoto', icon: FileImage }
   if (type === 'dsm') return { label: 'DSM', icon: Mountain }
@@ -81,6 +95,9 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>()
   const [filter, setFilter] = useState('all')
+  const [processingKey, setProcessingKey] = useState<string>()
+  const [actionMessage, setActionMessage] = useState<string>()
+  const [actionError, setActionError] = useState<string>()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -110,6 +127,63 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
   useEffect(() => {
     void load()
   }, [load])
+
+  const startVegetationIndex = useCallback(
+    async (
+      jobId: string,
+      artifactIndex: number,
+      indexType: VegetationIndexType,
+    ) => {
+      const key = `${jobId}:${artifactIndex}:${indexType}`
+      setProcessingKey(key)
+      setActionMessage(undefined)
+      setActionError(undefined)
+      try {
+        const derived = await createVegetationIndexJob(
+          jobId,
+          artifactIndex,
+          indexType,
+          'auto',
+        )
+        setActionMessage(
+          `${indexType.toUpperCase()}-Job ${derived.id.slice(0, 8)} wurde gestartet. Der Worker wählt CPU/CUDA automatisch.`,
+        )
+      } catch (requestError) {
+        setActionError(
+          requestError instanceof Error
+            ? requestError.message
+            : `${indexType.toUpperCase()} konnte nicht gestartet werden.`,
+        )
+      } finally {
+        setProcessingKey(undefined)
+      }
+    },
+    [],
+  )
+
+  const startNdviZones = useCallback(
+    async (jobId: string, artifactIndex: number) => {
+      const key = `${jobId}:${artifactIndex}:zones`
+      setProcessingKey(key)
+      setActionMessage(undefined)
+      setActionError(undefined)
+      try {
+        const derived = await createNdviZonesJob(jobId, artifactIndex)
+        setActionMessage(
+          `NDVI-Zonen-Job ${derived.id.slice(0, 8)} wurde mit den Standardschwellen 0,20 / 0,40 / 0,60 / 0,80 gestartet.`,
+        )
+      } catch (requestError) {
+        setActionError(
+          requestError instanceof Error
+            ? requestError.message
+            : 'NDVI-Scouting-Zonen konnten nicht gestartet werden.',
+        )
+      } finally {
+        setProcessingKey(undefined)
+      }
+    },
+    [],
+  )
 
   const categories = useMemo(() => {
     const values = new Set<string>()
@@ -154,6 +228,18 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
             </button>
           ))}
         </div>
+        {actionMessage && (
+          <div className="inline-message inline-message--success">
+            <Leaf size={17} />
+            {actionMessage}
+          </div>
+        )}
+        {actionError && (
+          <div className="inline-message inline-message--error">
+            <TriangleAlert size={17} />
+            {actionError}
+          </div>
+        )}
       </section>
 
       {!items.length ? (
@@ -182,6 +268,9 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
                   {artifacts.map((artifact, index) => {
                     const meta = artifactLabel(artifact)
                     const Icon = meta.icon
+                    const artifactIndex = (job.artifacts ?? []).indexOf(artifact)
+                    const isMultiband = artifact.type === 'multiband_orthophoto'
+                    const isNdvi = artifact.type === 'vegetation_index_ndvi'
                     return (
                       <article className="artifact-card" key={`${artifact.name}-${index}`}>
                         <div className="artifact-card-icon"><Icon size={20} /></div>
@@ -197,11 +286,49 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
                               type="button"
                               onClick={() => onOpenPointCloud({
                                 jobId: job.id,
-                                artifactIndex: (job.artifacts ?? []).indexOf(artifact),
+                                artifactIndex,
                               })}
                             >
                               <ScanLine size={15} />
                               Im Viewer öffnen
+                            </button>
+                          )}
+                          {isMultiband && (
+                            <>
+                              {(['ndvi', 'ndre', 'gndvi'] as VegetationIndexType[]).map((indexType) => {
+                                const key = `${job.id}:${artifactIndex}:${indexType}`
+                                return (
+                                  <button
+                                    className="button button--secondary"
+                                    type="button"
+                                    key={indexType}
+                                    disabled={processingKey != null}
+                                    onClick={() => void startVegetationIndex(
+                                      job.id,
+                                      artifactIndex,
+                                      indexType,
+                                    )}
+                                  >
+                                    {processingKey === key
+                                      ? <LoaderCircle className="spin" size={15} />
+                                      : <Leaf size={15} />}
+                                    {indexType.toUpperCase()} erzeugen
+                                  </button>
+                                )
+                              })}
+                            </>
+                          )}
+                          {isNdvi && (
+                            <button
+                              className="button button--secondary"
+                              type="button"
+                              disabled={processingKey != null}
+                              onClick={() => void startNdviZones(job.id, artifactIndex)}
+                            >
+                              {processingKey === `${job.id}:${artifactIndex}:zones`
+                                ? <LoaderCircle className="spin" size={15} />
+                                : <Layers3 size={15} />}
+                              Scouting-Zonen erzeugen
                             </button>
                           )}
                           {artifact.download_url ? (
