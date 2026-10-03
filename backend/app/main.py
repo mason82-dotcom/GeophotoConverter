@@ -30,7 +30,6 @@ from .queue import enqueue, ping as redis_ping, worker_state
 from .profiles import processing_catalog
 from .previews import router as previews_router
 from .photogrammetry import fuse_photogrammetry_metadata
-from .photogrammetry_multispectral import inspect_multispectral_orthophoto
 from .pointcloud import router as pointcloud_router
 from .qa import dataset_qa
 from .services import external_services
@@ -532,10 +531,17 @@ def inspect_job_multispectral_artifact(
         raise HTTPException(status_code=404, detail="Artefaktdatei nicht gefunden")
 
     try:
+        from .photogrammetry_multispectral import inspect_multispectral_orthophoto
+
         inspection = inspect_multispectral_orthophoto(
             path,
             allow_m3m_fallback=allow_m3m_fallback,
         )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Multispektrale Rasterunterstützung ist nicht verfügbar.",
+        ) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
