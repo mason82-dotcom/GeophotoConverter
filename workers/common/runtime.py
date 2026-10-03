@@ -16,9 +16,23 @@ from typing import Callable
 from redis import Redis
 from redis.exceptions import ResponseError
 
-DATA_ROOT = Path(os.getenv("GEOPHOTO_DATA_ROOT", "/data")).resolve()
+def _default_data_root() -> Path:
+    if os.name == "nt":
+        base = os.getenv("LOCALAPPDATA")
+        if base:
+            return Path(base) / "GeoPhotoConverter" / "data"
+        return Path.home() / "AppData" / "Local" / "GeoPhotoConverter" / "data"
+    return Path("/data")
+
+
+DATA_ROOT = Path(
+    os.getenv("GEOPHOTO_DATA_ROOT") or _default_data_root()
+).expanduser().resolve()
 DB_PATH = DATA_ROOT / "geophoto.db"
-REDIS_URL = os.getenv("GEOPHOTO_REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = os.getenv(
+    "GEOPHOTO_REDIS_URL",
+    "redis://127.0.0.1:6379/0" if os.name == "nt" else "redis://redis:6379/0",
+)
 
 QUEUE_GROUP = os.getenv("GEOPHOTO_QUEUE_GROUP", "geophoto-workers")
 QUEUE_STALE_SECONDS = max(30, int(os.getenv("GEOPHOTO_QUEUE_STALE_SECONDS", "180")))
@@ -89,6 +103,52 @@ def cancellation_requested(job_id: str) -> bool:
     return bool(job and job["status"] == "cancel_requested")
 
 
+def _process_group_kwargs() -> dict:
+    if os.name == "nt":
+        return {
+            "creationflags": subprocess.CREATE_NEW_PROCESS_GROUP,
+        }
+    return {
+        "start_new_session": True,
+    }
+
+
+def _terminate_process_group(proc: subprocess.Popen[str]) -> None:
+    if proc.poll() is not None:
+        return
+
+    if os.name == "nt":
+        try:
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        except (OSError, ValueError):
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    try:
+        proc.wait(timeout=10)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+
+    if os.name == "nt":
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def run_process(
     job_id: str,
     command: list[str],
@@ -108,7 +168,7 @@ def run_process(
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            start_new_session=True,
+            **_process_group_kwargs(),
         )
         assert proc.stdout is not None
         while True:
@@ -126,17 +186,7 @@ def run_process(
                 time.sleep(0.2)
 
             if cancellation_requested(job_id) and proc.poll() is None:
-                try:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    proc.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    try:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
+                _terminate_process_group(proc)
                 update_job(
                     job_id,
                     status="cancelled",

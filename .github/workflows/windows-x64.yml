@@ -1,0 +1,129 @@
+name: Windows x64
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "workers/common/**"
+      - "scripts/windows/**"
+      - "compose.windows.yaml"
+      - ".github/workflows/windows-x64.yml"
+  push:
+    branches:
+      - main
+      - agent/windows-x64-port
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "workers/common/**"
+      - "scripts/windows/**"
+      - "compose.windows.yaml"
+      - ".github/workflows/windows-x64.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  native-core:
+    name: Native core
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python x64
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        shell: pwsh
+        run: python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+      - name: Verify Python architecture
+        shell: pwsh
+        run: |
+          python -c "import platform,sys; assert sys.maxsize > 2**32; assert platform.machine().lower() in ('amd64','x86_64'); print(platform.platform())"
+
+      - name: Compile Python sources
+        shell: pwsh
+        run: python -m compileall backend/app workers
+
+      - name: Verify native Windows defaults
+        shell: pwsh
+        env:
+          PYTHONPATH: backend
+        run: |
+          Remove-Item Env:GEOPHOTO_DATA_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:GEOPHOTO_REDIS_URL -ErrorAction SilentlyContinue
+          Remove-Item Env:GEOPHOTO_PDAL_URL -ErrorAction SilentlyContinue
+          python -c "import os; from app.config import DATA_ROOT,REDIS_URL,PDAL_SERVICE_URL; assert os.name == 'nt'; assert 'GeoPhotoConverter' in str(DATA_ROOT); assert REDIS_URL == 'redis://127.0.0.1:6379/0'; assert PDAL_SERVICE_URL == 'http://127.0.0.1:8090'; print(DATA_ROOT)"
+
+      - name: Verify Windows worker process group
+        shell: pwsh
+        env:
+          PYTHONPATH: workers
+        run: |
+          python -c "import subprocess; from common.runtime import _process_group_kwargs; k=_process_group_kwargs(); assert k.get('creationflags') == subprocess.CREATE_NEW_PROCESS_GROUP; print(k)"
+
+      - name: Import FastAPI natively
+        shell: pwsh
+        env:
+          PYTHONPATH: backend
+          GEOPHOTO_DATA_ROOT: ${{ runner.temp }}\geophoto-data
+          GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/0
+          GEOPHOTO_PDAL_URL: http://127.0.0.1:8090
+        run: |
+          python -c "from app.main import app; from app.config import DATA_ROOT; assert app.version; print(DATA_ROOT)"
+
+      - name: Run backend tests
+        shell: pwsh
+        env:
+          PYTHONPATH: backend
+          GEOPHOTO_DATA_ROOT: ${{ runner.temp }}\geophoto-data
+          GEOPHOTO_REDIS_URL: redis://127.0.0.1:6379/15
+        run: python -m pytest backend/tests -q
+
+      - name: Validate PowerShell manager syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "scripts/windows/GeoPhotoConverter.ps1"),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
+
+      - name: Set up Node x64
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24.21.0"
+          architecture: "x64"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Frontend typecheck
+        shell: pwsh
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Frontend build
+        shell: pwsh
+        working-directory: frontend
+        run: npm run build

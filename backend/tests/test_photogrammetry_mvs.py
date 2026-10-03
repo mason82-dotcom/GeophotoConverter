@@ -148,3 +148,18 @@ def test_sfm_warning_is_preserved_but_mvs_remains_available() -> None:
 
 def test_version_contract_is_pinned() -> None:
     assert OPENMVS_VERSION == "2.4.0"
+
+
+def test_openmvs_plan_accepts_windows_absolute_paths() -> None:
+    plan = plan_openmvs_pipeline(
+        colmap_workspace=r"C:\survey\colmap",
+        image_folder=r"C:\survey\colmap\images",
+        output_dir=r"C:\survey\openmvs",
+        profile="preview",
+    )
+
+    command = plan["stages"][0]["command"]
+    assert command[2] == r"C:\survey\colmap"
+    assert command[4] == r"C:\survey\openmvs\scene.mvs"
+    assert command[6] == r"C:\survey\colmap\images"
+    assert plan["final_scene"] == r"C:\survey\openmvs\scene_dense_mesh.mvs"

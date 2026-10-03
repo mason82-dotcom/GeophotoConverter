@@ -162,6 +162,66 @@
         "Prüfen: Compose"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "Windows x64: Installieren",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/windows/GeoPhotoConverter.ps1",
+        "-Action",
+        "Install"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Windows x64: Docker starten",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/windows/GeoPhotoConverter.ps1",
+        "-Action",
+        "Start"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Windows x64: Native Entwicklung",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/windows/GeoPhotoConverter.ps1",
+        "-Action",
+        "Dev"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Windows x64: Prüfen",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/windows/GeoPhotoConverter.ps1",
+        "-Action",
+        "Verify"
+      ],
+      "problemMatcher": []
     }
   ]
 }

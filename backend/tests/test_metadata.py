@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import app.metadata as metadata_module
 from app.classifier import classify_media, reconcile_group_platforms
 from app.metadata import _normalize_metadata, _rtk_status
 
@@ -191,3 +194,28 @@ def test_capture_group_falls_back_to_filename_without_capture_uuid():
 
     assert rgb.capture_group == "M3M/DJI_0002"
     assert nir.capture_group == "M3M/DJI_0002"
+
+
+def test_read_metadata_uses_configured_exiftool_binary(monkeypatch, tmp_path: Path):
+    seen = {}
+
+    class Result:
+        stdout = '[{"IFD0:Make":"DJI","IFD0:Model":"Mavic 3 Enterprise"}]'
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen["kwargs"] = kwargs
+        return Result()
+
+    monkeypatch.setattr(
+        metadata_module,
+        "EXIFTOOL_BIN",
+        r"C:\Tools\ExifTool\exiftool.exe",
+    )
+    monkeypatch.setattr(metadata_module.subprocess, "run", fake_run)
+
+    metadata = metadata_module.read_metadata(tmp_path / "DJI_0001.JPG")
+
+    assert seen["command"][0] == r"C:\Tools\ExifTool\exiftool.exe"
+    assert seen["command"][-1].endswith("DJI_0001.JPG")
+    assert metadata["camera"]["make"] == "DJI"

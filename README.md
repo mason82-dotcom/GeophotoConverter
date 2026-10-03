@@ -2,6 +2,19 @@
 
 GeoPhotoConverter ist eine lokal betriebene Arbeitsstation zum Importieren georeferenzierter Luftbilder, Prüfen von Metadaten, Kontrollieren der Kartenabdeckung und Starten photogrammetrischer Verarbeitungsaufträge.
 
+## Windows x64
+
+Windows x64 ist eine unterstützte Host-Plattform. Der vollständige Produktionspfad verwendet Docker Desktop mit WSL2/Linux-Containern; API und Frontend können für die Entwicklung zusätzlich nativ unter Windows laufen.
+
+Schnellstart auf Windows:
+
+```powershell
+.\scripts\windows\GeoPhotoConverter.ps1 -Action Install
+.\scripts\windows\GeoPhotoConverter.ps1 -Action Start
+```
+
+Alternativ steht `GeoPhotoConverter.cmd` im Repository-Stamm zur Verfügung. Details zu Docker-Desktop-Profilen, NVIDIA CUDA, nativer Entwicklung und den Windows-spezifischen Serviceports stehen in [docs/WINDOWS_X64.md](docs/WINDOWS_X64.md).
+
 ## Architektur
 
 Der Standard-Docker-Stack ist bewusst einfach aufgebaut:
