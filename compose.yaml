@@ -139,6 +139,56 @@ services:
         condition: service_healthy
 
 
+  raster-processing-worker:
+    build:
+      context: .
+      dockerfile: workers/raster/Dockerfile
+      target: cpu
+    profiles: ["raster-processing"]
+    restart: unless-stopped
+    read_only: true
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      GEOPHOTO_QUEUE_GROUP: ${GEOPHOTO_QUEUE_GROUP:-geophoto-workers}
+      GEOPHOTO_QUEUE_STALE_SECONDS: ${GEOPHOTO_QUEUE_STALE_SECONDS:-180}
+      GEOPHOTO_QUEUE_MAX_CRASH_ATTEMPTS: ${GEOPHOTO_QUEUE_MAX_CRASH_ATTEMPTS:-3}
+      PYTHONDONTWRITEBYTECODE: "1"
+      HOME: /tmp
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    tmpfs:
+      - /tmp
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  raster-processing-gpu-worker:
+    build:
+      context: .
+      dockerfile: workers/raster/Dockerfile
+      target: cuda
+    profiles: ["raster-processing-gpu"]
+    restart: unless-stopped
+    read_only: true
+    gpus: all
+    environment:
+      GEOPHOTO_DATA_ROOT: /data
+      GEOPHOTO_REDIS_URL: redis://redis:6379/0
+      GEOPHOTO_QUEUE_GROUP: ${GEOPHOTO_QUEUE_GROUP:-geophoto-workers}
+      GEOPHOTO_QUEUE_STALE_SECONDS: ${GEOPHOTO_QUEUE_STALE_SECONDS:-180}
+      GEOPHOTO_QUEUE_MAX_CRASH_ATTEMPTS: ${GEOPHOTO_QUEUE_MAX_CRASH_ATTEMPTS:-3}
+      PYTHONDONTWRITEBYTECODE: "1"
+      HOME: /tmp
+    volumes:
+      - ${GEOPHOTO_DATA_PATH:-./data}:/data
+    tmpfs:
+      - /tmp
+    depends_on:
+      redis:
+        condition: service_healthy
+
+
   pdal-processing-worker:
     build:
       context: .
