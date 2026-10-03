@@ -22,6 +22,14 @@ $BackendPidFile = Join-Path $RuntimeRoot "backend.pid"
 $FrontendPidFile = Join-Path $RuntimeRoot "frontend.pid"
 $VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 
+$Profiles = @(
+    $Profiles |
+        ForEach-Object { $_ -split "," } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
+)
+
 function Write-Step([string]$Message) {
     Write-Host ""
     Write-Host "==> $Message" -ForegroundColor Cyan
@@ -108,7 +116,16 @@ function Invoke-Compose {
 
 function Assert-DockerDesktop {
     Assert-Command "docker" "Docker Desktop für Windows installieren und den WSL2/Linux-Container-Modus aktivieren." | Out-Null
-    Invoke-Checked -FilePath "docker" -Arguments @("info", "--format", "{{.OSType}}/{{.Architecture}}") | Out-Null
+
+    $dockerPlatform = (& docker info --format "{{.OSType}}/{{.Architecture}}" 2>$null | Select-Object -First 1)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($dockerPlatform)) {
+        throw "Docker Desktop ist nicht erreichbar. Docker Desktop starten und erneut versuchen."
+    }
+
+    $dockerPlatform = $dockerPlatform.Trim().ToLowerInvariant()
+    if ($dockerPlatform -ne "linux/amd64" -and $dockerPlatform -ne "linux/x86_64") {
+        throw "Docker Desktop muss Linux/amd64-Container verwenden. Erkannt: $dockerPlatform."
+    }
 }
 
 function Ensure-LocalLayout {
