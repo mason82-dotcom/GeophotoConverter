@@ -299,7 +299,7 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
                                 const key = `${job.id}:${artifactIndex}:${indexType}`
                                 return (
                                   <button
-                                    className="button button--secondary"
+                                    className="button"
                                     type="button"
                                     key={indexType}
                                     disabled={processingKey != null}
@@ -320,7 +320,7 @@ export function ResultsPage({ onOpenPointCloud }: ResultsPageProps) {
                           )}
                           {isNdvi && (
                             <button
-                              className="button button--secondary"
+                              className="button"
                               type="button"
                               disabled={processingKey != null}
                               onClick={() => void startNdviZones(job.id, artifactIndex)}
