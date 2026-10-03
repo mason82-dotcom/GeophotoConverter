@@ -5,6 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GEOPHOTO_DATA_ROOT=/data \
     HOME=/tmp
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     numpy==2.5.3 \
     rasterio==1.5.1 \
