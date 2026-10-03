@@ -6,6 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .config import EXIFTOOL_BIN
+
 
 _RTK_STATUS = {
     0: "failed",
@@ -346,7 +348,7 @@ def _normalize_metadata(raw: dict[str, Any]) -> dict[str, Any]:
 
 def read_metadata(path: Path) -> dict[str, Any]:
     proc = subprocess.run(
-        ["exiftool", "-json", "-n", "-G1", str(path)],
+        [EXIFTOOL_BIN, "-json", "-n", "-G1", str(path)],
         check=True,
         capture_output=True,
         text=True,
