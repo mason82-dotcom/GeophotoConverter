@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .config import CACHE_ROOT, DATASETS_ROOT
+from .config import CACHE_ROOT, DATASETS_ROOT, DCRAW_BIN
 from .storage import store
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["previews"])
@@ -29,7 +29,7 @@ def _render_dng(source: Path, work_dir: Path) -> Path:
     target = work_dir / "decoded.tif"
     proc = subprocess.run(
         [
-            "dcraw_emu",
+            DCRAW_BIN,
             "-w",
             "-T",
             "-q",
