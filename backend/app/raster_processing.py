@@ -8,10 +8,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .config import DATA_ROOT
-from .photogrammetry_multispectral import (
-    DEFAULT_CUDA_MIN_PIXELS,
-    inspect_multispectral_orthophoto,
-)
 from .queue import enqueue, ping as redis_ping
 from .storage import store
 
@@ -20,6 +16,7 @@ router = APIRouter(prefix="/api/v1", tags=["raster-processing"])
 
 _RASTER_PROCESSING_ENGINE = "raster-processing"
 _RASTER_SUFFIXES = {".tif", ".tiff"}
+_DEFAULT_CUDA_MIN_PIXELS = 1_048_576
 
 
 class VegetationIndexRequest(BaseModel):
@@ -27,7 +24,7 @@ class VegetationIndexRequest(BaseModel):
     backend: Literal["auto", "cpu", "cuda"] = "auto"
     tile_size: int | Literal["auto"] = "auto"
     cuda_min_pixels: int = Field(
-        default=DEFAULT_CUDA_MIN_PIXELS,
+        default=_DEFAULT_CUDA_MIN_PIXELS,
         ge=0,
         le=4_000_000_000,
     )
@@ -167,10 +164,17 @@ def create_vegetation_index(
     _validate_tile_size(body.tile_size)
 
     try:
+        from .photogrammetry_multispectral import inspect_multispectral_orthophoto
+
         inspection = inspect_multispectral_orthophoto(
             path,
             allow_m3m_fallback=body.allow_m3m_fallback,
         )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Multispektrale Rasterunterstützung ist nicht verfügbar.",
+        ) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(
             status_code=422,
