@@ -387,15 +387,35 @@ export interface Artifact {
   relative_path?: string
   size_bytes?: number
   download_url?: string
+  sha256?: string
+  index_type?: string
+  backend_used?: string
+  thresholds?: number[]
+  class_counts?: Record<string, number>
 }
+
+export type JobEngine =
+  | ProcessingEngine
+  | 'pdal-processing'
+  | 'raster-processing'
+
+export type JobProfile = ProcessingProfile | 'derived'
+
+export type JobWorkflow =
+  | ProcessingWorkflow
+  | 'pointcloud_reprojection'
+  | 'vegetation_index_ndvi'
+  | 'vegetation_index_ndre'
+  | 'vegetation_index_gndvi'
+  | 'ndvi_scouting_zones'
 
 export interface Job {
   id: string
   dataset_id: string
-  engine: ProcessingEngine
-  profile: ProcessingProfile
-  workflow?: ProcessingWorkflow
-  options?: Record<string, number>
+  engine: JobEngine
+  profile: JobProfile
+  workflow?: JobWorkflow
+  options?: Record<string, unknown>
   status: string
   progress: number
   phase?: string | null
