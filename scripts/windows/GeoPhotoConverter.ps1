@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateSet("Install", "Start", "Stop", "Restart", "Status", "Verify", "Dev", "StopDev")]
     [string]$Action = "Status",
@@ -21,6 +21,8 @@ $RuntimeRoot = Join-Path $RepoRoot ".runtime\windows"
 $BackendPidFile = Join-Path $RuntimeRoot "backend.pid"
 $FrontendPidFile = Join-Path $RuntimeRoot "frontend.pid"
 $VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$script:NativePythonSelector = $null
+$script:NativePythonDisplay = $null
 
 $Profiles = @(
     $Profiles |
@@ -57,6 +59,30 @@ function Assert-Command([string]$Name, [string]$Hint) {
         throw "$Name wurde nicht gefunden. $Hint"
     }
     return $command
+}
+
+function Resolve-NativePythonX64 {
+    Assert-Command "py" "Python 3.14 x64 oder Python 3.12 x64 installieren." | Out-Null
+
+    foreach ($selector in @("3.14", "3.12")) {
+        $pythonInfoOutput = @(& py "-$selector" -c "import platform,sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}|{platform.machine()}')" 2>$null)
+        $pythonExitCode = $LASTEXITCODE
+
+        if ($pythonExitCode -ne 0 -or $pythonInfoOutput.Count -eq 0) {
+            continue
+        }
+
+        $pythonInfo = ([string]$pythonInfoOutput[0]).Trim()
+        if ($pythonInfo -match ("^" + [regex]::Escape($selector) + "\\.\\d+\\|(AMD64|x86_64)$")) {
+            $parts = $pythonInfo -split "\\|", 2
+            $script:NativePythonSelector = $selector
+            $script:NativePythonDisplay = $parts[0]
+            Write-Host "Python $($script:NativePythonDisplay) x64 erkannt." -ForegroundColor Green
+            return
+        }
+    }
+
+    throw "Kein unterstütztes Python x64 gefunden. Unterstützt werden Python 3.14 und 3.12. Bevorzugt: Python 3.14 x64."
 }
 
 function Invoke-Checked {
@@ -117,12 +143,18 @@ function Invoke-Compose {
 function Assert-DockerDesktop {
     Assert-Command "docker" "Docker Desktop für Windows installieren und den WSL2/Linux-Container-Modus aktivieren." | Out-Null
 
-    $dockerPlatform = (& docker info --format "{{.OSType}}/{{.Architecture}}" 2>$null | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($dockerPlatform)) {
-        throw "Docker Desktop ist nicht erreichbar. Docker Desktop starten und erneut versuchen."
+    $dockerPlatformOutput = @(& docker info --format "{{.OSType}}/{{.Architecture}}" 2>$null)
+    $dockerExitCode = $LASTEXITCODE
+
+    if ($dockerExitCode -ne 0 -or $dockerPlatformOutput.Count -eq 0) {
+        throw "Docker Desktop ist nicht erreichbar (docker info Exitcode $dockerExitCode). Docker Desktop starten und erneut versuchen."
     }
 
-    $dockerPlatform = $dockerPlatform.Trim().ToLowerInvariant()
+    $dockerPlatform = ([string]$dockerPlatformOutput[0]).Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($dockerPlatform)) {
+        throw "Docker Desktop ist erreichbar, hat aber keine Plattform gemeldet."
+    }
+
     if ($dockerPlatform -ne "linux/amd64" -and $dockerPlatform -ne "linux/x86_64") {
         throw "Docker Desktop muss Linux/amd64-Container verwenden. Erkannt: $dockerPlatform."
     }
@@ -141,14 +173,14 @@ function Ensure-LocalLayout {
 function Install-NativeCore {
     Write-Step "Windows-x64-Voraussetzungen prüfen"
     Assert-WindowsX64
-    Assert-Command "py" "Python 3.12 x64 von python.org installieren." | Out-Null
+    Resolve-NativePythonX64
     Assert-Command "node" "Node.js x64 installieren." | Out-Null
     Assert-Command "npm.cmd" "Node.js/npm x64 installieren." | Out-Null
     Assert-DockerDesktop
     Ensure-LocalLayout
 
-    Write-Step "Python 3.12 x64 virtuelle Umgebung erstellen"
-    Invoke-Checked -FilePath "py" -Arguments @("-3.12", "-m", "venv", ".venv")
+    Write-Step "Python $($script:NativePythonDisplay) x64 virtuelle Umgebung erstellen"
+    Invoke-Checked -FilePath "py" -Arguments @("-$script:NativePythonSelector", "-m", "venv", ".venv")
     Invoke-Checked -FilePath $VenvPython -Arguments @("-m", "pip", "install", "--upgrade", "pip")
     Invoke-Checked -FilePath $VenvPython -Arguments @("-m", "pip", "install", "-r", "backend\requirements.txt", "-r", "backend\requirements-dev.txt")
 
