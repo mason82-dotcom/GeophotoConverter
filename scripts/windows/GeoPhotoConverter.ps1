@@ -117,12 +117,22 @@ function Invoke-Compose {
 function Assert-DockerDesktop {
     Assert-Command "docker" "Docker Desktop für Windows installieren und den WSL2/Linux-Container-Modus aktivieren." | Out-Null
 
-    $dockerPlatform = (& docker info --format "{{.OSType}}/{{.Architecture}}" 2>$null | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($dockerPlatform)) {
-        throw "Docker Desktop ist nicht erreichbar. Docker Desktop starten und erneut versuchen."
+    # Do not pipe the native Docker process through Select-Object -First.
+    # Windows PowerShell can stop the upstream producer as soon as the first
+    # object is received, which can make an otherwise healthy Docker probe
+    # report a non-zero LASTEXITCODE.
+    $dockerPlatformOutput = @(& docker info --format "{{.OSType}}/{{.Architecture}}" 2>$null)
+    $dockerExitCode = $LASTEXITCODE
+
+    if ($dockerExitCode -ne 0 -or $dockerPlatformOutput.Count -eq 0) {
+        throw "Docker Desktop ist nicht erreichbar (docker info Exitcode $dockerExitCode). Docker Desktop starten und erneut versuchen."
     }
 
-    $dockerPlatform = $dockerPlatform.Trim().ToLowerInvariant()
+    $dockerPlatform = ([string]$dockerPlatformOutput[0]).Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($dockerPlatform)) {
+        throw "Docker Desktop ist erreichbar, hat aber keine Plattform gemeldet."
+    }
+
     if ($dockerPlatform -ne "linux/amd64" -and $dockerPlatform -ne "linux/x86_64") {
         throw "Docker Desktop muss Linux/amd64-Container verwenden. Erkannt: $dockerPlatform."
     }
