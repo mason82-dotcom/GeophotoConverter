@@ -285,11 +285,10 @@ def test_multispectral_plan_marks_complete_conflict_group_as_blocking():
 
 
 
-def test_odm_worker_image_ships_canonical_media_classifier():
+def test_odm_worker_image_ships_canonical_media_modules():
     dockerfile = (REPO_ROOT / "workers" / "odm" / "Dockerfile").read_text(
         encoding="utf-8"
     )
-    assert (
-        "COPY backend/app/__init__.py backend/app/classifier.py /worker/app/"
-        in dockerfile
-    )
+    assert "backend/app/classifier.py" in dockerfile
+    assert "backend/app/photogrammetry.py" in dockerfile
+    assert "/worker/app/" in dockerfile

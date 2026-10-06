@@ -4,6 +4,7 @@ import json
 import shutil
 import sqlite3
 import subprocess
+from math import isfinite
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -43,7 +44,8 @@ def _dataset_files(dataset_id: str) -> list[dict[str, Any]]:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT relative_path, stored_path, size_bytes, sha256, metadata_json
+            SELECT relative_path, stored_path, size_bytes, sha256,
+                   metadata_json, fh2_media_json
             FROM files
             WHERE dataset_id=?
             ORDER BY relative_path
@@ -114,12 +116,14 @@ def prepare_photogrammetry_images(
     target_dir: Path,
     *,
     allowed_kinds: set[str] | None = None,
+    create_geo_override: bool = False,
 ) -> dict[str, Any]:
     allowed = allowed_kinds or PHOTOGRAMMETRY_KINDS
     target_dir.mkdir(parents=True, exist_ok=True)
 
     prepared: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
+    georeferencing_entries: list[dict[str, Any]] = []
 
     for record in _dataset_files(dataset_id):
         relative_path = record["relative_path"]
@@ -167,12 +171,29 @@ def prepare_photogrammetry_images(
             "action": action,
             "sha256": record.get("sha256"),
         })
+        if create_geo_override:
+            georeferencing_entries.append(
+                _canonical_georeferencing(record, target.name)
+            )
+
+    georeferencing = (
+        _write_geo_override(target_dir, georeferencing_entries)
+        if create_geo_override
+        else {
+            "mode": "not_requested",
+            "reason": None,
+            "projection": None,
+            "path": None,
+            "files": [],
+        }
+    )
 
     manifest = {
         "dataset_id": dataset_id,
         "allowed_media_kinds": sorted(allowed),
         "prepared_count": len(prepared),
         "skipped_count": len(skipped),
+        "georeferencing": georeferencing,
         "prepared": prepared,
         "skipped": skipped,
     }
@@ -194,6 +215,213 @@ def _record_metadata(record: dict[str, Any]) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+def _record_fh2_media(record: dict[str, Any]) -> dict[str, Any]:
+    raw = record.get("fh2_media_json")
+    if isinstance(raw, dict):
+        return raw
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _finite_coordinate(
+    value: Any,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(number) or not minimum <= number <= maximum:
+        return None
+    return number
+
+
+def _finite_height(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if isfinite(number) else None
+
+
+def _canonical_georeferencing(
+    record: dict[str, Any],
+    prepared_name: str,
+) -> dict[str, Any]:
+    from app.photogrammetry import fuse_photogrammetry_metadata
+
+    canonical = fuse_photogrammetry_metadata(
+        _record_metadata(record),
+        _record_fh2_media(record) or None,
+    )
+    provenance = canonical.get("provenance") or {}
+    latitude_provenance = provenance.get("position.latitude_deg") or {}
+    longitude_provenance = provenance.get("position.longitude_deg") or {}
+    latitude_source = latitude_provenance.get("source")
+    longitude_source = longitude_provenance.get("source")
+    if latitude_source and latitude_source == longitude_source:
+        position_source = str(latitude_source)
+    elif latitude_source or longitude_source:
+        position_source = "mixed"
+    else:
+        position_source = "unavailable"
+
+    latitude = _finite_coordinate(
+        (canonical.get("position") or {}).get("latitude_deg"),
+        minimum=-90.0,
+        maximum=90.0,
+    )
+    longitude = _finite_coordinate(
+        (canonical.get("position") or {}).get("longitude_deg"),
+        minimum=-180.0,
+        maximum=180.0,
+    )
+    ellipsoid = _finite_height(
+        (canonical.get("height") or {}).get("ellipsoid_m")
+    )
+    rtk = canonical.get("rtk") or {}
+    conflicts = list(canonical.get("conflicts") or [])
+
+    return {
+        "relative_path": record["relative_path"],
+        "prepared_name": prepared_name,
+        "latitude_deg": latitude,
+        "longitude_deg": longitude,
+        "ellipsoid_m": ellipsoid,
+        "position_source": position_source,
+        "position_provenance": {
+            "latitude": dict(latitude_provenance),
+            "longitude": dict(longitude_provenance),
+        },
+        "ellipsoid_provenance": dict(
+            provenance.get("height.ellipsoid_m") or {}
+        ),
+        "rtk_metadata": (
+            rtk.get("raw_flag") is not None or rtk.get("fixed") is not None
+        ),
+        "rtk_fixed": rtk.get("fixed") is True,
+        "fusion_conflicts": conflicts,
+    }
+
+
+def _write_geo_override(
+    target_dir: Path,
+    entries: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source_counts: dict[str, int] = {}
+    rtk_metadata_images = 0
+    rtk_fixed_images = 0
+    fusion_conflict_files = 0
+    fusion_conflict_count = 0
+
+    for entry in entries:
+        source = str(entry["position_source"])
+        source_counts[source] = source_counts.get(source, 0) + 1
+        if entry["rtk_metadata"]:
+            rtk_metadata_images += 1
+        if entry["rtk_fixed"]:
+            rtk_fixed_images += 1
+        conflicts = entry["fusion_conflicts"]
+        if conflicts:
+            fusion_conflict_files += 1
+            fusion_conflict_count += len(conflicts)
+
+    position_entries = [
+        entry
+        for entry in entries
+        if entry["latitude_deg"] is not None
+        and entry["longitude_deg"] is not None
+    ]
+    ellipsoid_entries = [
+        entry for entry in entries if entry["ellipsoid_m"] is not None
+    ]
+
+    file_evidence = [
+        {
+            "relative_path": entry["relative_path"],
+            "prepared_name": entry["prepared_name"],
+            "has_position": (
+                entry["latitude_deg"] is not None
+                and entry["longitude_deg"] is not None
+            ),
+            "has_ellipsoid_height": entry["ellipsoid_m"] is not None,
+            "position_source": entry["position_source"],
+            "position_provenance": entry["position_provenance"],
+            "ellipsoid_provenance": entry["ellipsoid_provenance"],
+            "rtk_metadata": entry["rtk_metadata"],
+            "rtk_fixed": entry["rtk_fixed"],
+            "fusion_conflicts": entry["fusion_conflicts"],
+        }
+        for entry in entries
+    ]
+
+    evidence: dict[str, Any] = {
+        "projection": "EPSG:4326",
+        "prepared_images": len(entries),
+        "canonical_position_images": len(position_entries),
+        "ellipsoid_height_images": len(ellipsoid_entries),
+        "position_sources": source_counts,
+        "rtk_metadata_images": rtk_metadata_images,
+        "rtk_fixed_images": rtk_fixed_images,
+        "fusion_conflict_files": fusion_conflict_files,
+        "fusion_conflict_count": fusion_conflict_count,
+        "files": file_evidence,
+    }
+
+    geo_path = target_dir.parent / "geo.txt"
+    if not entries:
+        evidence.update({
+            "mode": "embedded_metadata_fallback",
+            "reason": "no_staged_images",
+            "height_mode": "embedded_metadata",
+            "path": None,
+        })
+        geo_path.unlink(missing_ok=True)
+        return evidence
+
+    if len(position_entries) != len(entries):
+        evidence.update({
+            "mode": "embedded_metadata_fallback",
+            "reason": "incomplete_canonical_position",
+            "height_mode": "embedded_metadata",
+            "path": None,
+        })
+        geo_path.unlink(missing_ok=True)
+        return evidence
+
+    include_height = len(ellipsoid_entries) == len(entries)
+    lines = ["EPSG:4326"]
+    for entry in entries:
+        line = (
+            f"{entry['prepared_name']} "
+            f"{entry['longitude_deg']:.10f} "
+            f"{entry['latitude_deg']:.10f}"
+        )
+        if include_height:
+            line += f" {entry['ellipsoid_m']:.3f}"
+        lines.append(line)
+
+    geo_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    evidence.update({
+        "mode": "geo_override",
+        "reason": None,
+        "height_mode": "ellipsoid" if include_height else "xy_only",
+        "path": geo_path.name,
+    })
+    return evidence
 
 
 def _m3m_record_info(record: dict[str, Any]) -> dict[str, Any] | None:

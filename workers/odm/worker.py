@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from common.georeferencing import build_odm_result_evidence, odm_geo_arguments
 from common.images import (
     prepare_multispectral_images,
     prepare_photogrammetry_images,
@@ -146,6 +147,7 @@ def handle(payload: dict) -> None:
         manifest = prepare_photogrammetry_images(
             dataset_id,
             project_dir / "images",
+            create_geo_override=(workflow == "mapping"),
         )
         image_count = manifest["prepared_count"]
         if image_count < 2:
@@ -154,19 +156,33 @@ def handle(payload: dict) -> None:
             )
         input_label = "RGB/WIDE"
 
+    georeferencing = manifest.get("georeferencing") or {}
+    run_options = [
+        *options,
+        *odm_geo_arguments(project_dir, workflow, manifest),
+    ]
+
     update_job(
         job_id,
         progress=5,
         phase="processing",
         message=(
             f"ODM verarbeitet {image_count} {input_label} Bilder mit "
-            f"profile '{profile}' ({manifest['skipped_count']} Bilder übersprungen)."
+            f"profile '{profile}' ({manifest['skipped_count']} Bilder übersprungen; "
+            f"Georeferenzierung: {georeferencing.get('mode', 'not_requested')})."
         ),
     )
 
     code = run_process(
         job_id,
-        ["python3", "/code/run.py", "--project-path", str(job_root), "project", *options],
+        [
+            "python3",
+            "/code/run.py",
+            "--project-path",
+            str(job_root),
+            "project",
+            *run_options,
+        ],
         cwd=Path("/code"),
         log_path=log_path,
         progress_probe=_progress,
@@ -177,12 +193,60 @@ def handle(payload: dict) -> None:
         raise RuntimeError(f"ODM wurde mit Code {code} beendet. Siehe {log_path}")
 
     artifacts = _collect_artifacts(project_dir, job_id, workflow)
+    evidence_path, evidence = build_odm_result_evidence(
+        project_dir,
+        manifest,
+    )
+
+    input_manifest_path = (
+        project_dir / "images" / "geophoto-input-manifest.json"
+    )
+    if input_manifest_path.is_file():
+        artifacts.append(
+            {
+                "type": "input_manifest",
+                "name": input_manifest_path.name,
+                "relative_path": (
+                    f"jobs/{job_id}/project/images/{input_manifest_path.name}"
+                ),
+                "size_bytes": input_manifest_path.stat().st_size,
+            }
+        )
+
+    geo_path = project_dir / "geo.txt"
+    if geo_path.is_file():
+        artifacts.append(
+            {
+                "type": "geolocation_override",
+                "name": geo_path.name,
+                "relative_path": f"jobs/{job_id}/project/{geo_path.name}",
+                "size_bytes": geo_path.stat().st_size,
+            }
+        )
+
+    artifacts.append(
+        {
+            "type": "georeferencing_evidence",
+            "name": evidence_path.name,
+            "relative_path": (
+                f"jobs/{job_id}/project/{evidence_path.name}"
+            ),
+            "size_bytes": evidence_path.stat().st_size,
+        }
+    )
+
+    verified_rasters = evidence["summary"][
+        "raster_outputs_with_verified_georeferencing"
+    ]
     update_job(
         job_id,
         status="completed",
         progress=100,
         phase="completed",
-        message=f"ODM abgeschlossen; {len(artifacts)} Artefakte erkannt.",
+        message=(
+            f"ODM abgeschlossen; {len(artifacts)} Artefakte erkannt; "
+            f"{verified_rasters} Raster mit CRS + GeoTransform verifiziert."
+        ),
         artifacts=artifacts,
     )
 

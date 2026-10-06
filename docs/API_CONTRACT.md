@@ -287,6 +287,31 @@ Clients sollen die vom Datensatz gelieferte `preview_url` verwenden.
 
 Listet Verarbeitungsaufträge.
 
+### ODM-Mapping-Georeferenzierungsartefakte
+
+Ab PGM-4 kann ein abgeschlossener ODM-`mapping`-Job zusätzlich liefern:
+
+- `input_manifest` – gestagte Dateien einschließlich kanonischer
+  Georeferenzierungs-Provenienz
+- `geolocation_override` – `geo.txt`, nur wenn alle gestagten Bilder eine
+  gültige kanonische Position besitzen
+- `georeferencing_evidence` – maschinenlesbare Ergebnisprüfung
+
+Das Input-Manifest unterscheidet:
+
+- `geo_override`
+- `embedded_metadata_fallback`
+- `not_requested`
+
+Ein `geo_override` verwendet `EPSG:4326` und die **gestagten Dateinamen**.
+Z wird nur bei vollständiger `height.ellipsoid_m`-Abdeckung geschrieben.
+Relative Höhe wird niemals als absolute Höhe interpretiert.
+
+Die Ergebnis-Evidence behauptet keine gültige Georeferenzierung allein wegen
+der Existenz einer Datei. Bei Rasterprodukten müssen CRS und ein
+nichtdegenerierter GeoTransform durch das Inspektionswerkzeug nachgewiesen
+werden.
+
 ### POST /jobs
 
 Erstellt einen Auftrag.
