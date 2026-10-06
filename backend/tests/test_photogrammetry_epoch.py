@@ -136,3 +136,35 @@ def test_invalid_cell_area_is_rejected() -> None:
             cell_area_m2=0.0,
             threshold_m=0.1,
         )
+
+
+
+def test_epoch_pair_does_not_trust_declared_crs_flags() -> None:
+    reference = _epoch("A", "2026-01-01T10:00:00Z", "EPSG:4326")
+    comparison = _epoch("B", "2026-02-01T10:00:00Z", "EPSG:4326")
+
+    reference["crs"]["projected"] = True
+    reference["crs"]["metric"] = True
+    comparison["crs"]["projected"] = True
+    comparison["crs"]["metric"] = True
+
+    result = validate_epoch_pair(reference, comparison)
+
+    assert result["status"] == "blocked"
+    assert any(
+        issue["code"] == "EPOCH_CRS_NOT_METRIC_PROJECTED"
+        for issue in result["issues"]
+    )
+
+
+def test_epoch_pair_rejects_unresolvable_crs_identifier() -> None:
+    result = validate_epoch_pair(
+        _epoch("A", "2026-01-01T10:00:00Z", "NOT-A-CRS"),
+        _epoch("B", "2026-02-01T10:00:00Z", "NOT-A-CRS"),
+    )
+
+    assert result["status"] == "blocked"
+    assert any(
+        issue["code"] == "EPOCH_CRS_INVALID"
+        for issue in result["issues"]
+    )
